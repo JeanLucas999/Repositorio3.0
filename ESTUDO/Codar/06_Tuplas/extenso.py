@@ -1,0 +1,3 @@
+tupla = ('ZERO', 'UM', 'DOIS', 'TRES', 'QUATRO', 'CINCO', 'SEIS', 'SETE', 'OITO', 'NOVE', 'DEZ', 'ONZE', 'DOZE', 'TREZE', 'QUATORZE', 'QUINZE', 'DEZESSEIS', 'DEZESSETE', 'DEZOITO', 'DEZENOVE', 'VINTE')
+res = int(input('DIGITE UM NUMERO DE 1 A 20 PARA LER ELE POR EXTENSO: '))
+print (tupla[res])

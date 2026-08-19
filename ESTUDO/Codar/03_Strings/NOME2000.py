@@ -1,0 +1,15 @@
+nome = str((input('Qual seu nome? ')).strip())
+print (nome.lower())
+print (nome.upper())
+print (len(nome)-nome.count(' '))
+prn = nome.split()
+print (len(prn[0]))
+# ou nome.find
+print ('Seu nome tem Silva? ', 'SILVA' in (nome.upper()))
+a = (nome.upper().count('A'))
+print ('Seu nome tem {} letras A'.format(a))
+print ('O primeiro A apareceu na posicao: {}'.format(nome.upper().find('A')+1))
+print ('O ultimo A de seu nome aparece na posicao: {}'.format(nome.upper().rfind('A')+1))
+splitado = nome.split()
+ult = splitado
+print ('Seu primeiro nome eh {} e seu ultimo nome eh {}'.format(splitado[0], splitado[len(splitado)-1]))
