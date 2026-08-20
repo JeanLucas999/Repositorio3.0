@@ -21,7 +21,7 @@ class lista():
 
 
     def checarbotao(self):
-        a
+        pass
 
 def addtxt():
     #PUXA O DIABO DO TEXTO E MANDA O OBJETO PRA CLASSE
