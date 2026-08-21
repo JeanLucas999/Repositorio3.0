@@ -23,6 +23,7 @@ class Aluno(Pessoa):
         pass
 
     def estudar(self):
+        #a
         pass
 
 class Professor(Pessoa):
@@ -35,6 +36,7 @@ class Professor(Pessoa):
         pass
 
     def estudar(self):
+        #b
         pass
 
 
@@ -48,4 +50,5 @@ class Funcionario(Pessoa):
         pass
 
     def estudar(self):
+        #c
         pass
