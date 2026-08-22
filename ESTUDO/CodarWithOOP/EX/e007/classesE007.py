@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod #Abstract Base Classes
 class Pessoa(ABC):
     def __init__(self, nome = '', idade = 0):
         self.nome = nome
-        self. idade = idade
+        self.idade = idade
     def aniversario(self):
         self.idade += 1
 
