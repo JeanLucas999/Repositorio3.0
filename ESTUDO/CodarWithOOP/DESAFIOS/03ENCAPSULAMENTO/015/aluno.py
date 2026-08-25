@@ -18,6 +18,16 @@ class Pessoa:
         else:
             print ('Digite um ano valido')
 
+    @property
+
+    def idade(self):
+            return 2026-self._nascimento
+
+    @idade.setter
+
+    def idade(self, idd):
+        raise IndexError('Nao e possivel mudar a idade')
+
 class Aluno(Pessoa):
     def __init__(self, nome, nascimento, curso):
         super().__init__(nome, nascimento)
