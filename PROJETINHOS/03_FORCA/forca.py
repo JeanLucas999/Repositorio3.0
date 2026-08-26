@@ -22,10 +22,23 @@ class Palavra:
             self.visibilidade = False
 
     def confirmarPalavra(self):
+        global palavraget
         print ('getTxt')
         palavraget = self.botaoPalavra.get()
-        print (palavraget)
+        self.destruir()
 
+    def menu2criar(self):
+        pass
+
+    def destruir(self):
+        global titulo
+        self.visivel.destroy()
+        self.confirmar.destroy()
+        self.visivel.destroy()
+        self.botaoPalavra.destroy()
+        titulo.destroy()
+
+        
 fonte= ('Segoe UI', 16)
 fonteversenha= ('Segoe UI', 10)
 
