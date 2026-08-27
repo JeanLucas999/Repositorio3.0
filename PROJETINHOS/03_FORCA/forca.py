@@ -1,15 +1,24 @@
 import tkinter as tk
 class Palavra:
     def __init__(self):
-        self.botaoPalavra = tk.Entry(menu, width=45, justify='center', font=fonte, show='*')
         self.visibilidade = False
+        self.frame = tk.Frame(menu)
 
     def colocarBotao(self):
+        self.botaoPalavra = tk.Entry(self.frame, width=45, justify='center', font=fonte, show='*')
         self.botaoPalavra.place(x=75, y=125)
-        self.visivel = tk.Button(menu, width=12, justify='center', font=fontepequena, text='VER PALAVRA', command= lambda: self.verSenha())
-        self.confirmar = tk.Button(menu, width=12, justify='center', font=fonte, text='CONFIRMAR', command= lambda: self.confirmarPalavra())
-        self.confirmar.place(x=268, y=225)
+
+        self.titulo = tk.Label(self.frame, text='SELECIONE A PALAVRA', width=45, justify='center', font=fonte)
+        self.titulo.place(x=75, y=80)
+
+        self.visivel = tk.Button(self.frame, width=12, justify='center', font=fontepequena, text='VER PALAVRA', command= lambda: self.verSenha())
         self.visivel.place(x=290, y=175)
+
+        self.confirmar = tk.Button(self.frame, width=12, justify='center', font=fonte, text='CONFIRMAR', command= lambda: self.confirmarPalavra())
+        self.confirmar.place(x=268, y=225)
+
+        self.frame.place(x=0, y=0, width=700, height=350)
+
 
     def verSenha(self):
         print ('DEBUG')
@@ -25,15 +34,7 @@ class Palavra:
         global palavraget
         print ('getTxt')
         palavraget = self.botaoPalavra.get()
-        self.destruir()
-
-    def destruir(self):
-        global titulo
-        self.visivel.destroy()
-        self.confirmar.destroy()
-        self.visivel.destroy()
-        self.botaoPalavra.destroy()
-        titulo.destroy()
+        self.frame.destroy()
 
 class Jogo:
     def __init__(self):
@@ -53,8 +54,6 @@ menu = tk.Tk()
 menu.title('Jogo da forca')
 menu.geometry('700x350')
 
-titulo = tk.Label(menu, text='SELECIONE A PALAVRA', width=45, justify='center', font=fonte)
-titulo.place(x=75, y=80)
 
 palavra = Palavra()
 palavra.colocarBotao()
