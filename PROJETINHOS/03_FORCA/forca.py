@@ -27,9 +27,6 @@ class Palavra:
         palavraget = self.botaoPalavra.get()
         self.destruir()
 
-    def menu2criar(self):
-        pass
-
     def destruir(self):
         global titulo
         self.visivel.destroy()
@@ -38,7 +35,14 @@ class Palavra:
         self.botaoPalavra.destroy()
         titulo.destroy()
 
-        
+class Jogo:
+    def __init__(self):
+        self.vidas = 6
+
+    def fimdeJogo(self):
+        pass
+
+
 fonte= ('Segoe UI', 16)
 fonteversenha= ('Segoe UI', 10)
 
