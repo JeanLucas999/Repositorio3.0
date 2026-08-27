@@ -6,7 +6,7 @@ class Palavra:
 
     def colocarBotao(self):
         self.botaoPalavra.place(x=75, y=125)
-        self.visivel = tk.Button(menu, width=12, justify='center', font=fonteversenha, text='VER PALAVRA', command= lambda: self.verSenha())
+        self.visivel = tk.Button(menu, width=12, justify='center', font=fontepequena, text='VER PALAVRA', command= lambda: self.verSenha())
         self.confirmar = tk.Button(menu, width=12, justify='center', font=fonte, text='CONFIRMAR', command= lambda: self.confirmarPalavra())
         self.confirmar.place(x=268, y=225)
         self.visivel.place(x=290, y=175)
@@ -42,9 +42,11 @@ class Jogo:
     def fimdeJogo(self):
         pass
 
+    def atualizar(self):
+        pass
 
 fonte= ('Segoe UI', 16)
-fonteversenha= ('Segoe UI', 10)
+fontepequena= ('Segoe UI', 10)
 
 
 menu = tk.Tk()
