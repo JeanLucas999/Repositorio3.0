@@ -6,6 +6,7 @@ def main():
     jean.add_curso('LAP')
     jean.curso = 'LAP'
     jean.idade = 25
+    jean.nascimento = 2005
     inspect(jean, private=True, methods=True)
 
 if __name__ == '__main__':
