@@ -69,7 +69,7 @@ class Jogo:
 
         for c in self.palavra:
             print(c)
-            if c is not ' ':
+            if c != ' ':
                 self.palavraFake.append('_ ')
             else:
                 self.palavraFake.append('  ')

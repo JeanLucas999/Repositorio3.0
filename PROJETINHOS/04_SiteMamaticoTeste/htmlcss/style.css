@@ -1,0 +1,127 @@
+*{
+    margin: 0px;
+}
+
+body{
+    background-color: rgb(229, 230, 184);
+    height: 100vh;
+    width: 100%;
+}
+.corpo{
+    background-color: rgb(229, 230, 184);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    width: 100%;
+    text-align: center;
+}
+
+.corpobhaskara{
+    margin-top: 110px;
+    background-color: rgb(229, 230, 184);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100vh;
+    width: 100%;
+    text-align: center;
+}
+.botoes{
+    margin-top: 15px;
+    background-color: rgb(88, 9, 119);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 25px;
+    height: 500px;
+    width: 800px;
+    border-radius: 45px;
+}
+
+.botoesbhaskara{
+    margin-top: 15px;
+    background-color: rgb(88, 9, 119);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 25px;
+    height: 400px;
+    width: 800px;
+    border-radius: 45px;
+}
+
+.escolha{
+    margin-top: 50px;
+    background-color: rgb(61, 6, 66);
+    color: rgb(192, 201, 143);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 80px;
+    padding: 10px;
+    border-radius: 45px;
+
+}
+
+button{
+    font-size: 50px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 25px;
+    background-color: rgb(231, 221, 160);
+    color: rgb(48, 10, 70);
+    padding: 5px;
+    border-radius: 25px;
+    border: none;
+    width: 500px;
+}
+
+a{
+    margin: 25px;
+    font-size: 50px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: rgb(231, 221, 160);
+    color: rgb(48, 10, 70);
+    padding: 5px;
+    border-radius: 25px;
+    width: 490px;
+    border: none;
+    text-align: center;
+}
+
+.bhaskara{
+    background-color: rgb(61, 6, 66);
+    color: rgb(192, 201, 143);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 80px;
+    padding: 10px;
+    border-radius: 45px;
+}
+
+input{
+    margin: 25px;
+    font-size: 50px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: rgb(231, 221, 160);
+    color: rgb(48, 10, 70);
+    padding: 5px;
+    border-radius: 25px;
+    width: 490px;
+    border: none;
+    text-align: center;
+}
+
+.resultados{
+    display: flex;
+    flex-direction: row;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 30px;
+    margin-top: 25px;
+}
+
+h2{
+    margin: 40px;
+    background-color: rgb(61, 6, 66);
+    color: rgb(192, 201, 143);
+    padding: 10px;
+    border-radius: 20px;
+}
