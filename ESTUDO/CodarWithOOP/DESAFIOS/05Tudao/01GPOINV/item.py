@@ -15,7 +15,8 @@ class Item(ABC):
         self.resposta = int(input('SELECIONE: '))
         try:
             if isinstance(self.resposta, int):
-
+                #TROCAR ISSO POR UMA LISTA COM AS OPCOES E UM FOR LISTANDO TODAS ELAS, SE RESPOSTA = 1 ENTAO LISTA[0]
+                #POSSO USAR ISSO EM AMBOS COM A MESMA LISTA, APENAS PRECISO DE UM METODO PRA ELA AQ
                 if 0 < self.resposta <= 5:
 
                     if self.resposta == 1:
@@ -70,7 +71,8 @@ class Acessorio(Item):
 
         try:
             if isinstance(self.resposta, int):
-
+                #TROCAR ISSO POR UMA LISTA COM AS OPCOES E UM FOR LISTANDO TODAS ELAS, SE RESPOSTA = 1 ENTAO LISTA[0]
+                #POSSO USAR ISSO EM AMBOS COM A MESMA LISTA, APENAS PRECISO DE UM METODO PRA ELA AQ
                 if 0 < self.resposta <= 5:
 
                     if self.resposta == 1:
