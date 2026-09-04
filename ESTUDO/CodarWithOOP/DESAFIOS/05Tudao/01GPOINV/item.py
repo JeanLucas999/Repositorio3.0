@@ -2,10 +2,10 @@ from abc import abstractmethod, ABC
 from funcoes import *
 
 class Item(ABC):
-    #FAZER UM SETTER DA RARIDADE, FICA MELHOR DEMAIS
     def __init__(self, nome:str = ''):
         self.nome = nome
         self.raridade = None
+        self.listararidade = [comum, incomum, rara, epica, lendaria]
         self.rarity()
 
     def rarity(self):
@@ -15,20 +15,8 @@ class Item(ABC):
         self.resposta = int(input('SELECIONE: '))
         try:
             if isinstance(self.resposta, int):
-                #TROCAR ISSO POR UMA LISTA COM AS OPCOES E UM FOR LISTANDO TODAS ELAS, SE RESPOSTA = 1 ENTAO LISTA[0]
-                #POSSO USAR ISSO EM AMBOS COM A MESMA LISTA, APENAS PRECISO DE UM METODO PRA ELA AQ
                 if 0 < self.resposta <= 5:
-
-                    if self.resposta == 1:
-                        self.raridade = comum
-                    if self.resposta == 2:
-                        self.raridade = incomum
-                    if self.resposta == 3:
-                        self.raridade = rara
-                    if self.resposta == 4:
-                        self.raridade = epica
-                    if self.resposta == 5:
-                        self.raridade = lendaria
+                    self.opcoesrar(self.listararidade, self.resposta)
 
                 else:
                     raise ValueError
@@ -47,6 +35,10 @@ class Item(ABC):
         finally:
             linha()
 
+    def opcoesrar(self, lista, pedido):
+        self.raridade = lista[pedido-1]
+
+
     @abstractmethod
     def informacoes(self):
         pass
@@ -56,10 +48,8 @@ class Acessorio(Item):
     def __init__(self, nome:str = ''):
         super().__init__(nome)
         self.espaco = ''
+        self.listaespaco = ['COSTAS', 'OMBRO', 'PESCOÇO', 'ARMADURA', 'CAPACETE']
         self.space()
-
-    #FAZER UMA FUNCAO PARA AUTOESCOLHER TIPO DE ITEM, POR EXEMPLO CAPA DO BB, TEM ***CAPA*** ENTAO COM CERTEZA FICA NAS COSTAS
-    #SE NAO TIVER NADA ESPECIFICO SO ASSIM CHAMA A FUNCAO PARA ESCOLHER ONDE FICARA
 
     def space(self):
         print('Que espaco esse item ocupa?')
@@ -71,20 +61,8 @@ class Acessorio(Item):
 
         try:
             if isinstance(self.resposta, int):
-                #TROCAR ISSO POR UMA LISTA COM AS OPCOES E UM FOR LISTANDO TODAS ELAS, SE RESPOSTA = 1 ENTAO LISTA[0]
-                #POSSO USAR ISSO EM AMBOS COM A MESMA LISTA, APENAS PRECISO DE UM METODO PRA ELA AQ
                 if 0 < self.resposta <= 5:
-
-                    if self.resposta == 1:
-                        self.espaco = 'Costas'
-                    if self.resposta == 2:
-                        self.espaco = 'Ombro'
-                    if self.resposta == 3:
-                        self.espaco = 'Pescoço'
-                    if self.resposta == 4:
-                        self.espaco = 'Armadura'
-                    else:
-                        self.espaco = 'Capacete'
+                    self.opcoes(self.listaespaco, self.resposta)
 
                 else:
                     raise ValueError
@@ -102,18 +80,92 @@ class Acessorio(Item):
             self.space()
 
     def informacoes(self):
-        return f'Nome do acessorio: {self.nome}\nRaridade: {self.raridade}\nEspaço: {self.espaco}'
+        return f'{green}Nome do acessorio{fecharcor}: {self.nome}\n{red}Raridade{fecharcor}: {self.raridade}\n{yellow}Tipo{fecharcor}: {self.espaco}'
+
+    def opcoes(self, lista, pedido):
+        self.espaco = lista[pedido-1]
 
 
 class Arma(Item):
     def __init__(self, nome:str = ''):
         super().__init__(nome)
+        self.listatipo = ['Espada', 'Arma', 'Arma de Força']
+        self.tipo = ''
+        self.type()
 
+    def type(self):
+        print ('Qual o tipo da arma?')
+        linha()
+        print ('1- Espada\n2- Arma\n3- Arma de força')
+        linha()
+        self.resposta = int(input('DIGITE O NUMERO: '))
+        linha()
+
+        try:
+            if isinstance(self.resposta, int):
+                if 0 < self.resposta <= 3:
+                    self.opcoes(self.listatipo, self.resposta)
+
+                else:
+                    raise ValueError
+            else:
+                raise TypeError
+
+        except ValueError:
+            print(f'{red}O valor precisa estar entre 1 e 3!!!{fecharcor}')
+            linha()
+            self.space()
+
+        except TypeError:
+            print(f'{red}O valor precisa ser um numero!!!{fecharcor}')
+            linha()
+            self.space()
+
+        
+    def opcoes(self, lista, pedido):
+        self.tipo = lista[pedido-1]
+
+    def informacoes(self):
+        return f'{green}Nome da arma{fecharcor}: {self.nome}\n{red}Raridade{fecharcor}: {self.raridade}\n{yellow}Tipo{fecharcor}: {self.tipo}'
 
 class Fruta(Item):
     def __init__(self, nome:str = ''):
         super().__init__(nome)
+        self.tipo = ''
+        self.listatipo = ['Logia', 'Paramecia', 'Zoan']
+        self.type()
 
-    
-oi = Acessorio('Capa do BB')
-print (oi.informacoes())
+    def type(self):
+        print ('Qual o tipo da arma?')
+        linha()
+        print ('1- Logia\n2- Paramecia\n3- Zoan')
+        linha()
+        self.resposta = int(input('DIGITE O NUMERO: '))
+        linha()
+
+        try:
+            if isinstance(self.resposta, int):
+                if 0 < self.resposta <= 3:
+                    self.opcoes(self.listatipo, self.resposta)
+
+                else:
+                    raise ValueError
+            else:
+                raise TypeError
+
+        except ValueError:
+            print(f'{red}O valor precisa estar entre 1 e 3!!!{fecharcor}')
+            linha()
+            self.space()
+
+        except TypeError:
+            print(f'{red}O valor precisa ser um numero!!!{fecharcor}')
+            linha()
+            self.space()
+
+        
+    def opcoes(self, lista, pedido):
+        self.tipo = lista[pedido-1]
+
+    def informacoes(self):
+        return f'{green}Nome da fruta{fecharcor}: {self.nome}\n{red}Raridade{fecharcor}: {self.raridade}\n{yellow}Tipo{fecharcor}: {self.tipo}'

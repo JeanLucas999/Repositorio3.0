@@ -4,6 +4,10 @@ def linha():
 
 #CORES
 red = '\33[091m'
+blue = '\033[094m'
+yellow = '\033[093m'
+purple = '\033[095m'
+green = '\033[092m'
 fecharcor = '\33[m'
 
 #RARIDADES
