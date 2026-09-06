@@ -58,7 +58,7 @@ def menuInicial():
 
                 if resposta == 2:
                     #REMOVER ITEM
-                    mostrarLista()
+                    mostrarLista(True)
                     linha()
                     remove = int(input(f'{blue}Digite o item que deseja remover[0 para retornar]:{fecharcor} '))
 
@@ -123,9 +123,9 @@ def menuInicial():
         except:
             print('ERRO!!!')
 
-def mostrarLista():
+def mostrarLista(remove = False):
     try:
-        if filtro == 'sem':
+        if filtro == 'sem' or remove == True:
 
             if len(objetos)>0:
                 print (f'{green}SEM FILTRO!!!{fecharcor}')
@@ -135,7 +135,7 @@ def mostrarLista():
             else:
                 raise LookupError
             
-        if filtro == 'fruta':
+        if filtro == 'fruta' and remove == False:
 
             if len(frutas)>0:
                 print (f'{green}FILTRANDO FRUTAS!!!{fecharcor}')
@@ -145,7 +145,7 @@ def mostrarLista():
             else:
                 raise LookupError
 
-        if filtro == 'acc':
+        if filtro == 'acc' and remove == False:
 
             if len(acc)>0:
                 print (f'{green}FILTRANDO ACESSORIOS!!!{fecharcor}')
@@ -155,7 +155,7 @@ def mostrarLista():
             else:
                 raise LookupError
 
-        if filtro == 'arma':
+        if filtro == 'arma' and remove == False:
 
             if len(armas)>0:
                 print (f'{green}FILTRANDO ARMAS!!!{fecharcor}')
