@@ -4,7 +4,7 @@ from time import sleep
 
 
 def menuInicial():
-    #Parar de chamar varios menus e trocar por um WHILE TRUE
+    global filtro
     rodando = True
     while rodando:
         linha()
@@ -98,18 +98,17 @@ def menuInicial():
                 if resposta == 5:
                     #RESOLVER ISSO
                     print('O QUE DESEJA FILTRAR?')
-                    filtrores = int(input('\n1- Frutas\n2- Armas\n3- Acessorios\nDigite o numero:'))
+                    filtrores = int(input('\n1- Frutas\n2- Armas\n3- Acessorios\n4- Sem filtro\nDigite o numero:'))
                     try:
-                        print('CHEGUEI')
-                        print (filtrores)
-                        if 0 < filtrores <= 3:
-                            print ('if1')
+                        if 0 < filtrores <= 4:
                             if filtrores == 1:
                                 filtrar('fruta')
                             if filtrores == 2:
                                 filtrar('arma')
                             if filtrores == 3:
                                 filtrar('acc')
+                            if filtrores == 4:
+                                filtro == 'sem'
                     except:
                         print ('ERRO!!!')
                     resposta = 0
