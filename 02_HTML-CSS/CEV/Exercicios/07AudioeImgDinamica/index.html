@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <h1>Imagem dinamica</h1>
+    <p>Abra o em tamanhos de janela diferentes</p>
+
+    <picture>
+        <source media="(max-width: 700px)" srcset="imgs/foto-p.png" type="image/png">
+        <source media="(max-width: 1050px)" srcset="imgs/foto-m.png" type="image/png">
+        <img src="imgs/foto-g.png" alt="foto g">
+    </picture>
+
+    <h1>Reproducao de audio</h1>
+    <p>Vamos aprender a reproduzir audios</p>
+    <audio>
+        <source srcset="midia/mictest.mp3" type="audio/mpeg">
+        <p>Seu navegador nao suporta mp3, baixe <a href="midia/mictest.mp3">aqui</a></p>
+    </audio>
+    <audio src="midia/mictest.mp3" controls autoplay></audio>
+</body>
+</html>
