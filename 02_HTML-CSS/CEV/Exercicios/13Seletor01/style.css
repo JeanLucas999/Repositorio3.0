@@ -1,0 +1,16 @@
+body{
+    background-color: antiquewhite;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+h1{
+    color: rgb(7, 167, 167);
+}
+
+h2{
+    color: blueviolet;
+}
+
+h1#principal{
+    text-align: center;
+}
