@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Links</title>
+    <style>
+        body{
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        a{
+            color: red;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        a:visited{
+            color: darkred;
+        }
+
+        a:hover{
+            text-decoration: underline;
+            color: black;
+        }
+
+        a:active{
+            color: yellow;
+        }
+
+        a::after{
+            content: ' Depois';
+        }
+
+        .especial::before{
+            content: 'Antes ';
+        }
+
+
+    </style>
+</head>
+<body>
+    <h1>Personalizando links</h1>
+    <ul>
+        <li><a href="https://github.com" target="_blank">GITHUB</a></li>
+        <li><a href="https://youtube.com" target="_blank" class="especial">YT</a></li>
+        <li><a href="https://www.cursoemvideo.com" target="_blank">CEV</a></li>
+    </ul>
+</body>
+</html>
