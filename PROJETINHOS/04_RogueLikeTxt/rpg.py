@@ -6,6 +6,8 @@ from abc import ABC, abstractmethod
 
 class Jogo:
     def __init__(self, objetoProta):
+        #Ainda preciso do menu de batalha
+        #Uma forma de balancear os monstros
         global prota
         self.__turnoPlayer = True
         prota = objetoProta
@@ -97,6 +99,7 @@ class Combatente(ABC):
 
 class Protagonista(Combatente):
     def __init__(self, nome:str = 'Prota'):
+        #CLASSES COM STATS DIFERENTES
         super().__init__()
         self.nome = nome
         self.lvl = 1
@@ -114,12 +117,14 @@ class Protagonista(Combatente):
         print('Voce morreu :(')
         re = int(input('Quer continuar?'))
         if re.upper() == 'S':
+            #Drop de item
             #Resetar Jogo
             #Eh um roguelike.
             #Contador de inimigos mortos
             #Sistema de buffs para novas jogadas
-            #Preciso salvar para continuar
+            #Preciso salvar apenas as informacoes que continuam com a morte para continuar(Upgrades e ultima sala alcancada)
             #Botao de novo save
+            #Dificuldade procedural de acordo com a room
             pass
         else:
             print('Fim de jogo')
