@@ -1,20 +1,50 @@
 from random import randint
 from abc import ABC, abstractmethod
+from time import sleep
 
 #Seria legal varias frases para cada ataque (Dependendo tambem da classe do inimigo), por exemplo, varias frases de falha etc, ataques com criticos diferentes e erros diferentes
 #Da pra fazer algo muito legal
+
+def iniciarJogo():
+    global jogo
+    nomeProta = str(input('DIGITE O NOME DO SEU PROTAGONISTA: '))
+    protafake = Protagonista(nomeProta)
+    jogo = Jogo(protafake)
+
+def linha():
+    print('-'*40)
 
 class Jogo:
     def __init__(self, objetoProta):
         #Ainda preciso do menu de batalha
         #Uma forma de balancear os monstros
         global prota
+
         self.__turnoPlayer = True
+        self.turno = 1
+
         prota = objetoProta
         self.inimigoNovo()
+
         self.jogando = True
 
+        self.chamber = 1
+
+        self.menuBatalha()
+
+    def menuBatalha(self):
         while self.jogando:
+            #Boss a cada 10 Câmaras
+            print(f'Câmara: {self.chamber}')
+            linha()
+            print(f'{inimigoAtual.nome} LVL {inimigoAtual.lvl}\nVida: {inimigoAtual.vida}|{inimigoAtual.vida * 100 / inimigoAtual.vidaMax}% Aura: {inimigoAtual.aura} Atq:{inimigoAtual.atq} Vel: {inimigoAtual.speed}')
+
+            linha()
+            print(f'{prota.nome} LVL {prota.lvl}\nVida: {prota.vida}|{prota.vida * 100 / prota.vidaMax}% Aura: {prota.aura} Atq:{prota.atq} Vel: {prota.speed}')
+            linha()
+
+            sleep(2)
+
             self.acaoAtual()
 
     def inimigoNovo(self):
@@ -24,7 +54,8 @@ class Jogo:
         self.decisao1 = randint(0, 4)
         self.decisao2 = randint(0, 7)
         self.nomeFeito = nomes[self.decisao1] + complementos[self.decisao2]
-        print (f'Voce enfrentara um(a) {self.nomeFeito}')
+        print (f'Voce enfrentara um(a) {self.nomeFeito}\n')
+        sleep(2)
         inimigoAtual = Inimigo(self.nomeFeito)
         pass
 
@@ -35,7 +66,7 @@ class Jogo:
             while self.rodando:
                 self.__turnoPlayer = False
 
-                acao = int(input('O que deseja fazer?\n1- Atacar\n2- Defender\n3- Curar\nNUMERO: '))
+                acao = int(input('1- Atacar  2- Defender  3- Curar: '))
 
                 try:
                     if 0 < acao < 4:
@@ -43,10 +74,11 @@ class Jogo:
                         #varias acoes diferentes para cada uma
                         if acao == 1:
                             prota.atacar()
-                        if acao == 2:
+                        elif acao == 2:
                             prota.defender()
-                        if acao == 3:
+                        elif acao == 3:
                             prota.curar()
+                        self.turno += 1
 
                     else:
                         raise ValueError
@@ -58,18 +90,25 @@ class Jogo:
             #Defender pode ter chance de contra ataque
             pass
 
+
+
 class Combatente(ABC):
     def __init__(self):
-        self.vida = 10
-        self.atq = 1
+        self.vida = 50
+        self.vidaMax = self.vida
+        self.atq = 10
 
         self.vivo = True
 
+        self.aura = 100
+        self.speed = 25
         self.taxa = 5
         self.crit = 1.5
         self.dano = 0.0
-        
-        self.aura = 1000
+        self.dado6 = 1
+
+    def girarDado(self):
+        self.dado6 = randint(1,6)
 
     def danoCritico(self):
 
@@ -97,15 +136,32 @@ class Combatente(ABC):
     def defender(self):
         pass
 
+
+
 class Protagonista(Combatente):
     def __init__(self, nome:str = 'Prota'):
         #CLASSES COM STATS DIFERENTES
         super().__init__()
         self.nome = nome
+        self.vidaMax = self.vida
         self.lvl = 1
         self.sp = 3
-        self.vida = 10
-        self.atq = 1
+
+    def decidirStats(self):
+        linha()
+        print(f'PONTOS DISPONIVEIS: {self.sp}')
+        print(f'O que deseja upar?')
+        linha()
+        while self.sp != 0 or self.erro == True:
+            upar = int(input(f'1- VIDA: {self.vida} + 10\n2- ATAQUE: {self.atq} + 2\n3- TAXA {self.taxa}% + 1%\n4- VELOCIDADE {self.speed} + 5\n Escolha'))
+            if 0 < upar > 6:
+                self.erro = False
+                self.sp -= 1
+                #if de cada
+            else:
+                print('Digite um número valido!')
+                self.erro == True
+        pass
 
     def atacar(self):
         self.danoCritico()
@@ -117,6 +173,8 @@ class Protagonista(Combatente):
         print('Voce morreu :(')
         re = int(input('Quer continuar?'))
         if re.upper() == 'S':
+            #Uma roleta para tentar reviver kkkkk
+
             #Drop de item
             #Resetar Jogo
             #Eh um roguelike.
@@ -130,19 +188,44 @@ class Protagonista(Combatente):
             print('Fim de jogo')
 
     def curar(self):
+        #90% de curar 10% de vida
+        #50% de curar 25%
+        #10% de curar 100%
         pass
 
     def defender(self):
+        #80% de defender um golpe fisico
+        #30% tentativa de parry(stunna inimigo 1 rodada)
         pass
+
+
 
 class Inimigo(Combatente):
     def __init__(self, nome):
         super().__init__()
         self.nome = nome
-        self.vida = 10
-        self.atq = 1
+        self.vidaMax = self.vida
+        self.decidirStats()
+
+    def decidirStats(self):
+        self.girarDado()
+
+        if self.dado6 == 3:
+            self.lvl = prota.lvl
+
+        elif self.dado6 > 3:
+            self.lvl = prota.lvl + randint(1,3)
+
+        else:
+            if prota.lvl > 3:
+                self.lvl = prota.lvl - randint(1,3)
+            else:
+                self.lvl = prota.lvl
+        #Depois disso aqui tem que puxar um metodo nos inimigos filhos, para decidir os stats deles baseado no tipo de cada um
+        #Chances de colocar mais de cada stat diferente pra cada classe
 
     def atacar(self):
+        #super().metodoPai() Puxa o metodo pai e pode sobrescrever a vontade sem perder nada
         #COMENTAR O ACONTECIDO
         self.danoCritico()
         prota.vida -= self.dano

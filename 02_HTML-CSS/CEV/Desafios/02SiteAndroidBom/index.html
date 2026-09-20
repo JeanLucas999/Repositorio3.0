@@ -18,7 +18,7 @@
         header{
             background-image: linear-gradient(#37C878, #1A5C38);
             height: 40vh;
-            padding-top: 1px;
+            padding-top: 20px;
             position: relative;
             box-shadow: 0px 5px 8px 4px rgba(0, 0, 0, 0.199);
             color: aliceblue;
@@ -26,24 +26,31 @@
 
         header > h1{
             text-align: center;
-            margin-top: 25px;
             margin-bottom: 40px;
-            font-size: 6vh
+            font-size: 6vh;
+            text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.281);
         }
 
         header > p{
             text-align: center;
             font-size: 3vh;
+            text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.281);
         }
 
         main{
             background-color: white;
             padding: 0px 20px;
             box-shadow: 0 0 3px 2px rgba(0, 0, 0, 0.308);
-            width: 70%;
+            max-width: 1200px;
+            min-width: 300px;
             margin: auto;
+            margin-bottom: 20px;
+            border-radius: 0px 0px 20px 20px;
         }
 
+        main p{
+            line-height: 1.5em;
+        }
         h1{
             margin-top: 20px;
         }
@@ -51,22 +58,18 @@
         nav{
             position: absolute;
             bottom: 10px;
+            margin-top: 20px;
         }
 
         section{
             padding: 1px;
+            line-height: 20px;
         }
 
         img {
             width: 100%;
-            max-width: 100%;
-            height: auto;
             }
         
-        .bugdroid{
-            width: 300px;
-            height: auto;
-        }
         section > h1{
             font-size: 5vh;
             font-family: Android;
@@ -102,10 +105,18 @@
         
         .video{
             background-color: #1A5C38;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 10px;
+            margin: 0px -22px 30px -22px;
+            padding: 20px;
+            padding-bottom: 58%;
+            position: relative;
+        }
+        
+        .video > iframe{
+            position: absolute;
+            top: 5%;
+            left: 5%;
+            height: 90%;
+            width: 90%;
         }
         
         aside{
@@ -150,9 +161,9 @@
             text-decoration: none;
             color: aliceblue;
             font-size: 2.5vh;
-            margin: 10px;
             padding: 10px;
             border-radius: 3px;
+            transition-duration: 0.5s;
         }
         
         .nave:hover{
@@ -162,6 +173,12 @@
 
         .nave::after{
             all: revert;
+        }
+
+        #pequeno{
+            max-width: 350px;
+            display: block;
+            margin: auto;
         }
     </style>
 </head>
@@ -191,8 +208,10 @@
             <h2>A primeira versão</h2>
 
             <p>A primeira tentativa de criar um mascote surgiu em 2007 e veio de um desenvolvedor chamado <a href="#" target="_blank">Dan Morrill</a>. Ele conta que abriu o <a href="#" target="_blank">Inkscape</a> (software livre para vetorização de imagens) e criou sua própria versão de robô. O objetivo era apenas personificar o sistema apenas para a a sua equipe, não existia nenhuma solicitação da empresa para a criação de um mascote.</p>
-
-            <img src="imagens/dan-droids.png" alt="Dan Droids">
+            <picture>
+                <source media="(max-width: 600px)" srcset="imagens/dan-droids-pq.png">
+                <img src="imagens/dan-droids.png" alt="Dan Droids">
+            </picture>
             
             <p>Essa primeira versão bizarra até foi batizada em homenagem ao seu criador: seriam os Dandroids.</p>
 
@@ -200,16 +219,20 @@
 
             <p>A ideia de ter um mascote foi amadurecendo e a missão foi passada para uma profissional da área. A ilustradora Russa <a href="#" target="_blank">Irina Blok</a>, também funcionária do Google, ficou com a missão de representar o pequeno robô de uma maneira mais agradável.</p>
 
-            <img src="imagens/irina-blok.jpg" alt="Irina Block">
+            <picture>
+                <source media="(max-width: 600px)" srcset="imagens/irina-blok-pq.jpg">
+                <img src="imagens/irina-blok.jpg" alt="Irina Block">
+            </picture>
+            
 
             <p>A ideia principal da Irina era representar tudo graficamente com poucos traços e de forma mais chapada. O desenho também deveria gerar identificação rápida com quem o olha. Surgiu então o Bugdroid, o novo mascote do Android.</p>
 
-            <img src="imagens/bugdroid.png" alt="" class="bugdroid">
+            <img id="pequeno" src="imagens/bugdroid.png" alt="" class="bugdroid">
 
             <p>A principal inspiração para os traços do novo Bugdroid veio daqueles bonequinhos que ilustram portas de banheiro para indicar o gênero de cada porta. Conta a lenda que a artista estava criando em sua mesa no escritório do Google e olhou para o lado dos banheiros e a identificação foi imediata: simples, limpo, objetivo.</p>
 
             <div class="video">
-            <iframe width="560" height="320" src="https://www.youtube.com/embed/l2UDgpLz20M?si=M2VLMG9_jNHKpui_" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+            <iframe width="560" height="315" src="https://www.youtube.com/embed/l2UDgpLz20M?si=M2VLMG9_jNHKpui_" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
             </div>
 
             <aside>
@@ -274,9 +297,9 @@
             </aside>
             <p>Então é isso! Espero que você tenha gostado do nosso artigo com essa curiosidade sobre o sistema Android e seu simpático mascote.</p>
         </section>
-        <footer>
-            Criado por Jean
-        </footer>
     </main>
+    <footer>
+            Criado por Jean
+    </footer>
 </body>
 </html>
