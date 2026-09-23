@@ -136,7 +136,7 @@ class Fruta(Item):
         self.type()
 
     def type(self):
-        print ('Qual o tipo da arma?')
+        print ('Qual o tipo da fruta?')
         linha()
         print ('1- Logia\n2- Paramecia\n3- Zoan')
         linha()

@@ -174,7 +174,6 @@ class Protagonista(Combatente):
         re = int(input('Quer continuar?'))
         if re.upper() == 'S':
             #Uma roleta para tentar reviver kkkkk
-
             #Drop de item
             #Resetar Jogo
             #Eh um roguelike.

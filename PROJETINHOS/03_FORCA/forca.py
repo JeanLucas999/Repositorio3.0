@@ -68,7 +68,6 @@ class Jogo:
         self.frame = tk.Frame(menu, bg=AzulClaro)
 
         for c in self.palavra:
-            print(c)
             if c != ' ':
                 self.palavraFake.append('_ ')
             else:
