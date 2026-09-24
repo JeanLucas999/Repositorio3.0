@@ -4,6 +4,8 @@ from time import sleep
 
 #Seria legal varias frases para cada ataque (Dependendo tambem da classe do inimigo), por exemplo, varias frases de falha etc, ataques com criticos diferentes e erros diferentes
 #Da pra fazer algo muito legal
+#Sistema de energia para balancear mais
+
 
 def iniciarJogo():
     global jogo
@@ -20,7 +22,7 @@ class Jogo:
         #Uma forma de balancear os monstros
         global prota
 
-        self.__turnoPlayer = True
+        #self.__jogadaPlayer = True
         self.turno = 1
 
         prota = objetoProta
@@ -30,65 +32,127 @@ class Jogo:
 
         self.chamber = 1
 
-        self.menuBatalha()
+        self.batalhas()
 
     def menuBatalha(self):
-        while self.jogando:
-            #Boss a cada 10 Câmaras
-            print(f'Câmara: {self.chamber}')
-            linha()
-            print(f'{inimigoAtual.nome} LVL {inimigoAtual.lvl}\nVida: {inimigoAtual.vida}|{inimigoAtual.vida * 100 / inimigoAtual.vidaMax}% Aura: {inimigoAtual.aura} Atq:{inimigoAtual.atq} Vel: {inimigoAtual.speed}')
+        #Boss a cada 10 Câmaras
+        print(f'Câmara: {self.chamber}')
+        linha()
+        print(f'{inimigoAtual.nome} LVL {inimigoAtual.lvl}\nVida: {inimigoAtual.vida}/{inimigoAtual.vidaMax}|{inimigoAtual.vida * 100 / inimigoAtual.vidaMax}% Aura: {inimigoAtual.aura} Atq:{inimigoAtual.atq} Vel: {inimigoAtual.speed}')
 
-            linha()
-            print(f'{prota.nome} LVL {prota.lvl}\nVida: {prota.vida}|{prota.vida * 100 / prota.vidaMax}% Aura: {prota.aura} Atq:{prota.atq} Vel: {prota.speed}')
-            linha()
+        linha()
+        print(f'{prota.nome} LVL {prota.lvl}\nVida: {prota.vida}/{prota.vidaMax}|{prota.vida * 100 / prota.vidaMax}% Aura: {prota.aura} Atq:{prota.atq} Vel: {prota.speed}')
+        linha()
 
-            sleep(2)
-
-            self.acaoAtual()
+        sleep(2)
+        #O menu nao pode chamar o batalhas
 
     def inimigoNovo(self):
         global inimigoAtual
         nomes = ['Aranha ', 'Goblin ', 'Paladino ', 'Leprechaum ', 'Urso ']
         complementos = ['Gigante', 'Bazukeiro', 'Demoniaco', 'Malabarista', 'Peludo', 'Lambedor', 'Foguento', 'Serio']
-        self.decisao1 = randint(0, 4)
-        self.decisao2 = randint(0, 7)
+        self.decisao1 = randint(0, len(nomes)-1)
+        self.decisao2 = randint(0, len(complementos)-1)
+
+        #Da pra fazer ataques diferentes por complemento dentro da classe inimigo, a classe pode receber o self.complemento alem do nome e com isso ter alguns ataques diferentes, uma classe para cada, cada complemento tem buff nos stats
+
         self.nomeFeito = nomes[self.decisao1] + complementos[self.decisao2]
         print (f'Voce enfrentara um(a) {self.nomeFeito}\n')
         sleep(2)
-        inimigoAtual = Inimigo(self.nomeFeito)
+
+        #if pelo decisao 1
+        inimigoAtual = Aranha(self.nomeFeito, self.decisao1, self.decisao2)
+        #Classe do inimigo no lugar do inimigo, if para cada indice do nomes
         pass
 
-    def acaoAtual(self):
-        if self.__turnoPlayer:
-            self.rodando = True
+    def acaoPlayer(self, acaoDecidida):
+        #Preciso de algo para mov de prioridade
+        #Talvez mandar para a decidirOrdem um parametro bool que o muda o self.vezPlayer
+        #Pode ter maneiras melhores
 
-            while self.rodando:
-                self.__turnoPlayer = False
+        if acaoDecidida == 1:
+            prota.atacar()
+        elif acaoDecidida == 2:
+            prota.defender()
+        elif acaoDecidida == 3:
+            prota.curar()
+        pass
 
+    def acaoInimigo(self):
+        #Turno inimigo, randint com porcentagens diferentes para cada caso, tipo se tiver com pouca vida preferir curar ou defender etc
+        #Defender pode ter chance de contra ataque
+
+        #escolha do inimigo
+        inimigoAtual.atacar()
+        pass
+
+    def decidirOrdem(self, acao):
+        #Decidir ordem de movimento
+        self.vezPlayer = None
+
+        if prota.speed > inimigoAtual.speed:
+            #Se a velocidade do prota for maior
+            self.vezPlayer = True
+
+        elif inimigoAtual.speed > prota.speed:
+            #Se for menor
+            self.vezPlayer = False
+        
+        else:
+            #Se forem iguais
+            prota.girarDado()
+
+            if prota.dado6 > 3:
+                self.vezPlayer = True
+
+            else:
+                self.vezPlayer = False
+
+        if self.vezPlayer:
+            print(f'PROTA VIVO: {prota.vivo} INIMIGO VIVO: {inimigoAtual.vivo} (ANTES DA PRIMEIRA ACAO)')
+            self.acaoPlayer(acao)
+            print(f'PROTA VIVO: {prota.vivo} INIMIGO VIVO: {inimigoAtual.vivo} (DEPOIS DA PRIMEIRA ACAO)')
+            if inimigoAtual.vivo:
+                self.acaoInimigo()
+
+        if not self.vezPlayer:
+            print(f'PROTA VIVO: {prota.vivo} INIMIGO VIVO: {inimigoAtual.vivo} (ANTES DA PRIMEIRA ACAO)')
+            self.acaoInimigo()
+            print(f'PROTA VIVO: {prota.vivo} INIMIGO VIVO: {inimigoAtual.vivo} (DEPOIS DA PRIMEIRA ACAO)')
+            if prota.vivo:
+                self.acaoPlayer(acao)
+
+    def batalhas(self):
+        #NAO TEM ISSO, OS TURNOS SAO DE AMBOS
+            while prota.vivo and inimigoAtual.vivo:
+                self.menuBatalha()
                 acao = int(input('1- Atacar  2- Defender  3- Curar: '))
-
                 try:
-                    if 0 < acao < 4:
+                    #DECIDIR ORDEM DE ACAO
+                    if prota.speed > inimigoAtual.speed:
 
-                        #varias acoes diferentes para cada uma
-                        if acao == 1:
-                            prota.atacar()
-                        elif acao == 2:
-                            prota.defender()
-                        elif acao == 3:
-                            prota.curar()
-                        self.turno += 1
+                        if 0 < acao < 4:
+                            #varias acoes diferentes para cada uma
+                            self.decidirOrdem(acao)
+                        else:
+                            raise ValueError
+
+                    elif inimigoAtual.speed>prota.speed:
+
+                        if 0 < acao < 4:
+                            self.decidirOrdem(acao)
+                        else:
+                            raise ValueError
 
                     else:
-                        raise ValueError
-                    
+                        if 0 < acao < 4:
+                            self.decidirOrdem(acao)
+                        else:
+                            raise ValueError
+
+                    self.turno += 1
                 except ValueError:
                     print('Numero invalido, tente novamente')
-        else:
-            #Turno inimigo, randint com porcentagens diferentes para cada caso, tipo se tiver com pouca vida preferir curar ou defender etc
-            #Defender pode ter chance de contra ataque
-            pass
 
 
 
@@ -171,7 +235,7 @@ class Protagonista(Combatente):
 
     def morrer(self):
         print('Voce morreu :(')
-        re = int(input('Quer continuar?'))
+        re = str(input('Quer continuar?'))
         if re.upper() == 'S':
             #Uma roleta para tentar reviver kkkkk
             #Drop de item
@@ -200,19 +264,19 @@ class Protagonista(Combatente):
 
 
 class Inimigo(Combatente):
-    def __init__(self, nome):
+    def __init__(self):
         super().__init__()
-        self.nome = nome
         self.vidaMax = self.vida
         self.decidirStats()
 
     def decidirStats(self):
+        #GIRAR DADO PARA DECIDIR LVL DO INIMIGO
         self.girarDado()
 
-        if self.dado6 == 3:
+        if self.dado6 == 3 or self.dado6 == 4:
             self.lvl = prota.lvl
 
-        elif self.dado6 > 3:
+        elif self.dado6 > 4:
             self.lvl = prota.lvl + randint(1,3)
 
         else:
@@ -221,6 +285,7 @@ class Inimigo(Combatente):
             else:
                 self.lvl = prota.lvl
         #Depois disso aqui tem que puxar um metodo nos inimigos filhos, para decidir os stats deles baseado no tipo de cada um
+        #super.decidirStats
         #Chances de colocar mais de cada stat diferente pra cada classe
 
     def atacar(self):
@@ -242,4 +307,14 @@ class Inimigo(Combatente):
         self.vivo = False
         pass
 
+class Aranha(Inimigo):
+    def __init__(self, nome, base, comp):
+        super().__init__()
+        self.nome = nome
+        self.base = base
+        self.complemento = comp
+
+    def atacar(self):
+        super().atacar()
+        print('ataquei')
 #Uma classe filha para cada inimigo
