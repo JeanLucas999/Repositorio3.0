@@ -2,6 +2,8 @@ from random import randint
 from abc import ABC, abstractmethod
 from time import sleep
 
+from ataques import listaAtaques
+
 #Seria legal varias frases para cada ataque (Dependendo tambem da classe do inimigo), por exemplo, varias frases de falha etc, ataques com criticos diferentes e erros diferentes
 #Da pra fazer algo muito legal
 #Sistema de energia para balancear mais
@@ -199,8 +201,6 @@ class Combatente(ABC):
 
     def defender(self):
         pass
-
-
 
 class Protagonista(Combatente):
     def __init__(self, nome:str = 'Prota'):
