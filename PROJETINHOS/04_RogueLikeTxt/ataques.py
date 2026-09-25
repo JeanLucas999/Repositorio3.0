@@ -18,16 +18,16 @@ listaAtaques = [
 #NOME, DESCRICAO, %VIDA, CHANCE DE ACERTO, FRASES ACERTO, ERRO
 
 listaCuras = [
-    {'nome': 'Cura Simples', 'desc': 'Cura 30%, de sua vida e tem 100% de chance de SUCESSO', 'vida': 30, 'chance': 100, 
+    {'nome': 'Cura Simples', 'desc': 'Cura 20%, de sua vida e tem 100% de chance de SUCESSO', 'vida': 20, 'chance': 100, 
     'acerto': 
     [
-        'Curou 100% tomando uma xicara de café bem quentinho, queimou a lingua e perdeu 70% dos 100%',
-        'Comeu um pacotão de doritos, ganhou 30% de cura e 10 anos a menos de expectativa de vida', 
-        'Tentou meditar, escorregou, por sorte caiu de cara em uma poça deixada pela poção de cura que caiu de seu bolso'
+        'Curou 100% tomando uma xicara de café bem quentinho, queimou a lingua e perdeu 80% dos 100%',
+        'Comeu um pacotão de doritos, ganhou 20% de cura e 10 anos a menos de expectativa de vida', 
+        'Tentou meditar, escorregou, por sorte caiu de cara em uma poça deixada pela poção de cura que caiu de seu bolso, curou 20%'
     ]
     },
 
-    {'nome': 'Cura Media', 'desc': 'Cura 60% de sua vida e tem 70% de chance de SUCESSO', 'vida': 60, 'chance': 70, 
+    {'nome': 'Cura Media', 'desc': 'Cura 60% de sua vida e tem 50% de chance de SUCESSO', 'vida': 60, 'chance': 50, 
     'acerto': 
     [
         'Dormiu por 5 horas, como o adversario era muito generoso, acabou por não atrapalhar, curou 60%% de vida',

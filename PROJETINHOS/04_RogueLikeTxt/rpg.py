@@ -2,7 +2,7 @@ from random import randint
 from abc import ABC, abstractmethod
 from time import sleep
 
-from ataques import listaAtaques
+from ataques import listaAtaques, listaCuras, listaDefesas
 
 #Seria legal varias frases para cada ataque (Dependendo tambem da classe do inimigo), por exemplo, varias frases de falha etc, ataques com criticos diferentes e erros diferentes
 #Da pra fazer algo muito legal
