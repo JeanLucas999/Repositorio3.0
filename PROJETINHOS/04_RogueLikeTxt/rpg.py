@@ -18,6 +18,8 @@ def iniciarJogo():
 def linha():
     print('-'*40)
 
+
+
 class Jogo:
     def __init__(self, objetoProta):
         #Ainda preciso do menu de batalha
@@ -30,11 +32,14 @@ class Jogo:
         prota = objetoProta
         self.inimigoNovo()
 
+        self.fimClick = False
+        
         self.jogando = True
 
         self.chamber = 1
 
         self.batalhas()
+
 
     def menuBatalha(self):
         #Boss a cada 10 Câmaras
@@ -47,7 +52,6 @@ class Jogo:
         linha()
 
         sleep(2)
-        #O menu nao pode chamar o batalhas
 
     def inimigoNovo(self):
         global inimigoAtual
@@ -67,17 +71,19 @@ class Jogo:
         #Classe do inimigo no lugar do inimigo, if para cada indice do nomes
         pass
 
-    def acaoPlayer(self, acaoDecidida):
+
+
+    def acaoPlayer(self, movDecidida, acaoDecidida):
         #Preciso de algo para mov de prioridade
         #Talvez mandar para a decidirOrdem um parametro bool que o muda o self.vezPlayer
         #Pode ter maneiras melhores
 
-        if acaoDecidida == 1:
+        if movDecidida == 1:
             prota.atacar()
-        elif acaoDecidida == 2:
+        elif movDecidida == 2:
             prota.defender()
-        elif acaoDecidida == 3:
-            prota.curar()
+        elif movDecidida == 3:
+            prota.curar(acaoDecidida)
         pass
 
     def acaoInimigo(self):
@@ -86,9 +92,10 @@ class Jogo:
 
         #escolha do inimigo
         inimigoAtual.atacar()
+        inimigoAtual.curar()
         pass
 
-    def decidirOrdem(self, acao):
+    def decidirOrdem(self, movimento, acao):
         #Decidir ordem de movimento
         self.vezPlayer = None
 
@@ -111,50 +118,50 @@ class Jogo:
                 self.vezPlayer = False
 
         if self.vezPlayer:
-            print(f'PROTA VIVO: {prota.vivo} INIMIGO VIVO: {inimigoAtual.vivo} (ANTES DA PRIMEIRA ACAO)')
-            self.acaoPlayer(acao)
-            print(f'PROTA VIVO: {prota.vivo} INIMIGO VIVO: {inimigoAtual.vivo} (DEPOIS DA PRIMEIRA ACAO)')
+            self.acaoPlayer(movimento, acao)
             if inimigoAtual.vivo:
                 self.acaoInimigo()
 
         if not self.vezPlayer:
-            print(f'PROTA VIVO: {prota.vivo} INIMIGO VIVO: {inimigoAtual.vivo} (ANTES DA PRIMEIRA ACAO)')
             self.acaoInimigo()
-            print(f'PROTA VIVO: {prota.vivo} INIMIGO VIVO: {inimigoAtual.vivo} (DEPOIS DA PRIMEIRA ACAO)')
             if prota.vivo:
-                self.acaoPlayer(acao)
+                self.acaoPlayer(movimento, acao)
+
+
 
     def batalhas(self):
-        #NAO TEM ISSO, OS TURNOS SAO DE AMBOS
+        #OR ERRO?
             while prota.vivo and inimigoAtual.vivo:
                 self.menuBatalha()
-                acao = int(input('1- Atacar  2- Defender  3- Curar: '))
+                movimento = int(input('1- Atacar  2- Defender  3- Curar: '))
                 try:
-                    #DECIDIR ORDEM DE ACAO
-                    if prota.speed > inimigoAtual.speed:
+                    if 0 < movimento < 4:
+                        if movimento == 1:
+                            self.fimClick = False
+                            self.decidirOrdem(movimento, 0)
+                            pass
 
-                        if 0 < acao < 4:
-                            #varias acoes diferentes para cada uma
-                            self.decidirOrdem(acao)
-                        else:
-                            raise ValueError
+                        if movimento == 2:
+                            self.fimClick = False
+                            pass
 
-                    elif inimigoAtual.speed>prota.speed:
+                        if movimento == 3:
+                            self.fimClick = False
+                            while not self.fimClick:
+                                self.curaEscolhida = int(input(f'1- Cura Simples: {listaCuras[0]['desc']} \n 2- Cura Media: {listaCuras[1]['desc']}\n  3- Cura Avançada: {listaCuras[1]['desc']}\nEscolha: '))
+                                if 0 < self.curaEscolhida < 4:
+                                    self.fimClick = True
+                                self.decidirOrdem(movimento, self.curaEscolhida)
 
-                        if 0 < acao < 4:
-                            self.decidirOrdem(acao)
-                        else:
-                            raise ValueError
-
+                        self.turno += 1
                     else:
-                        if 0 < acao < 4:
-                            self.decidirOrdem(acao)
-                        else:
-                            raise ValueError
-
-                    self.turno += 1
+                        raise ValueError
                 except ValueError:
                     print('Numero invalido, tente novamente')
+
+
+
+
 
 
 
@@ -201,6 +208,12 @@ class Combatente(ABC):
 
     def defender(self):
         pass
+
+
+
+
+
+
 
 class Protagonista(Combatente):
     def __init__(self, nome:str = 'Prota'):
@@ -250,16 +263,31 @@ class Protagonista(Combatente):
         else:
             print('Fim de jogo')
 
-    def curar(self):
-        #90% de curar 10% de vida
-        #50% de curar 25%
-        #10% de curar 100%
-        pass
+    def curar(self, curaEscolhida):
+        #curas seguidas diminuem a proxima chance de acerto
+        dado = randint(0, 100)
+        self.curaDecidida = curaEscolhida -1
+
+        if dado <= listaCuras[self.curaDecidida]['chance']:
+            texto = randint(0, len(listaCuras[self.curaDecidida]['acerto'])-1)
+            print(f'Você {listaCuras[self.curaDecidida]['acerto'][texto]}')
+            self.vida += self.vidaMax*listaCuras[self.curaDecidida]['vida']/100
+        else:
+            texto = randint(0, len(listaCuras[self.curaDecidida]['erro'])-1)
+            print(f'Você {listaCuras[self.curaDecidida]['erro'][texto]}')
+            
+        if self.vida>self.vidaMax:
+            #SE PASSAR DE 100%
+            self.vida = self.vidaMax
 
     def defender(self):
+        #defesa tambem
         #80% de defender um golpe fisico
         #30% tentativa de parry(stunna inimigo 1 rodada)
         pass
+
+
+
 
 
 
@@ -297,7 +325,15 @@ class Inimigo(Combatente):
             prota.morrer()
 
     def curar(self):
-        pass
+        cura = randint(0, 1)
+        texto = randint(0, 2)
+
+        print(listaCuras[cura]['acerto'][texto])
+        self.vida += self.vidaMax*listaCuras[cura]['vida']/100
+
+        if self.vida>self.vidaMax:
+            #SE PASSAR DE 100%
+            self.vida = self.vidaMax
 
     def defender(self):
         pass
