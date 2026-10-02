@@ -38,6 +38,10 @@ class Jogo:
 
         self.chamber = 1
 
+        self.porcProta = prota.vida/prota.vidaMax
+
+        self.porcInimigo = inimigoAtual.vida/inimigoAtual.vidaMax
+
         self.batalhas()
 
 
@@ -87,35 +91,73 @@ class Jogo:
         pass
 
     def acaoInimigo(self):
+        self.porcProta = prota.vida/prota.vidaMax
+
+        self.porcInimigo = inimigoAtual.vida/inimigoAtual.vidaMax
+
         #Turno inimigo, randint com porcentagens diferentes para cada caso, tipo se tiver com pouca vida preferir curar ou defender etc
         #Defender pode ter chance de contra ataque
-
+        #A ia tambem deveria pensar dependendo da speed
         #escolha do inimigo
-        inimigoAtual.atacar()
-        inimigoAtual.curar()
-        pass
+        #Se for lerdo eh uma boa usar algo com prioridade
+        #Tambem deve levar em consideracao a vida do prota
+        #Usar cura seguida para isso
 
-    def decidirOrdem(self, movimento, acao):
-        #Decidir ordem de movimento
-        self.vezPlayer = None
+        dadoEscolha = randint(1, 100)
 
-        if prota.speed > inimigoAtual.speed:
-            #Se a velocidade do prota for maior
-            self.vezPlayer = True
+        if self.porcInimigo >= 0.8:
+            inimigoAtual.atacar()
 
-        elif inimigoAtual.speed > prota.speed:
-            #Se for menor
-            self.vezPlayer = False
-        
+        elif 0.8 > self.porcInimigo > 0.5:
+            if dadoEscolha <= 75 or self.porcProta <= 0.15:
+                inimigoAtual.atacar()
+            else:
+                inimigoAtual.curar()
+
+        elif 0.25 >= self.porcInimigo <= 0.5:
+            if dadoEscolha <= 50 and self.porcProta >= 0.15:
+                #Deve ter chances diferentes para cada tipo de cura
+                inimigoAtual.curar()
+            else:
+                inimigoAtual.atacar()
+
         else:
-            #Se forem iguais
-            prota.girarDado()
+            if dadoEscolha <=75:
+                inimigoAtual.curar()
+            else:
+                inimigoAtual.atacar()
 
-            if prota.dado6 > 3:
+    def decidirOrdem(self, movimento, acao, prioridade:str = 'nao'):
+        #Decidir ordem de movimento
+        #Precisa de um parametro tipo prioridade player que muda o self.vezPlayer, facin facin
+        #str deve ser player ou inimigo
+        self.vezPlayer = None
+        self.prioridade = prioridade
+
+        if self.prioridade == 'nao':
+            if prota.speed > inimigoAtual.speed:
+                #Se a velocidade do prota for maior
                 self.vezPlayer = True
 
-            else:
+            elif inimigoAtual.speed > prota.speed:
+                #Se for menor
                 self.vezPlayer = False
+            
+            else:
+                #Se forem iguais
+                prota.girarDado()
+
+                if prota.dado6 > 3:
+                    self.vezPlayer = True
+
+                else:
+                    self.vezPlayer = False
+
+        if self.prioridade == 'player':
+            self.vezPlayer = True
+        elif self.prioridade == 'inimigo':
+            self.vezPlayer = False
+        
 
         if self.vezPlayer:
             self.acaoPlayer(movimento, acao)
@@ -167,6 +209,9 @@ class Jogo:
 
 class Combatente(ABC):
     def __init__(self):
+        #Preciso de status absolutos, tipo, o self.dano nao deve ser o que vai bater, mas sim apenas o que vai ser multiplicado para descobrir o que vai bater, talvez nao
+        #talvez seja apenas colocar um * depois do self.atq
+
         self.vida = 50
         self.vidaMax = self.vida
         self.atq = 10
@@ -179,6 +224,7 @@ class Combatente(ABC):
         self.crit = 1.5
         self.dano = 0.0
         self.dado6 = 1
+        self.curasSeguidas = 0
 
     def girarDado(self):
         self.dado6 = randint(1,6)
@@ -241,12 +287,14 @@ class Protagonista(Combatente):
         pass
 
     def atacar(self):
+        self.curasSeguidas = 0
         self.danoCritico()
         inimigoAtual.vida -= self.dano
         if inimigoAtual.vida <= 0:
             inimigoAtual.morrer()
 
     def morrer(self):
+        prota.vivo = False
         print('Voce morreu :(')
         re = str(input('Quer continuar?'))
         if re.upper() == 'S':
@@ -265,20 +313,26 @@ class Protagonista(Combatente):
 
     def curar(self, curaEscolhida):
         #curas seguidas diminuem a proxima chance de acerto
+        #20% a menos de chance de acerto por cura seguida
         dado = randint(0, 100)
         self.curaDecidida = curaEscolhida -1
 
-        if dado <= listaCuras[self.curaDecidida]['chance']:
+        if dado <= listaCuras[self.curaDecidida]['chance']-self.curasSeguidas*20:
+            #if texto = -1: texto = 0
             texto = randint(0, len(listaCuras[self.curaDecidida]['acerto'])-1)
-            print(f'Você {listaCuras[self.curaDecidida]['acerto'][texto]}')
+            if texto == -1: texto = 0
+            print(f'{self.nome} {listaCuras[self.curaDecidida]['acerto'][texto]}')
             self.vida += self.vidaMax*listaCuras[self.curaDecidida]['vida']/100
         else:
             texto = randint(0, len(listaCuras[self.curaDecidida]['erro'])-1)
-            print(f'Você {listaCuras[self.curaDecidida]['erro'][texto]}')
+            if texto == -1: texto = 0
+            print(f'{self.nome} {listaCuras[self.curaDecidida]['erro'][texto]}')
             
         if self.vida>self.vidaMax:
             #SE PASSAR DE 100%
             self.vida = self.vidaMax
+
+        self.curasSeguidas += 1
 
     def defender(self):
         #defesa tambem
@@ -317,6 +371,7 @@ class Inimigo(Combatente):
         #Chances de colocar mais de cada stat diferente pra cada classe
 
     def atacar(self):
+        self.curasSeguidas = 0
         #super().metodoPai() Puxa o metodo pai e pode sobrescrever a vontade sem perder nada
         #COMENTAR O ACONTECIDO
         self.danoCritico()
@@ -327,13 +382,23 @@ class Inimigo(Combatente):
     def curar(self):
         cura = randint(0, 1)
         texto = randint(0, 2)
-
-        print(listaCuras[cura]['acerto'][texto])
-        self.vida += self.vidaMax*listaCuras[cura]['vida']/100
+        dado = randint(1, 100)
+        
+        if dado <= listaCuras[cura]['chance']-self.curasSeguidas*20:
+            texto = randint(0, len(listaCuras[cura]['acerto'])-1)
+            if texto == -1: texto = 0
+            print(f'{self.nome} {listaCuras[cura]['acerto'][texto]}')
+            self.vida += self.vidaMax*listaCuras[cura]['vida']/100
+        else:
+            texto = randint(0, len(listaCuras[cura]['erro'])-1)
+            if texto == -1: texto = 0
+            print(f'{self.nome} {listaCuras[cura]['erro'][texto]}')
 
         if self.vida>self.vidaMax:
             #SE PASSAR DE 100%
             self.vida = self.vidaMax
+
+        self.curasSeguidas += 1
 
     def defender(self):
         pass

@@ -27,12 +27,12 @@ listaCuras = [
     ]
     },
 
-    {'nome': 'Cura Media', 'desc': 'Cura 60% de sua vida e tem 30% de chance de SUCESSO', 'vida': 60, 'chance': 30, 
+    {'nome': 'Cura Media', 'desc': 'Cura 50% de sua vida e tem 30% de chance de SUCESSO', 'vida': 50, 'chance': 30, 
     'acerto': 
     [
-        'dormiu por 5 horas, como o adversario era muito generoso, acabou por não atrapalhar, curou 60% de vida',
-        'carregou seu ki e recuperou 60% de vida', 
-        'pesquisou metodos de como conquistar FÊMEAS, deu tudo errado, bebeu cachaça e recuperou 60% de vida',
+        'dormiu por 5 horas, como o adversario era muito generoso, acabou por não atrapalhar, curou 50% de vida',
+        'carregou seu ki e recuperou 50% de vida', 
+        'pesquisou metodos de como conquistar FÊMEAS, deu tudo errado, bebeu cachaça e recuperou 50% de vida',
     ],
     'erro':
     [
