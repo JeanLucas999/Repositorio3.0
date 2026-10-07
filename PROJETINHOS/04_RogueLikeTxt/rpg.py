@@ -210,8 +210,9 @@ class Jogo:
                             self.fimClick = False
                             while not self.fimClick:
                                 linha()
-                                print('A cada cura seguida você tem 20% a mais de errar a próxima.')
-                                self.curaEscolhida = int(input(f'1- Cura Simples: {listaCuras[0]['desc']} \n2- Cura Media: {listaCuras[1]['desc']}\n3- Cura Avançada: {listaCuras[1]['desc']}\nEscolha: '))
+                                print(f'{redTxt}{blackBg}A CADA CURA SEGUIDA VOCÊ TEM 20% DE CHANCE A MAIS DE ERRAR!!!.{fecharcor}')
+                                #Colocar quanta chance esta perdendo.
+                                self.curaEscolhida = int(input(f'{yellowTxt}1- {greenTxt}Cura Simples:{fecharcor} {listaCuras[0]['desc']} \n{yellowTxt}2- {greenTxt}Cura Media:{fecharcor} {listaCuras[1]['desc']}\n{yellowTxt}3- {greenTxt}Cura Avançada:{fecharcor} {listaCuras[1]['desc']}\nEscolha: '))
                                 if 0 < self.curaEscolhida < 4:
                                     self.fimClick = True
                                 self.decidirOrdem(movimento, self.curaEscolhida)
@@ -318,14 +319,14 @@ class Protagonista(Combatente):
         self.erro = None
 
     def skillMenu(self):
-        print(f'Skill Points: {self.sp}')
-        print(f'O que deseja upar?')
+        print(f'{purpleTxt}{whiteBg}             Skill Points:{self.sp}             {fecharcor}')
+        print(f'{purpleTxt}{whiteBg}           O que deseja upar?           {fecharcor}')
         linha()
 
     def lvlUp(self):
         self.skillMenu()
         while self.sp != 0 or self.erro == True:
-            upar = int(input(f'1- VIDA: {self.vida} + 5\n2- ATAQUE: {self.atq} + 1\n3- VELOCIDADE {self.speed} + 5\n Escolha: '))
+            upar = int(input(f'{yellowTxt}1- {greenTxt}VIDA: {self.vida}{fecharcor} + 5\n{yellowTxt}2- {redTxt}ATAQUE: {self.atq}{fecharcor} + 1\n{yellowTxt}3- {blueTxt}VELOCIDADE {self.speed}{fecharcor} + 5\nEscolha: '))
             if 0 < upar < 4:
                 self.erro = False
                 self.sp -= 1

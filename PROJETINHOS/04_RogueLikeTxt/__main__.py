@@ -7,8 +7,11 @@ from rpg import *
 #IMPORTANTE PRA AGORA
 #Focar nos stats do inimigo
 #Lvl do inimigo deve aumentar com %
+#Botao de voltar no menu
+#Max de 1 casa decimal na vida
 
 
 
 
 iniciarJogo()
+
