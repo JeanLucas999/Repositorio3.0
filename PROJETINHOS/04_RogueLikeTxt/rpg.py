@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from time import sleep
 
 from ataques import listaAtaques, listaCuras, listaDefesas
+from funcoes import *
 
 #Seria legal varias frases para cada ataque (Dependendo tambem da classe do inimigo), por exemplo, varias frases de falha etc, ataques com criticos diferentes e erros diferentes
 #Da pra fazer algo muito legal
@@ -15,10 +16,6 @@ def iniciarJogo():
     protafake = Protagonista(nomeProta)
     jogo = Jogo(protafake)
 
-def linha():
-    print('-'*40)
-
-
 
 class Jogo:
     def __init__(self, objetoProta):
@@ -30,13 +27,14 @@ class Jogo:
         self.turno = 1
 
         prota = objetoProta
+
+        self.chamber = 1
+        
         self.inimigoNovo()
 
         self.fimClick = False
         
         self.jogando = True
-
-        self.chamber = 1
 
         self.porcProta = prota.vida/prota.vidaMax
 
@@ -49,10 +47,10 @@ class Jogo:
         #Boss a cada 10 Câmaras
         print(f'Câmara: {self.chamber}')
         linha()
-        print(f'{inimigoAtual.nome} LVL {inimigoAtual.lvl}\nVida: {inimigoAtual.vida}/{inimigoAtual.vidaMax}|{inimigoAtual.vida * 100 / inimigoAtual.vidaMax}% Aura: {inimigoAtual.aura} Atq:{inimigoAtual.atq} Vel: {inimigoAtual.speed}')
+        print(f'{blackBg}{redTxt}{inimigoAtual.nome} LVL {inimigoAtual.lvl}{fecharcor}\n{greenTxt}{blackBg}Vida: {inimigoAtual.vida}/{inimigoAtual.vidaMax}|{inimigoAtual.vida * 100 / inimigoAtual.vidaMax}%{fecharcor}{blackBg} {purpleTxt}Atq:{inimigoAtual.atq}{fecharcor}{blackBg} {blueTxt}Vel: {inimigoAtual.speed}{fecharcor}')
 
         linha()
-        print(f'{prota.nome} LVL {prota.lvl}\nVida: {prota.vida}/{prota.vidaMax}|{prota.vida * 100 / prota.vidaMax}% Aura: {prota.aura} Atq:{prota.atq} Vel: {prota.speed}')
+        print(f'{blackBg}{blueTxt}{prota.nome.capitalize()} LVL {prota.lvl}{fecharcor}\n{blackBg}{greenTxt}Vida: {prota.vida}/{prota.vidaMax}|{prota.vida * 100 / prota.vidaMax}% {fecharcor}{blackBg}{purpleTxt}Atq:{prota.atq}{fecharcor}{blackBg}{blueTxt} Vel: {prota.speed}{fecharcor}')
         linha()
 
         sleep(2)
@@ -70,8 +68,31 @@ class Jogo:
         print (f'Voce enfrentara um(a) {self.nomeFeito}\n')
         sleep(2)
 
-        #if pelo decisao 1
-        inimigoAtual = Aranha(self.nomeFeito, self.decisao1, self.decisao2)
+        if self.decisao1 == 0:
+            inimigoAtual = Aranha(self.nomeFeito, self.decisao1, self.decisao2, self.chamber)
+            print('Criei aranha')
+
+        elif self.decisao1 == 1:
+            inimigoAtual = Aranha(self.nomeFeito, self.decisao1, self.decisao2, self.chamber)
+            print('Criei goblin')
+
+
+        elif self.decisao1 == 2:
+            inimigoAtual = Aranha(self.nomeFeito, self.decisao1, self.decisao2, self.chamber)
+            print('Criei Paladino')
+
+
+        elif self.decisao1 == 3:
+            inimigoAtual = Aranha(self.nomeFeito, self.decisao1, self.decisao2, self.chamber)
+            print('Criei Leprechaum')
+
+
+        else:
+            inimigoAtual = Aranha(self.nomeFeito, self.decisao1, self.decisao2, self.chamber)
+            print('Criei urso')
+
+
+
         #Classe do inimigo no lugar do inimigo, if para cada indice do nomes
         pass
 
@@ -95,13 +116,10 @@ class Jogo:
 
         self.porcInimigo = inimigoAtual.vida/inimigoAtual.vidaMax
 
-        #Turno inimigo, randint com porcentagens diferentes para cada caso, tipo se tiver com pouca vida preferir curar ou defender etc
-        #Defender pode ter chance de contra ataque
+        #Turno inimigo
         #A ia tambem deveria pensar dependendo da speed
         #escolha do inimigo
         #Se for lerdo eh uma boa usar algo com prioridade
-        #Tambem deve levar em consideracao a vida do prota
-        #Usar cura seguida para isso
 
         dadoEscolha = randint(1, 100)
 
@@ -175,6 +193,7 @@ class Jogo:
         #OR ERRO?
             while prota.vivo and inimigoAtual.vivo:
                 self.menuBatalha()
+                prota.lvlUp()
                 movimento = int(input('1- Atacar  2- Defender  3- Curar: '))
                 try:
                     if 0 < movimento < 4:
@@ -190,7 +209,9 @@ class Jogo:
                         if movimento == 3:
                             self.fimClick = False
                             while not self.fimClick:
-                                self.curaEscolhida = int(input(f'1- Cura Simples: {listaCuras[0]['desc']} \n 2- Cura Media: {listaCuras[1]['desc']}\n  3- Cura Avançada: {listaCuras[1]['desc']}\nEscolha: '))
+                                linha()
+                                print('A cada cura seguida você tem 20% a mais de errar a próxima.')
+                                self.curaEscolhida = int(input(f'1- Cura Simples: {listaCuras[0]['desc']} \n2- Cura Media: {listaCuras[1]['desc']}\n3- Cura Avançada: {listaCuras[1]['desc']}\nEscolha: '))
                                 if 0 < self.curaEscolhida < 4:
                                     self.fimClick = True
                                 self.decidirOrdem(movimento, self.curaEscolhida)
@@ -198,6 +219,12 @@ class Jogo:
                         self.turno += 1
                     else:
                         raise ValueError
+                    if not inimigoAtual.vivo:
+                        self.inimigoNovo()
+                        self.chamber += 1
+                        prota.novaChamber()
+
+
                 except ValueError:
                     print('Numero invalido, tente novamente')
 
@@ -214,12 +241,17 @@ class Combatente(ABC):
 
         self.vida = 50
         self.vidaMax = self.vida
+
         self.atq = 10
+        self.atqMax = self.atq
+
+        self.speed = 25
+        self.speedMax = self.speed
 
         self.vivo = True
 
         self.aura = 100
-        self.speed = 25
+
         self.taxa = 5
         self.crit = 1.5
         self.dano = 0.0
@@ -245,6 +277,18 @@ class Combatente(ABC):
             print('Dano normal')
             self.dano = self.atq
 
+    def upHp(self):
+        self.vida += 5
+        self.vidaMax = self.vida
+
+    def upAtq(self):
+        self.atq += 1
+        self.atqMax = self.atq
+
+    def upSpeed(self):
+        self.speed += 5
+        self.speedMax = self.speed
+
     @abstractmethod
     def curar(self):
         pass
@@ -267,20 +311,35 @@ class Protagonista(Combatente):
         super().__init__()
         self.nome = nome
         self.vidaMax = self.vida
+        self.atqMax = self.atq
+        self.speedMax = self.speed
         self.lvl = 1
         self.sp = 3
+        self.erro = None
 
-    def decidirStats(self):
-        linha()
-        print(f'PONTOS DISPONIVEIS: {self.sp}')
+    def skillMenu(self):
+        print(f'Skill Points: {self.sp}')
         print(f'O que deseja upar?')
         linha()
+
+    def lvlUp(self):
+        self.skillMenu()
         while self.sp != 0 or self.erro == True:
-            upar = int(input(f'1- VIDA: {self.vida} + 10\n2- ATAQUE: {self.atq} + 2\n3- TAXA {self.taxa}% + 1%\n4- VELOCIDADE {self.speed} + 5\n Escolha'))
-            if 0 < upar > 6:
+            upar = int(input(f'1- VIDA: {self.vida} + 5\n2- ATAQUE: {self.atq} + 1\n3- VELOCIDADE {self.speed} + 5\n Escolha: '))
+            if 0 < upar < 4:
                 self.erro = False
                 self.sp -= 1
-                #if de cada
+                if upar == 1:
+                    self.upHp()
+
+                if upar == 2:
+                    self.upAtq()
+
+                if upar == 3:
+                    self.upSpeed()
+
+                if self.sp > 0:
+                    self.skillMenu()
             else:
                 print('Digite um número valido!')
                 self.erro == True
@@ -292,6 +351,11 @@ class Protagonista(Combatente):
         inimigoAtual.vida -= self.dano
         if inimigoAtual.vida <= 0:
             inimigoAtual.morrer()
+
+    def novaChamber(self):
+        self.vida = self.vidaMax
+        self.atq = self.atqMax
+        self.speed = self.speedMax
 
     def morrer(self):
         prota.vivo = False
@@ -349,26 +413,40 @@ class Inimigo(Combatente):
     def __init__(self):
         super().__init__()
         self.vidaMax = self.vida
+        self.atqMax = self.atq
+        self.speedMax = self.speed
+        self.lvlBaseado = 0
+        self.decidirLvl()
+        self.sp = self.lvl*3
         self.decidirStats()
 
-    def decidirStats(self):
-        #GIRAR DADO PARA DECIDIR LVL DO INIMIGO
+    def decidirLvl(self):
         self.girarDado()
 
+        #Level baseado na chamber ou no prota msm, depende de quem for maior
+        if prota.lvl > self.chamber:
+            self.lvlBaseado = prota.lvl
+        else:
+            self.lvlBaseado = self.chamber
+
+
         if self.dado6 == 3 or self.dado6 == 4:
-            self.lvl = prota.lvl
+            self.lvl = self.lvlBaseado
 
         elif self.dado6 > 4:
-            self.lvl = prota.lvl + randint(1,3)
+            self.lvl = self.lvlBaseado + randint(1,3)
 
         else:
-            if prota.lvl > 3:
-                self.lvl = prota.lvl - randint(1,3)
+            if self.lvlBaseado > 3:
+                self.lvl = self.lvlBaseado - randint(1,3)
             else:
-                self.lvl = prota.lvl
+                self.lvl = self.lvlBaseado
         #Depois disso aqui tem que puxar um metodo nos inimigos filhos, para decidir os stats deles baseado no tipo de cada um
         #super.decidirStats
         #Chances de colocar mais de cada stat diferente pra cada classe
+
+    def decidirStats(self):
+        pass
 
     def atacar(self):
         self.curasSeguidas = 0
@@ -409,13 +487,33 @@ class Inimigo(Combatente):
         pass
 
 class Aranha(Inimigo):
-    def __init__(self, nome, base, comp):
-        super().__init__()
+    def __init__(self, nome, base, comp, chamber):
         self.nome = nome
         self.base = base
         self.complemento = comp
+        self.chamber = chamber
+        super().__init__()
 
     def atacar(self):
         super().atacar()
         print('ataquei')
+
+    def decidirStats(self):
+        c = 1
+        dadoStats = randint(1,100)
+
+        for c in range (1, self.sp+1):
+            if c%3 == 0:
+                self.upSpeed()
+            else:
+                if dadoStats < 51:
+                    self.upAtq()
+                else:
+                    self.upHp()
+
+                
+            
+
+
+
 #Uma classe filha para cada inimigo
