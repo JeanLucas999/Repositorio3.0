@@ -121,10 +121,7 @@ class Jogo:
 
         self.porcInimigo = inimigoAtual.vida/inimigoAtual.vidaMax
 
-        #Turno inimigo
-        #A ia tambem deveria pensar dependendo da speed
         #escolha do inimigo
-        #Se for lerdo eh uma boa usar algo com prioridade
 
         dadoEscolha = randint(1, 100)
 
@@ -137,9 +134,8 @@ class Jogo:
             else:
                 inimigoAtual.curar()
 
-        elif 0.25 >= self.porcInimigo <= 0.5:
-            if dadoEscolha <= 50 and self.porcProta >= 0.15:
-                #Deve ter chances diferentes para cada tipo de cura
+        elif 0.20 >= self.porcInimigo <= 0.5:
+            if dadoEscolha <= 50 and self.porcProta >= 0.2:
                 inimigoAtual.curar()
             else:
                 inimigoAtual.atacar()
@@ -214,8 +210,8 @@ class Jogo:
                     if movimento == 3:
                         while not selecionado:
                             linha()
-                            print(f'{redTxt}{blackBg}A CADA CURA SEGUIDA VOCÊ TEM 20% DE CHANCE A MAIS DE ERRAR!!!.{fecharcor}')
-                            
+                            print(f'{redTxt}{blackBg}A CADA CURA SEGUIDA VOCÊ TEM MAIS CHANCE DE ERRAR!!!.{fecharcor}')
+                            print(f'{redTxt}{blackBg}{prota.curasSeguidas*20}% A MAIS DE CHANCE DE ERRO!!!{fecharcor}')
                             self.curaEscolhida = int(input(f'{yellowTxt}1- {greenTxt}Cura Simples:{fecharcor} {listaCuras[0]['desc']} \n{yellowTxt}2- {greenTxt}Cura Media:{fecharcor} {listaCuras[1]['desc']}\n{yellowTxt}3- {greenTxt}Cura Avançada:{fecharcor} {listaCuras[1]['desc']}\n{yellowTxt}4- {redTxt}Voltar{fecharcor}\nEscolha: '))
 
                             if 0 < self.curaEscolhida < 4:
@@ -325,6 +321,7 @@ class Protagonista(Combatente):
         #CLASSES COM STATS DIFERENTES
         super().__init__()
         self.nome = nome
+        self.atq = 1000
         self.vidaMax = self.vida
         self.atqMax = self.atq
         self.speedMax = self.speed
@@ -370,14 +367,14 @@ class Protagonista(Combatente):
         #100% se o inimigo tiver lvl maior
         #Precisa balancear
 
-        if inimigoAtual.lvl > self.lvl: self.xp += 25
+        if inimigoAtual.lvl > self.lvl: self.xp += 50
 
-        elif inimigoAtual.lvl == self.lvl: self.xp += 50
+        elif inimigoAtual.lvl == self.lvl: self.xp += 75
 
         elif inimigoAtual.lvl < self.lvl: self.xp += 100
 
         while self.xp >= 100:
-            self.xp - 100
+            self.xp -= 100
             self.lvlUp()
         
 
@@ -395,18 +392,14 @@ class Protagonista(Combatente):
 
     def morrer(self):
         prota.vivo = False
-        print('Voce morreu :(')
-        re = str(input('Quer continuar?'))
+        sleep(1)
+        limparTela()
+        print(f'{blackBg}{redTxt}Voce morreu :({fecharcor}')
+        sleep(1)
+
+        re = str(input(f'{blueTxt}Quer continuar?{fecharcor} [{greenTxt}S{fecharcor}/{redTxt}N{fecharcor}]: '))
         if re.upper() == 'S':
-            #Uma roleta para tentar reviver kkkkk
-            #Drop de item
-            #Resetar Jogo
-            #Eh um roguelike.
-            #Contador de inimigos mortos
-            #Sistema de buffs para novas jogadas
-            #Preciso salvar apenas as informacoes que continuam com a morte para continuar(Upgrades e ultima sala alcancada)
-            #Botao de novo save
-            #Dificuldade procedural de acordo com a room
+            iniciarJogo()
             pass
         else:
             print('Fim de jogo')
@@ -423,18 +416,23 @@ class Protagonista(Combatente):
             if texto == -1: texto = 0
             print(f'{self.nome} {listaCuras[self.curaDecidida]['acerto'][texto]}')
             self.vida += self.vidaMax*listaCuras[self.curaDecidida]['vida']/100
+
+            self.curasSeguidas += 1
         else:
             texto = randint(0, len(listaCuras[self.curaDecidida]['erro'])-1)
             if texto == -1: texto = 0
             print(f'{self.nome} {listaCuras[self.curaDecidida]['erro'][texto]}')
+
+            self.curasSeguidas = 0
             
         if self.vida>self.vidaMax:
             #SE PASSAR DE 100%
             self.vida = self.vidaMax
 
-        self.curasSeguidas += 1
+        
 
     def defender(self):
+        self.curasSeguidas = 0
         #defesa tambem
         #80% de defender um golpe fisico
         #30% tentativa de parry(stunna inimigo 1 rodada)
@@ -510,18 +508,21 @@ class Inimigo(Combatente):
             if texto == -1: texto = 0
             print(f'{self.nome} {listaCuras[cura]['acerto'][texto]}')
             self.vida += self.vidaMax*listaCuras[cura]['vida']/100
+
+            self.curasSeguidas += 1
         else:
             texto = randint(0, len(listaCuras[cura]['erro'])-1)
             if texto == -1: texto = 0
             print(f'{self.nome} {listaCuras[cura]['erro'][texto]}')
 
+            self.curasSeguidas = 0
+
         if self.vida>self.vidaMax:
             #SE PASSAR DE 100%
             self.vida = self.vidaMax
 
-        self.curasSeguidas += 1
-
     def defender(self):
+        self.curasSeguidas = 0
         pass
 
     def morrer(self):
