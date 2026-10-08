@@ -1,6 +1,8 @@
 from random import randint
 from abc import ABC, abstractmethod
 from time import sleep
+from math import floor
+
 
 from ataques import listaAtaques, listaCuras, listaDefesas
 from funcoes import *
@@ -29,6 +31,8 @@ class Jogo:
         prota = objetoProta
 
         self.chamber = 1
+
+        prota.lvlUp()
         
         self.inimigoNovo()
 
@@ -45,12 +49,13 @@ class Jogo:
 
     def menuBatalha(self):
         #Boss a cada 10 Câmaras
+
         print(f'Câmara: {self.chamber}')
         linha()
-        print(f'{blackBg}{redTxt}{inimigoAtual.nome} LVL {inimigoAtual.lvl}{fecharcor}\n{greenTxt}{blackBg}Vida: {inimigoAtual.vida}/{inimigoAtual.vidaMax}|{inimigoAtual.vida * 100 / inimigoAtual.vidaMax}%{fecharcor}{blackBg} {purpleTxt}Atq:{inimigoAtual.atq}{fecharcor}{blackBg} {blueTxt}Vel: {inimigoAtual.speed}{fecharcor}')
+        print(f'{blackBg}{redTxt}{inimigoAtual.nome} LVL {inimigoAtual.lvl}{fecharcor}\n{greenTxt}{blackBg}Vida: {inimigoAtual.vida}/{inimigoAtual.vidaMax}|{inimigoAtual.vida * 100 / inimigoAtual.vidaMax:.0f}%{fecharcor}{blackBg} {purpleTxt}Atq:{inimigoAtual.atq}{fecharcor}{blackBg} {blueTxt}Vel: {inimigoAtual.speed}{fecharcor}')
 
         linha()
-        print(f'{blackBg}{blueTxt}{prota.nome.capitalize()} LVL {prota.lvl}{fecharcor}\n{blackBg}{greenTxt}Vida: {prota.vida}/{prota.vidaMax}|{prota.vida * 100 / prota.vidaMax}% {fecharcor}{blackBg}{purpleTxt}Atq:{prota.atq}{fecharcor}{blackBg}{blueTxt} Vel: {prota.speed}{fecharcor}')
+        print(f'{blackBg}{blueTxt}{prota.nome.capitalize()} LVL {prota.lvl}{fecharcor}\n{blackBg}{greenTxt}Vida: {prota.vida}/{prota.vidaMax}|{prota.vida * 100 / prota.vidaMax:.0f}% {fecharcor}{blackBg}{purpleTxt}Atq:{prota.atq}{fecharcor}{blackBg}{blueTxt} Vel: {prota.speed}{fecharcor}')
         linha()
 
         sleep(2)
@@ -65,7 +70,7 @@ class Jogo:
         #Da pra fazer ataques diferentes por complemento dentro da classe inimigo, a classe pode receber o self.complemento alem do nome e com isso ter alguns ataques diferentes, uma classe para cada, cada complemento tem buff nos stats
 
         self.nomeFeito = nomes[self.decisao1] + complementos[self.decisao2]
-        print (f'Voce enfrentara um(a) {self.nomeFeito}\n')
+        print (f'{redBg}{blackTxt}  Voce enfrentara um(a) {self.nomeFeito}  {fecharcor}')
         sleep(2)
 
         if self.decisao1 == 0:
@@ -190,44 +195,51 @@ class Jogo:
 
 
     def batalhas(self):
-        #OR ERRO?
-            while prota.vivo and inimigoAtual.vivo:
-                self.menuBatalha()
-                prota.lvlUp()
+        selecionado = False
+        while prota.vivo and inimigoAtual.vivo:
+            selecionado = False
+            
+            self.menuBatalha()
+            try:
                 movimento = int(input('1- Atacar  2- Defender  3- Curar: '))
-                try:
-                    if 0 < movimento < 4:
-                        if movimento == 1:
-                            self.fimClick = False
-                            self.decidirOrdem(movimento, 0)
-                            pass
 
-                        if movimento == 2:
-                            self.fimClick = False
-                            pass
+                if 0 < movimento < 4:
+                    if movimento == 1:
+                        self.decidirOrdem(movimento, 0)
+                        selecionado = True
 
-                        if movimento == 3:
-                            self.fimClick = False
-                            while not self.fimClick:
-                                linha()
-                                print(f'{redTxt}{blackBg}A CADA CURA SEGUIDA VOCÊ TEM 20% DE CHANCE A MAIS DE ERRAR!!!.{fecharcor}')
-                                #Colocar quanta chance esta perdendo.
-                                self.curaEscolhida = int(input(f'{yellowTxt}1- {greenTxt}Cura Simples:{fecharcor} {listaCuras[0]['desc']} \n{yellowTxt}2- {greenTxt}Cura Media:{fecharcor} {listaCuras[1]['desc']}\n{yellowTxt}3- {greenTxt}Cura Avançada:{fecharcor} {listaCuras[1]['desc']}\nEscolha: '))
-                                if 0 < self.curaEscolhida < 4:
-                                    self.fimClick = True
+                    if movimento == 2:
+                        selecionado = True
+
+                    if movimento == 3:
+                        while not selecionado:
+                            linha()
+                            print(f'{redTxt}{blackBg}A CADA CURA SEGUIDA VOCÊ TEM 20% DE CHANCE A MAIS DE ERRAR!!!.{fecharcor}')
+                            
+                            self.curaEscolhida = int(input(f'{yellowTxt}1- {greenTxt}Cura Simples:{fecharcor} {listaCuras[0]['desc']} \n{yellowTxt}2- {greenTxt}Cura Media:{fecharcor} {listaCuras[1]['desc']}\n{yellowTxt}3- {greenTxt}Cura Avançada:{fecharcor} {listaCuras[1]['desc']}\n{yellowTxt}4- {redTxt}Voltar{fecharcor}\nEscolha: '))
+
+                            if 0 < self.curaEscolhida < 4:
+                                selecionado = True
                                 self.decidirOrdem(movimento, self.curaEscolhida)
 
-                        self.turno += 1
-                    else:
-                        raise ValueError
-                    if not inimigoAtual.vivo:
-                        self.inimigoNovo()
-                        self.chamber += 1
-                        prota.novaChamber()
+                            elif self.curaEscolhida == 4:
+                                limparTela()
+                                break
+                            
 
+                    self.turno += 1
 
-                except ValueError:
-                    print('Numero invalido, tente novamente')
+                else:
+                    raise ValueError
+
+            except ValueError:
+                print('Numero invalido, tente novamente')
+
+            if not inimigoAtual.vivo:
+                self.inimigoNovo()
+                self.chamber += 1
+                prota.novaChamber()
+
 
 
 
@@ -314,8 +326,8 @@ class Protagonista(Combatente):
         self.vidaMax = self.vida
         self.atqMax = self.atq
         self.speedMax = self.speed
-        self.lvl = 1
-        self.sp = 3
+        self.lvl = 0
+        self.sp = 0
         self.erro = None
 
     def skillMenu(self):
@@ -324,6 +336,8 @@ class Protagonista(Combatente):
         linha()
 
     def lvlUp(self):
+        self.lvl += 1
+        self.sp += 3
         self.skillMenu()
         while self.sp != 0 or self.erro == True:
             upar = int(input(f'{yellowTxt}1- {greenTxt}VIDA: {self.vida}{fecharcor} + 5\n{yellowTxt}2- {redTxt}ATAQUE: {self.atq}{fecharcor} + 1\n{yellowTxt}3- {blueTxt}VELOCIDADE {self.speed}{fecharcor} + 5\nEscolha: '))
@@ -333,18 +347,20 @@ class Protagonista(Combatente):
                 if upar == 1:
                     self.upHp()
 
-                if upar == 2:
+                elif upar == 2:
                     self.upAtq()
 
-                if upar == 3:
+                elif upar == 3:
                     self.upSpeed()
+
+                limparTela()
 
                 if self.sp > 0:
                     self.skillMenu()
             else:
                 print('Digite um número valido!')
                 self.erro == True
-        pass
+
 
     def atacar(self):
         self.curasSeguidas = 0
@@ -435,13 +451,20 @@ class Inimigo(Combatente):
             self.lvl = self.lvlBaseado
 
         elif self.dado6 > 4:
-            self.lvl = self.lvlBaseado + randint(1,3)
+            self.lvl = self.lvlBaseado + randint(1,3)*30/100
 
         else:
             if self.lvlBaseado > 3:
-                self.lvl = self.lvlBaseado - randint(1,3)
+                self.lvl = self.lvlBaseado - self.lvlBaseado * randint(1,3)*10 / 100
             else:
                 self.lvl = self.lvlBaseado
+
+        if self.lvl < 1: self.lvl = 1 
+
+        print(self.lvl)
+        self.lvl = floor(self.lvl)
+        print(self.lvl)
+        
         #Depois disso aqui tem que puxar um metodo nos inimigos filhos, para decidir os stats deles baseado no tipo de cada um
         #super.decidirStats
         #Chances de colocar mais de cada stat diferente pra cada classe

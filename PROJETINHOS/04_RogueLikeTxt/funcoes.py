@@ -4,6 +4,7 @@ blueTxt = '\033[094m'
 yellowTxt = '\033[093m'
 purpleTxt = '\033[095m'
 greenTxt = '\033[092m'
+blackTxt = '\033[030m'
 
 #CORES BACKGROUND
 blackBg = '\033[040m'
@@ -14,8 +15,8 @@ yellowBg = '\033[043m'
 purpleBg = '\033[045m'
 greenBg = '\033[042m'
 
-#UTILIDADES
-limparTela = '\033[2J'
+def limparTela():
+    print('\033[2J')
 
 def linha():
     print('-'*40)
