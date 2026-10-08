@@ -33,7 +33,7 @@ listaCuras = [
     ],
     },
 
-    {'nome': 'Cura Media', 'desc': 'Cura 50% de sua vida e tem 30% de chance de SUCESSO', 'vida': 50, 'chance': 30, 
+    {'nome': 'Cura Media', 'desc': 'Cura 50% de sua vida e tem 50% de chance de SUCESSO', 'vida': 50, 'chance': 50, 
     'acerto': 
     [
         'dormiu por 5 horas, como o adversario era muito generoso, acabou por não atrapalhar, curou 50% de vida',

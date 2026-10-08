@@ -58,7 +58,7 @@ class Jogo:
         print(f'{blackBg}{blueTxt}{prota.nome.capitalize()} LVL {prota.lvl}{fecharcor}\n{blackBg}{greenTxt}Vida: {prota.vida}/{prota.vidaMax}|{prota.vida * 100 / prota.vidaMax:.0f}% {fecharcor}{blackBg}{purpleTxt}Atq:{prota.atq}{fecharcor}{blackBg}{blueTxt} Vel: {prota.speed}{fecharcor}')
         linha()
 
-        sleep(2)
+        sleep(1)
 
     def inimigoNovo(self):
         global inimigoAtual
@@ -236,9 +236,11 @@ class Jogo:
                 print('Numero invalido, tente novamente')
 
             if not inimigoAtual.vivo:
-                self.inimigoNovo()
-                self.chamber += 1
                 prota.novaChamber()
+                prota.xpUp()
+
+                self.chamber += 1
+                self.inimigoNovo()
 
 
 
@@ -328,6 +330,7 @@ class Protagonista(Combatente):
         self.speedMax = self.speed
         self.lvl = 0
         self.sp = 0
+        self.xp = 0
         self.erro = None
 
     def skillMenu(self):
@@ -361,6 +364,22 @@ class Protagonista(Combatente):
                 print('Digite um número valido!')
                 self.erro == True
 
+    def xpUp(self):
+        #25% de xp a mais se o inimigo for lvl menor
+        #50% se tiverem os lvls iguais
+        #100% se o inimigo tiver lvl maior
+        #Precisa balancear
+
+        if inimigoAtual.lvl > self.lvl: self.xp += 25
+
+        elif inimigoAtual.lvl == self.lvl: self.xp += 50
+
+        elif inimigoAtual.lvl < self.lvl: self.xp += 100
+
+        while self.xp >= 100:
+            self.xp - 100
+            self.lvlUp()
+        
 
     def atacar(self):
         self.curasSeguidas = 0
@@ -441,6 +460,7 @@ class Inimigo(Combatente):
         self.girarDado()
 
         #Level baseado na chamber ou no prota msm, depende de quem for maior
+        print('CAMARA ANTES DE ESCOLHER LVL: ', self.chamber)
         if prota.lvl > self.chamber:
             self.lvlBaseado = prota.lvl
         else:
@@ -454,16 +474,15 @@ class Inimigo(Combatente):
             self.lvl = self.lvlBaseado + randint(1,3)*30/100
 
         else:
-            if self.lvlBaseado > 3:
-                self.lvl = self.lvlBaseado - self.lvlBaseado * randint(1,3)*10 / 100
-            else:
-                self.lvl = self.lvlBaseado
+            self.lvl = self.lvlBaseado - self.lvlBaseado * randint(1,3)*10 / 100
+
+        print('Lvl Antes: ', self.lvl)
 
         if self.lvl < 1: self.lvl = 1 
 
-        print(self.lvl)
+        print('Lvl Baseado:', self.lvlBaseado)
         self.lvl = floor(self.lvl)
-        print(self.lvl)
+        print('Lvl Depois: ', self.lvl)
         
         #Depois disso aqui tem que puxar um metodo nos inimigos filhos, para decidir os stats deles baseado no tipo de cada um
         #super.decidirStats
