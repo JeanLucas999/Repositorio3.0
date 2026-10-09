@@ -20,6 +20,7 @@ from rpg import *
 
 #GERAIS-
 
+#Json editado depois da morte
 #Botao de voltar no menu (Preciso nos outros tbm)
 #Botao de continuar
 #Cores diferente para cada porcentagem, quanto pior mais vermelho, tipo isso

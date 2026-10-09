@@ -44,7 +44,7 @@ def iniciarJogo():
                             if c['usado']:
                                 print(f'{i+1}- {c['nome']}, maior camara alcançada:{c['camaraMaxima']}')
 
-                        escolhaSave = int(input('Escolha um save: (0 PARA VOLTAR)'))
+                        escolhaSave = int(input('Escolha um save(0 PARA VOLTAR): '))
                         if escolhaSave == 0:
                             #erro para voltar pro menu inicial 
                             erro = True
@@ -65,9 +65,24 @@ def iniciarJogo():
             elif resposta == 2:
                 erro = False
 
-                nomeProta = str(input('DIGITE O NOME DO SEU PROTAGONISTA: '))
-                protafake = Protagonista(nomeProta)
-                jogo = Jogo(protafake)
+                with open('PROJETINHOS\04_RogueLikeTxt\saves.json', 'r+', encoding='utf-8') as arq:
+                    print('Onde quer colocar seu novo save? ')
+
+                    for i, c in enumerate(personagens['geral']):
+                        print(f'{i+1}- {c['nome']}, maior camara alcançada:{c['camaraMaxima']}')
+                    novoSave = int(input)('Escolha(0 PARA VOLTAR): ')
+
+                    if 0 > novoSave < 4:
+                        #cria o save por cima do que tem
+                        nomeProta = str(input('DIGITE O NOME DO SEU PROTAGONISTA: '))
+                        protafake = Protagonista(nomeProta)
+                        jogo = Jogo(protafake)
+                        pass
+
+                    elif novoSave == 0:
+                        erro = True
+                        
+
                 #criar o save
 
             else:
