@@ -2,7 +2,7 @@ from random import randint
 from abc import ABC, abstractmethod
 from time import sleep
 from math import floor
-
+import json
 
 from ataques import listaAtaques, listaCuras, listaDefesas
 from funcoes import *
@@ -14,13 +14,81 @@ from funcoes import *
 
 def iniciarJogo():
     global jogo
-    nomeProta = str(input('DIGITE O NOME DO SEU PROTAGONISTA: '))
-    protafake = Protagonista(nomeProta)
-    jogo = Jogo(protafake)
+    resposta = 0
+    erro = False
+    temSave = False
+    linha()
+    print('Continuar ou criar um novo save?')
+
+    
+    while erro or resposta == 0:
+        try:
+            resposta = int(input('1- Continuar\n2- Criar novo save\nEscolha: '))
+            if resposta == 1:
+                erro = False
+
+                #Ler saves
+                with open('PROJETINHOS/04_RogueLikeTxt/saves.json', 'r', encoding='utf-8') as arq:
+                    personagens = json.load(arq)
+
+                    #Verificar se tem saves
+                    for c in personagens['geral']:
+                        if c['usado']:
+                            temSave = True
+
+                    #Se tiver, mostrar eles e depois fazer a escolha de um
+                    if temSave:
+                        print('for2')
+
+                        for i, c in enumerate(personagens['geral']):
+                            if c['usado']:
+                                print(f'{i+1}- {c['nome']}, maior camara alcançada:{c['camaraMaxima']}')
+
+                        escolhaSave = int(input('Escolha um save: (0 PARA VOLTAR)'))
+                        if escolhaSave == 0:
+                            #erro para voltar pro menu inicial 
+                            erro = True
+
+                        elif personagens['geral'][escolhaSave-1]['usado']:
+                            print('ok')
+
+                        else:
+                            raise ValueError
+
+                    #Senao, subir o erro e voltar pro inicio
+                    else:
+                        print('Voce ainda nao possui saves')
+                        sleep(1)
+
+                        erro = True
+
+            elif resposta == 2:
+                erro = False
+
+                nomeProta = str(input('DIGITE O NOME DO SEU PROTAGONISTA: '))
+                protafake = Protagonista(nomeProta)
+                jogo = Jogo(protafake)
+                #criar o save
+
+            else:
+                raise ValueError
+            
+        except ValueError:
+            erro = True
+
+            print('Digite um numero presente!!!')
+
+        #except TypeError:
+            #erro = True
+
+            #print('Digite um numero!!!')
+
+
+
 
 
 class Jogo:
-    def __init__(self, objetoProta):
+    def __init__(self, objetoProta, camaraMaxima:int = 0, upgrades:list = []):
         #Ainda preciso do menu de batalha
         #Uma forma de balancear os monstros
         global prota

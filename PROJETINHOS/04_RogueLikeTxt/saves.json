@@ -1,0 +1,25 @@
+{
+"geral": [
+    {
+        "save": 1,
+        "nome": "",
+        "camaraMaxima": 0,
+        "upgrades": "",
+        "usado": true
+    },
+    {
+        "save": 2,
+        "nome": "",
+        "camaraMaxima": 0,
+        "upgrades": [],
+        "usado": false
+    },
+    {
+        "save": 3,
+        "nome": "",
+        "camaraMaxima": 0,
+        "upgrades": [],
+        "usado": false
+    }
+]
+}
