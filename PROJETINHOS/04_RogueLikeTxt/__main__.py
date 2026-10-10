@@ -20,6 +20,7 @@ from rpg import *
 
 #GERAIS-
 
+#Documentacao para caso alguem queira mexer, bom ter
 #Voce tem certeza, antes de apagar save
 #Fazer continuar funcionar, preciso mandar os dados pro meu prota, talvez por parametro mesmo
 #Json editado depois da morte
