@@ -15,6 +15,18 @@ yellowBg = '\033[043m'
 purpleBg = '\033[045m'
 greenBg = '\033[042m'
 
+#BG + TXT
+
+#CORES COM SEMANTICA
+#ruim
+#muitoruim
+#pessimo
+
+#bom
+#muitobom
+#perfeito
+#\033[1;37;44m
+
 def limparTela():
     print('\033[2J')
 

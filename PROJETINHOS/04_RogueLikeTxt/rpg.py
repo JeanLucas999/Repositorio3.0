@@ -82,21 +82,28 @@ def iniciarJogo():
                             if 0 < novoSave < 4:
                                 #cria o save por cima do que tem
                                 try:
-                                    respostaCerteza = input(f'VOCÊ TEM CERTEZA QUE DESEJA APAGAR O SAVE {novoSave}- {personagens['geral'][novoSave]['nome']} [S/N] ')
+                                    if personagens['geral'][novoSave-1]['usado']:
+                                        respostaCerteza = input(f'VOCÊ TEM CERTEZA QUE DESEJA APAGAR O SAVE {novoSave}- {personagens['geral'][novoSave-1]['nome']} [S/N] ')
 
-                                    if respostaCerteza.upper() == 'S':
-                                        certeza = True
+                                        if respostaCerteza.upper() == 'S':
+                                            certeza = True
+                                            nomeProta = str(input('DIGITE O NOME DO SEU PROTAGONISTA: '))
+                                            resetSave(novoSave, nomeProta)
+                                            protafake = Protagonista(nomeProta)
+                                            jogo = Jogo(protafake)
+
+                                        elif respostaCerteza.upper() == 'N':
+                                            certeza = False
+                                            print('Voltando e apagando texto')
+
+                                        else:
+                                            raise KeyError
+
+                                    else:
                                         nomeProta = str(input('DIGITE O NOME DO SEU PROTAGONISTA: '))
                                         resetSave(novoSave, nomeProta)
                                         protafake = Protagonista(nomeProta)
                                         jogo = Jogo(protafake)
-
-                                    elif respostaCerteza.upper() == 'N':
-                                        certeza = False
-                                        print('Voltando e apagando texto')
-
-                                    else:
-                                        raise KeyError
                                     
                                 except KeyError:
                                     print('DIGITE UM VALOR VALIDO!!!') 
@@ -140,22 +147,19 @@ def iniciarJogo():
 
                             if 0 < apagarSave < 4:
                                 try:
-                                    respostaCerteza = input(f'VOCÊ TEM CERTEZA QUE DESEJA APAGAR O SAVE {novoSave}- {personagens['geral'][apagarSave]['nome']} [S/N] ')
+                                    if personagens['geral'][apagarSave-1]['usado']:
+                                        respostaCerteza = input(f'VOCÊ TEM CERTEZA QUE DESEJA APAGAR O SAVE {apagarSave}- {personagens['geral'][apagarSave-1]['nome']} [S/N] ')
 
-                                    if respostaCerteza.upper() == 'S':
-                                        certeza = True
-                                        resetSave(apagarSave, '', True)
+                                        if respostaCerteza.upper() == 'S':
+                                            certeza = True
+                                            resetSave(apagarSave, '', True)
 
-                                    elif respostaCerteza.upper() == 'N':
-                                        certeza = False
-                                        print('Voltando e apagando texto')
+                                        elif respostaCerteza.upper() == 'N':
+                                            certeza = False
+                                            print('Voltando e apagando texto')
 
-                                    else:
-                                        raise KeyError
-
-                                    if personagens['geral'][apagarSave]['usado']:
-                                        resetSave(apagarSave, '', True)
-                                        
+                                        else:
+                                            raise KeyError
                                     else:
                                         print('Personagem não existe!!!')
 
