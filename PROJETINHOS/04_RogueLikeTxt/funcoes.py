@@ -16,6 +16,8 @@ purpleBg = '\033[045m'
 greenBg = '\033[042m'
 
 #BG + TXT
+#Primeiro cor do BG depois TXT
+BlackRed = '\033[40;91m'
 
 #CORES COM SEMANTICA
 #ruim

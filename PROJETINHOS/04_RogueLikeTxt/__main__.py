@@ -42,7 +42,7 @@ from rpg import *
 
 #NO GERAL FALTA-
 #BALANCEAR
-#TIRAR A BAGUNCA DE ANSICODES, 
+#TIRAR A BAGUNCA DE ANSICODES
 #DEIXAR BONITO, PRINCIPALMENTE PRIMEIRO MENU
 #BUGS
 #UPGRADES
@@ -50,5 +50,5 @@ from rpg import *
 #DEFESA
 #CONTINUAR
 
-iniciarJogo()
-
+#iniciarJogo()
+iniciarDebug()

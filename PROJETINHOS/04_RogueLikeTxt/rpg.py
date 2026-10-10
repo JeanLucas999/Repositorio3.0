@@ -11,6 +11,11 @@ from funcoes import *
 #Da pra fazer algo muito legal
 #Sistema de energia para balancear mais
 
+def iniciarDebug():
+    global jogo, debug
+    debug = True
+    protafake = Protagonista('Jean')
+    jogo = Jogo(protafake)
 
 def iniciarJogo():
     global jogo
@@ -214,8 +219,12 @@ class Jogo:
 
         prota = objetoProta
 
-        self.chamber = 1
+        if debug:
+            prota.vida = 1000
+            prota.atq = 1000
 
+        self.chamber = 1
+    
         prota.lvlUp()
         
         self.inimigoNovo()
@@ -505,7 +514,7 @@ class Protagonista(Combatente):
         #CLASSES COM STATS DIFERENTES
         super().__init__()
         self.nome = nome
-        self.atq = 1000
+        self.atq = 10
         self.vidaMax = self.vida
         self.atqMax = self.atq
         self.speedMax = self.speed
