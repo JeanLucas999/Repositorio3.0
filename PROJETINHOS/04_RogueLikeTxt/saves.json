@@ -2,10 +2,10 @@
     "geral": [
         {
             "save": 1,
-            "nome": "Inexistente",
+            "nome": "eee",
             "camaraMaxima": 0,
             "upgrades": [],
-            "usado": false
+            "usado": true
         },
         {
             "save": 2,

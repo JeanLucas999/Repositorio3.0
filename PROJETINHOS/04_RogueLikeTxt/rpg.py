@@ -18,17 +18,21 @@ def iniciarDebug():
     jogo = Jogo(protafake)
 
 def iniciarJogo():
-    global jogo
+    global jogo, debug
+    debug = False
     resposta = 0
     erro = False
     temSave = False
-    linha()
-    print('Continuar ou criar um novo save?')
-
     
     while erro or resposta == 0:
         try:
-            resposta = int(input('1- Continuar\n2- Criar novo save\n3- Apagar save\nEscolha: '))
+            linha()
+
+            print(f'{BlueYellow}{'Continuar ou criar um novo save?':^40}{fecharcor}')
+            resposta = int(input(f'{whiteBg}{'1- Continuar':^40}{fecharcor}\n{whiteBg}{'2- Criar novo save':^40}{fecharcor}\n{whiteBg}{'3- Apagar save':^40}{fecharcor}\nEscolha: '))
+
+            limparTela()
+
             if resposta == 1:
                 erro = False
                 temSave = False
@@ -44,13 +48,18 @@ def iniciarJogo():
 
                     #Se tiver, mostrar eles e depois fazer a escolha de um
                     if temSave:
-                        print('for2')
+                        linha()
+
+                        print(f'{BlueYellow}{'Qual save deseja abrir?':^40}{fecharcor}')
 
                         for i, c in enumerate(personagens['geral']):
-                            if c['usado']:
-                                print(f'{i+1}- {c['nome']}, maior camara alcançada:{c['camaraMaxima']}')
+                            listarPersonagens = f'{c['nome']}, maior camara alcançada:{c['camaraMaxima']}'
+                            print(f'{whiteBg}{i+1}- {listarPersonagens:^37}{fecharcor}')
 
                         escolhaSave = int(input('Escolha um save(0 PARA VOLTAR): '))
+
+                        limparTela()
+
                         if escolhaSave == 0:
                             #Erro para voltar pro menu inicial 
                             erro = True
@@ -63,7 +72,8 @@ def iniciarJogo():
 
                     #Senao, subir o erro e voltar pro inicio
                     else:
-                        print('Voce ainda nao possui saves')
+                        linha()
+                        print(f'{BlackRed}{'AINDA NAO EXISTEM SAVES':^40}{fecharcor}')
                         sleep(1)
 
                         erro = True
@@ -78,11 +88,15 @@ def iniciarJogo():
         
                     while not certeza:
                         try:
-                            print('Onde quer colocar seu novo save? ')
+                            linha()
+
+                            print(f'{BlueYellow}{'Onde quer colocar seu novo save?':^40}{fecharcor}')
 
                             for i, c in enumerate(personagens['geral']):
-                                print(f'{i+1}- {c['nome']}, maior camara alcançada:{c['camaraMaxima']}')
+                                listarPersonagens = f'{c['nome']}, maior camara alcançada:{c['camaraMaxima']}'
+                                print(f'{whiteBg}{i+1}- {listarPersonagens:^37}{fecharcor}')
                             novoSave = int(input('Escolha(0 PARA VOLTAR): '))
+                            limparTela()
 
                             if 0 < novoSave < 4:
                                 #cria o save por cima do que tem
@@ -111,15 +125,18 @@ def iniciarJogo():
                                         jogo = Jogo(protafake)
                                     
                                 except KeyError:
-                                    print('DIGITE UM VALOR VALIDO!!!') 
+                                    linha()
+                                    print(f'{redBg}{'DIGITE UM VALOR VALIDO!!!':^40}{fecharcor}') 
 
                             elif novoSave == 0:
                                 erro = True
+                                certeza = True
 
                             else: raise ValueError
 
                         except ValueError:
-                            print('DIGITE UM NUMERO VALIDO!!!')
+                            linha()
+                            print(f'{redBg}{'DIGITE UM NUMERO VALIDO!!!':^40}{fecharcor}') 
 
                         
                         
@@ -142,13 +159,17 @@ def iniciarJogo():
                             temSave = True
 
                     if temSave:
-                        print('Qual save deseja apagar?')
+                        linha()
+
+                        print(f'{redBg}{'Qual save deseja apagar?':^40}{fecharcor}')
 
                         while not certeza:
                             for i, c in enumerate(personagens['geral']):
-                                print(f'{i+1}- {c['nome']}, maior camara alcançada:{c['camaraMaxima']}')
+                                listarPersonagens = f'{c['nome']}, maior camara alcançada:{c['camaraMaxima']}'
+                                print(f'{whiteBg}{i+1}- {listarPersonagens:^37}{fecharcor}')
 
                             apagarSave = int(input('Escolha(0 PARA VOLTAR): '))
+                            limparTela()
 
                             if 0 < apagarSave < 4:
                                 try:
@@ -166,19 +187,26 @@ def iniciarJogo():
                                         else:
                                             raise KeyError
                                     else:
-                                        print('Personagem não existe!!!')
+                                        linha()
+                                        print(f'{redBg}{'PERSONAGEM INEXISTENTE!!!':^40}{fecharcor}')
 
                                 except KeyError:
-                                    print('DIGITE UM VALOR VALIDO')
+                                    linha()
+                                    print(f'{redBg}{'DIGITE UM VALOR VALIDO!!!':^40}{fecharcor}')
+                            if apagarSave == 0:
+                                certeza = True
                     else:
-                        print('AINDA NAO EXISTEM SAVES')
+                        linha()
+                        print(f'{BlackRed}{'AINDA NAO EXISTEM SAVES':^40}{fecharcor}')
+                        sleep(1)
             else:
                 raise ValueError
                 
         except ValueError:
             erro = True
 
-            print('Digite um numero presente!!!')
+            linha()
+            print(f'{redBg}{'DIGITE UM NUMERO VALIDO!!!':^40}{fecharcor}')
 
         #except TypeError:
             #erro = True
@@ -241,14 +269,14 @@ class Jogo:
 
 
     def menuBatalha(self):
-        #Boss a cada 10 Câmaras
+        
 
         print(f'Câmara: {self.chamber}')
         linha()
-        print(f'{blackBg}{redTxt}{inimigoAtual.nome} LVL {inimigoAtual.lvl}{fecharcor}\n{greenTxt}{blackBg}Vida: {inimigoAtual.vida}/{inimigoAtual.vidaMax}|{inimigoAtual.vida * 100 / inimigoAtual.vidaMax:.0f}%{fecharcor}{blackBg} {purpleTxt}Atq:{inimigoAtual.atq}{fecharcor}{blackBg} {blueTxt}Vel: {inimigoAtual.speed}{fecharcor}')
+        print(f'{BlackRed}{inimigoAtual.nome} LVL {inimigoAtual.lvl}{fecharcor}\n{BlackGreen}Vida: {inimigoAtual.vida}/{inimigoAtual.vidaMax}|{inimigoAtual.vida * 100 / inimigoAtual.vidaMax:.0f}% {fecharcor}{BlackPurple}Atq:{inimigoAtual.atq} {fecharcor}{BlackBlue}Vel: {inimigoAtual.speed}{fecharcor}')
 
         linha()
-        print(f'{blackBg}{blueTxt}{prota.nome.capitalize()} LVL {prota.lvl}{fecharcor}\n{blackBg}{greenTxt}Vida: {prota.vida}/{prota.vidaMax}|{prota.vida * 100 / prota.vidaMax:.0f}% {fecharcor}{blackBg}{purpleTxt}Atq:{prota.atq}{fecharcor}{blackBg}{blueTxt} Vel: {prota.speed}{fecharcor}')
+        print(f'{BlackBlue}{prota.nome.capitalize()} LVL {prota.lvl}{fecharcor}\n{BlackGreen}Vida: {prota.vida}/{prota.vidaMax}|{prota.vida * 100 / prota.vidaMax:.0f}% {fecharcor}{BlackPurple}Atq:{prota.atq} {fecharcor}{BlackBlue}Vel: {prota.speed}{fecharcor}')
         linha()
 
         sleep(1)
@@ -263,7 +291,7 @@ class Jogo:
         #Da pra fazer ataques diferentes por complemento dentro da classe inimigo, a classe pode receber o self.complemento alem do nome e com isso ter alguns ataques diferentes, uma classe para cada, cada complemento tem buff nos stats
 
         self.nomeFeito = nomes[self.decisao1] + complementos[self.decisao2]
-        print (f'{redBg}{blackTxt}  Voce enfrentara um(a) {self.nomeFeito}  {fecharcor}')
+        print (f'{redBg} Voce enfrentara um(a) {self.nomeFeito}  {fecharcor}')
         sleep(2)
 
         if self.decisao1 == 0:
@@ -533,7 +561,7 @@ class Protagonista(Combatente):
         self.sp += 3
         self.skillMenu()
         while self.sp != 0 or self.erro == True:
-            upar = int(input(f'{yellowTxt}1- {greenTxt}VIDA: {self.vida}{fecharcor} + 5\n{yellowTxt}2- {redTxt}ATAQUE: {self.atq}{fecharcor} + 1\n{yellowTxt}3- {blueTxt}VELOCIDADE {self.speed}{fecharcor} + 5\nEscolha: '))
+            upar = int(input(f'{BlackYellow}1- {BlackGreen}VIDA: {self.vida} + 5{fecharcor}\n{BlackYellow}2- {BlackRed}ATAQUE: {self.atq} + 1{fecharcor}\n{BlackYellow}3- {BlackBlue}VELOCIDADE {self.speed} + 5{fecharcor}\nEscolha: '))
             if 0 < upar < 4:
                 self.erro = False
                 self.sp -= 1
@@ -667,13 +695,9 @@ class Inimigo(Combatente):
         else:
             self.lvl = self.lvlBaseado - self.lvlBaseado * randint(1,3)*10 / 100
 
-        print('Lvl Antes: ', self.lvl)
-
         if self.lvl < 1: self.lvl = 1 
 
-        print('Lvl Baseado:', self.lvlBaseado)
         self.lvl = floor(self.lvl)
-        print('Lvl Depois: ', self.lvl)
         
         #Depois disso aqui tem que puxar um metodo nos inimigos filhos, para decidir os stats deles baseado no tipo de cada um
         #super.decidirStats

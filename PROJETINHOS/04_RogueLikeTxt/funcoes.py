@@ -4,7 +4,6 @@ blueTxt = '\033[094m'
 yellowTxt = '\033[093m'
 purpleTxt = '\033[095m'
 greenTxt = '\033[092m'
-blackTxt = '\033[030m'
 
 #CORES BACKGROUND
 blackBg = '\033[040m'
@@ -17,7 +16,15 @@ greenBg = '\033[042m'
 
 #BG + TXT
 #Primeiro cor do BG depois TXT
-BlackRed = '\033[40;91m'
+BlackRed = '\033[040;091m'
+BlackGreen = '\033[040;092m'
+BlackPurple = '\033[040;095m'
+BlackBlue = '\033[040;094m'
+BlackYellow = '\033[040;093m'
+
+RedBlack = '\033[041;090m'
+
+BlueYellow = '\033[044;093m'
 
 #CORES COM SEMANTICA
 #ruim
@@ -32,7 +39,12 @@ BlackRed = '\033[40;91m'
 def limparTela():
     print('\033[2J')
 
-def linha():
-    print('-'*40)
+def linha(bg='sem'):
+    if bg == 'sem':
+        print('-'*40)
+    if bg == 'white':
+        print(f'{whiteBg}{'-'*40}{fecharcor}')
+
+
 
 fecharcor = '\33[m'
