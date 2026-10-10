@@ -20,17 +20,16 @@ from rpg import *
 
 #GERAIS-
 
+#Voce tem certeza, antes de apagar save
+#Fazer continuar funcionar, preciso mandar os dados pro meu prota, talvez por parametro mesmo
 #Json editado depois da morte
 #Botao de voltar no menu (Preciso nos outros tbm)
 #Botao de continuar
 #Cores diferente para cada porcentagem, quanto pior mais vermelho, tipo isso
-#Arrumar os int input para nao tomar erro na cara
+#Arrumar os int input que faltam para nao tomar erro na cara
 #Ataques
 #Defesa
 #Cura avançada
-#Camara maxima alcancada e upgrades permanentes em JSON
-#Mais que um save e um menu para escolher qual quer
-#Nome do protagonista so uma vez
 
 
 #MOVIMENTOS-
@@ -39,6 +38,15 @@ from rpg import *
 #MECANICAS NOVAS-
 #Drop de itens
 #Roleta pra tentar reviver
+
+
+#NO GERAL FALTA-
+#BALANCEAR
+#BUGS
+#UPGRADES
+#ATAQUES
+#DEFESA
+#CONTINUAR
 
 iniciarJogo()
 

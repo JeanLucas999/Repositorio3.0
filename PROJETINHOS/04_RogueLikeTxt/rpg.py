@@ -23,9 +23,10 @@ def iniciarJogo():
     
     while erro or resposta == 0:
         try:
-            resposta = int(input('1- Continuar\n2- Criar novo save\nEscolha: '))
+            resposta = int(input('1- Continuar\n2- Criar novo save\n3- Apagar save\nEscolha: '))
             if resposta == 1:
                 erro = False
+                temSave = False
 
                 #Ler saves
                 with open('PROJETINHOS/04_RogueLikeTxt/saves.json', 'r', encoding='utf-8') as arq:
@@ -46,7 +47,7 @@ def iniciarJogo():
 
                         escolhaSave = int(input('Escolha um save(0 PARA VOLTAR): '))
                         if escolhaSave == 0:
-                            #erro para voltar pro menu inicial 
+                            #Erro para voltar pro menu inicial 
                             erro = True
 
                         elif personagens['geral'][escolhaSave-1]['usado']:
@@ -64,30 +65,107 @@ def iniciarJogo():
 
             elif resposta == 2:
                 erro = False
+                certeza = False
 
-                with open('PROJETINHOS\04_RogueLikeTxt\saves.json', 'r+', encoding='utf-8') as arq:
-                    print('Onde quer colocar seu novo save? ')
+                with open('PROJETINHOS/04_RogueLikeTxt/saves.json', 'r', encoding='utf-8') as arq:
 
-                    for i, c in enumerate(personagens['geral']):
-                        print(f'{i+1}- {c['nome']}, maior camara alcançada:{c['camaraMaxima']}')
-                    novoSave = int(input)('Escolha(0 PARA VOLTAR): ')
+                    personagens = json.load(arq)
+        
+                    while not certeza:
+                        try:
+                            print('Onde quer colocar seu novo save? ')
 
-                    if 0 > novoSave < 4:
-                        #cria o save por cima do que tem
-                        nomeProta = str(input('DIGITE O NOME DO SEU PROTAGONISTA: '))
-                        protafake = Protagonista(nomeProta)
-                        jogo = Jogo(protafake)
-                        pass
+                            for i, c in enumerate(personagens['geral']):
+                                print(f'{i+1}- {c['nome']}, maior camara alcançada:{c['camaraMaxima']}')
+                            novoSave = int(input('Escolha(0 PARA VOLTAR): '))
 
-                    elif novoSave == 0:
-                        erro = True
+                            if 0 < novoSave < 4:
+                                #cria o save por cima do que tem
+                                try:
+                                    respostaCerteza = input(f'VOCÊ TEM CERTEZA QUE DESEJA APAGAR O SAVE {novoSave}- {personagens['geral'][novoSave]['nome']} [S/N] ')
+
+                                    if respostaCerteza.upper() == 'S':
+                                        certeza = True
+                                        nomeProta = str(input('DIGITE O NOME DO SEU PROTAGONISTA: '))
+                                        resetSave(novoSave, nomeProta)
+                                        protafake = Protagonista(nomeProta)
+                                        jogo = Jogo(protafake)
+
+                                    elif respostaCerteza.upper() == 'N':
+                                        certeza = False
+                                        print('Voltando e apagando texto')
+
+                                    else:
+                                        raise KeyError
+                                    
+                                except KeyError:
+                                    print('DIGITE UM VALOR VALIDO!!!') 
+
+                            elif novoSave == 0:
+                                erro = True
+
+                            else: raise ValueError
+
+                        except ValueError:
+                            print('DIGITE UM NUMERO VALIDO!!!')
+
+                        
                         
 
                 #criar o save
 
+            elif resposta == 3:
+                #erro = True para voltar pro menu sempre
+                erro = True
+                certeza = False
+                temSave = False
+                certeza = False
+
+
+
+                with open('PROJETINHOS/04_RogueLikeTxt/saves.json', 'r', encoding='utf-8') as arq:
+                    personagens = json.load(arq)
+                    for c in personagens['geral']:
+                        if c['usado']:
+                            temSave = True
+
+                    if temSave:
+                        print('Qual save deseja apagar?')
+
+                        while not certeza:
+                            for i, c in enumerate(personagens['geral']):
+                                print(f'{i+1}- {c['nome']}, maior camara alcançada:{c['camaraMaxima']}')
+
+                            apagarSave = int(input('Escolha(0 PARA VOLTAR): '))
+
+                            if 0 < apagarSave < 4:
+                                try:
+                                    respostaCerteza = input(f'VOCÊ TEM CERTEZA QUE DESEJA APAGAR O SAVE {novoSave}- {personagens['geral'][apagarSave]['nome']} [S/N] ')
+
+                                    if respostaCerteza.upper() == 'S':
+                                        certeza = True
+                                        resetSave(apagarSave, '', True)
+
+                                    elif respostaCerteza.upper() == 'N':
+                                        certeza = False
+                                        print('Voltando e apagando texto')
+
+                                    else:
+                                        raise KeyError
+
+                                    if personagens['geral'][apagarSave]['usado']:
+                                        resetSave(apagarSave, '', True)
+                                        
+                                    else:
+                                        print('Personagem não existe!!!')
+
+                                except KeyError:
+                                    print('DIGITE UM VALOR VALIDO')
+                    else:
+                        print('AINDA NAO EXISTEM SAVES')
             else:
                 raise ValueError
-            
+                
         except ValueError:
             erro = True
 
@@ -99,7 +177,26 @@ def iniciarJogo():
             #print('Digite um numero!!!')
 
 
+def resetSave(numRecebido=0, nomeProta='', apagar:bool = False):
+    with open('PROJETINHOS/04_RogueLikeTxt/saves.json', 'r+', encoding='utf-8') as arq:
+        personagens = json.load(arq)
 
+        numArrumado = numRecebido-1
+        if apagar == False:
+            personagens['geral'][numArrumado]['nome'] = nomeProta
+            personagens['geral'][numArrumado]['camaraMaxima'] = 0
+            personagens['geral'][numArrumado]['upgrades'] = []
+            personagens['geral'][numArrumado]['usado'] = True
+
+        if apagar == True:
+            personagens['geral'][numArrumado]['nome'] = 'Inexistente'
+            personagens['geral'][numArrumado]['camaraMaxima'] = 0
+            personagens['geral'][numArrumado]['upgrades'] = []
+            personagens['geral'][numArrumado]['usado'] = False
+
+        arq.seek(0) #VOLTA O CURSOR PARA PRIMEIRA LINHA
+        json.dump(personagens, arq, indent=4, ensure_ascii=False)
+        arq.truncate() #APAGA SOBRAS
 
 
 class Jogo:
