@@ -35,9 +35,11 @@ from rpg import *
 
 #MOVIMENTOS-
 #Ataques com dano baseados em vida/speed
+#Tipos, buffs, nerfs, efeitos
 
 #MECANICAS NOVAS-
-#Drop de itens
+#Cartas de buff(Os inimigos precisam ficar mais fortes se tiver isso)
+#Olhar cartas atuais
 #Roleta pra tentar reviver
 
 #APARENCIA-
@@ -45,6 +47,7 @@ from rpg import *
 #NOTIFICACAO DE LVL UP
 #MENU DE BATALHA
 #ATAQUES
+#BARRA DE XP
 
 #NO GERAL FALTA-
 #BOSSES

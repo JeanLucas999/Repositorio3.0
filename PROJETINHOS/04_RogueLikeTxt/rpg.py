@@ -249,7 +249,9 @@ class Jogo:
 
         if debug:
             prota.vida = 1000
+            prota.vidaMax = prota.vida
             prota.atq = 1000
+            prota.atqMax = prota.atqMax
 
         self.chamber = 1
     
@@ -270,16 +272,26 @@ class Jogo:
 
     def menuBatalha(self):
         
+        camaraTxt = f'Câmara: {self.chamber}'
+        print(f'{redBg}{camaraTxt:^52}{fecharcor}')
 
-        print(f'Câmara: {self.chamber}')
-        linha()
-        print(f'{BlackRed}{inimigoAtual.nome} LVL {inimigoAtual.lvl}{fecharcor}\n{BlackGreen}Vida: {inimigoAtual.vida}/{inimigoAtual.vidaMax}|{inimigoAtual.vida * 100 / inimigoAtual.vidaMax:.0f}% {fecharcor}{BlackPurple}Atq:{inimigoAtual.atq} {fecharcor}{BlackBlue}Vel: {inimigoAtual.speed}{fecharcor}')
+        espacoColorido(52, 'white')
 
-        linha()
-        print(f'{BlackBlue}{prota.nome.capitalize()} LVL {prota.lvl}{fecharcor}\n{BlackGreen}Vida: {prota.vida}/{prota.vidaMax}|{prota.vida * 100 / prota.vidaMax:.0f}% {fecharcor}{BlackPurple}Atq:{prota.atq} {fecharcor}{BlackBlue}Vel: {prota.speed}{fecharcor}')
-        linha()
+        nomeInimigoTxt = f'{inimigoAtual.nome} LVL {inimigoAtual.lvl}'
+        statsInimigoTxt = f'Vida: {inimigoAtual.vida}/{inimigoAtual.vidaMax}|{inimigoAtual.vida * 100 / inimigoAtual.vidaMax:.0f}% Atq:{inimigoAtual.atq} Vel: {inimigoAtual.speed}'
 
-        sleep(1)
+        print(f'{blackBg}{statsInimigoTxt:^52}{fecharcor}\n{BlackRed}{nomeInimigoTxt:^52}{fecharcor}')
+
+        espacoColorido(52, 'purple')
+
+        nomeProtaTxt = f'{prota.nome.capitalize()} LVL {prota.lvl}'
+        statsProtaTxt = f'Vida: {prota.vida}/{prota.vidaMax}|{prota.vida * 100 / prota.vidaMax:.0f}% Atq:{prota.atq} Vel: {prota.speed}'
+
+
+        print(f'{BlackBlue}{nomeProtaTxt:^52}{fecharcor}\n{blackBg}{statsProtaTxt:^52}{fecharcor}')
+
+        espacoColorido(52, 'white')
+
 
     def inimigoNovo(self):
         global inimigoAtual
@@ -291,7 +303,9 @@ class Jogo:
         #Da pra fazer ataques diferentes por complemento dentro da classe inimigo, a classe pode receber o self.complemento alem do nome e com isso ter alguns ataques diferentes, uma classe para cada, cada complemento tem buff nos stats
 
         self.nomeFeito = nomes[self.decisao1] + complementos[self.decisao2]
-        print (f'{redBg} Voce enfrentara um(a) {self.nomeFeito}  {fecharcor}')
+        inimigoNovoTxt = f'Voce enfrentara um(a) {self.nomeFeito}'
+
+        print (f'{redBg}{inimigoNovoTxt:^52}{fecharcor}')
         sleep(2)
 
         if self.decisao1 == 0:
@@ -418,7 +432,10 @@ class Jogo:
             
             self.menuBatalha()
             try:
-                movimento = int(input('1- Atacar  2- Defender  3- Curar: '))
+                movimentoTxt = f'1- Atacar  2- Defender  3- Curar: '
+                print(f'{blueBg}{movimentoTxt:^52}{fecharcor}')
+                movimento = int(input())
+                limparTela()
 
                 if 0 < movimento < 4:
                     if movimento == 1:
@@ -430,9 +447,8 @@ class Jogo:
 
                     if movimento == 3:
                         while not selecionado:
-                            linha()
-                            print(f'{redTxt}{blackBg}A CADA CURA SEGUIDA VOCÊ TEM MAIS CHANCE DE ERRAR!!!.{fecharcor}')
-                            print(f'{redTxt}{blackBg}{prota.curasSeguidas*20}% A MAIS DE CHANCE DE ERRO!!!{fecharcor}')
+                            print(f'{BlackRed}A CADA CURA SEGUIDA VOCÊ TEM MAIS CHANCE DE ERRAR!!!{fecharcor}')
+                            print(f'{BlackRed}{prota.curasSeguidas*20}% A MAIS DE CHANCE DE ERRO!!!{fecharcor}')
                             self.curaEscolhida = int(input(f'{yellowTxt}1- {greenTxt}Cura Simples:{fecharcor} {listaCuras[0]['desc']} \n{yellowTxt}2- {greenTxt}Cura Media:{fecharcor} {listaCuras[1]['desc']}\n{yellowTxt}3- {greenTxt}Cura Avançada:{fecharcor} {listaCuras[1]['desc']}\n{yellowTxt}4- {redTxt}Voltar{fecharcor}\nEscolha: '))
 
                             if 0 < self.curaEscolhida < 4:
@@ -490,6 +506,11 @@ class Combatente(ABC):
         self.dado6 = 1
         self.curasSeguidas = 0
 
+        #QUANTO UPA POR PONTO
+        self.vidaX = 5
+        self.atqX = 1
+        self. speedX = 5
+
     def girarDado(self):
         self.dado6 = randint(1,6)
 
@@ -510,15 +531,15 @@ class Combatente(ABC):
             self.dano = self.atq
 
     def upHp(self):
-        self.vida += 5
+        self.vida += self.vidaX
         self.vidaMax = self.vida
 
     def upAtq(self):
-        self.atq += 1
+        self.atq += self.atqX
         self.atqMax = self.atq
 
     def upSpeed(self):
-        self.speed += 5
+        self.speed += self.speedX
         self.speedMax = self.speed
 
     @abstractmethod
@@ -552,16 +573,28 @@ class Protagonista(Combatente):
         self.erro = None
 
     def skillMenu(self):
-        print(f'{purpleTxt}{whiteBg}             Skill Points:{self.sp}             {fecharcor}')
-        print(f'{purpleTxt}{whiteBg}           O que deseja upar?           {fecharcor}')
-        linha()
+        print(f'{purpleTxt}{whiteBg}                   Skill Points:{self.sp}                   {fecharcor}')
+        print(f'{purpleTxt}{whiteBg}                 O que deseja upar?                 {fecharcor}')
 
     def lvlUp(self):
         self.lvl += 1
         self.sp += 3
         self.skillMenu()
+
         while self.sp != 0 or self.erro == True:
-            upar = int(input(f'{BlackYellow}1- {BlackGreen}VIDA: {self.vida} + 5{fecharcor}\n{BlackYellow}2- {BlackRed}ATAQUE: {self.atq} + 1{fecharcor}\n{BlackYellow}3- {BlackBlue}VELOCIDADE {self.speed} + 5{fecharcor}\nEscolha: '))
+            uparTxt = [f'VIDA: {self.vida} + {self.vidaX}', f'ATAQUE: {self.atq} + {self.atqX}', f'VELOCIDADE {self.speed} + {self.speedX}']
+
+            for i, c in enumerate(uparTxt):
+                #Precisa do if por causa das cores diferentes:(, poderia fazer uma lista das cores e puxar por indice mas nem compensa, diminuira 3 linhas
+                
+                if i == 0: print(f'{PurpleYellow}{i+1} - {PurpleGreen}{c:^48}{fecharcor}')
+
+                elif i == 1: print(f'{PurpleYellow}{i+1} - {PurpleRed}{c:^48}{fecharcor}')
+
+                else: print(f'{PurpleYellow}{i+1} - {PurpleBlue}{c:^48}{fecharcor}')
+
+            upar = int(input(f'Escolha: '))
+            
             if 0 < upar < 4:
                 self.erro = False
                 self.sp -= 1

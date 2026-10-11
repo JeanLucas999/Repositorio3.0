@@ -25,6 +25,23 @@ BlackYellow = '\033[040;093m'
 RedBlack = '\033[041;090m'
 
 BlueYellow = '\033[044;093m'
+BlueGreen = '\033[044;092m'
+BlueRed = '\033[044;091m'
+BlueWhite = '\033[044;097m'
+BluePurple = '\033[044;095m'
+
+PurpleYellow = '\033[045;093m'
+PurpleGreen = '\033[045;092m'
+PurpleRed = '\033[045;091m'
+PurpleWhite = '\033[045;097m'
+PurpleBlue = '\033[045;094m'
+
+
+WhiteYellow = '\033[047;093m'
+WhiteGreen = '\033[047;092m'
+WhiteRed = '\033[047;091m'
+WhiteBlue = '\033[047;094m'
+WhitePurple = '\033[047;095m'
 
 #CORES COM SEMANTICA
 #ruim
@@ -39,11 +56,35 @@ BlueYellow = '\033[044;093m'
 def limparTela():
     print('\033[2J')
 
-def linha(bg='sem'):
-    if bg == 'sem':
-        print('-'*40)
-    if bg == 'white':
-        print(f'{whiteBg}{'-'*40}{fecharcor}')
+def linha(num = 40):
+        print('-'*num)
+
+def espacoColorido(num = 40, cor = 'white', linhas = 1):
+    if cor.lower() == 'white':
+        for c in range(0, linhas):
+            print(f'{whiteBg}{' '*num}{fecharcor}')
+
+    if cor.lower() == 'black':
+        for c in range(0, linhas):
+            print(f'{blackBg}{' '*num}{fecharcor}')
+
+    if cor.lower() == 'purple':
+        for c in range(0, linhas):
+            print(f'{purpleBg}{' '*num}{fecharcor}')
+
+    if cor.lower() == 'blue':
+        for c in range(0, linhas):
+            print(f'{blueBg}{' '*num}{fecharcor}')
+
+    if cor.lower() == 'yellow':
+        for c in range(0, linhas):
+            print(f'{yellowBg}{' '*num}{fecharcor}')
+
+    if cor.lower() == 'red':
+        for c in range(0, linhas):
+            print(f'{redBg}{' '*num}{fecharcor}')
+        
+
 
 
 
