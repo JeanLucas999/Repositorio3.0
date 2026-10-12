@@ -255,7 +255,7 @@ class Jogo:
 
         self.chamber = 1
     
-        prota.lvlUp()
+        prota.lvlUp(1)
         
         self.inimigoNovo()
 
@@ -450,16 +450,18 @@ class Jogo:
                         while not selecionado:
                             print(f'{BlackRed}A CADA CURA SEGUIDA VOCÊ TEM MAIS CHANCE DE ERRAR!!!{fecharcor}')
                             print(f'{BlackRed}{prota.curasSeguidas*20}% A MAIS DE CHANCE DE ERRO!!!{fecharcor}')
-                            self.curaEscolhida = int(input(f'{yellowTxt}1- {greenTxt}Cura Simples:{fecharcor} {listaCuras[0]['desc']} \n{yellowTxt}2- {greenTxt}Cura Media:{fecharcor} {listaCuras[1]['desc']}\n{yellowTxt}3- {greenTxt}Cura Avançada:{fecharcor} {listaCuras[1]['desc']}\n{yellowTxt}4- {redTxt}Voltar{fecharcor}\nEscolha: '))
+                            self.curaEscolhida = int(input(f'{yellowTxt}1- {greenTxt}Cura Simples:{fecharcor} {listaCuras[0]['desc']} \n{yellowTxt}2- {greenTxt}Cura Media:{fecharcor} {listaCuras[1]['desc']}\n{yellowTxt}3- {greenTxt}Cura Avançada:{fecharcor} {listaCuras[1]['desc']}\n{yellowTxt}0- {redTxt}Voltar{fecharcor}\nEscolha: '))
 
                             if 0 < self.curaEscolhida < 4:
                                 selecionado = True
                                 self.decidirOrdem(movimento, self.curaEscolhida)
 
-                            elif self.curaEscolhida == 4:
+                            elif self.curaEscolhida == 0:
                                 limparTela()
                                 break
-                            
+
+                            else:
+                                raise ValueError    
 
                     self.turno += 1
 
@@ -509,8 +511,8 @@ class Combatente(ABC):
         self.curasSeguidas = 0
 
         #QUANTO UPA POR PONTO
-        self.vidaX = 5
-        self.atqX = 1
+        self.vidaX = 4
+        self.atqX = 2
         self. speedX = 5
 
     def girarDado(self):
@@ -592,16 +594,16 @@ class Protagonista(Combatente):
         print(f'{purpleTxt}{whiteBg}                   Skill Points:{self.sp}                   {fecharcor}')
         print(f'{purpleTxt}{whiteBg}                 O que deseja upar?                 {fecharcor}')
 
-    def lvlUp(self):
-        self.lvl += 1
-        self.sp += 3
+    def lvlUp(self, ups):
+        self.lvl += 1*ups
+        self.sp += 3*ups
         self.skillMenu()
 
         while self.sp != 0 or self.erro == True:
             uparTxt = [f'VIDA: {self.vida} + {self.vidaX}', f'ATAQUE: {self.atq} + {self.atqX}', f'VELOCIDADE {self.speed} + {self.speedX}']
 
             for i, c in enumerate(uparTxt):
-                #Precisa do if por causa das cores diferentes:(, poderia fazer uma lista das cores e puxar por indice mas nem compensa, diminuira 3 linhas
+                #Precisa do if por causa das cores diferentes:(, poderia fazer uma lista das cores e puxar por indice mas nem compensa, diminuiria 3 linhas
                 
                 if i == 0: print(f'{PurpleYellow}{i+1} - {PurpleGreen}{c:^48}{fecharcor}')
 
@@ -637,22 +639,26 @@ class Protagonista(Combatente):
         #100% se o inimigo tiver lvl maior
         #Precisa balancear
         self.lvlUpado = 0
-        self.xpUpado = 0
 
-        if inimigoAtual.lvl > self.lvl:
-            self.xpUpado = 50
-            self.xp += 50
+        if inimigoAtual.chamber > self.lvl:
+            self.xpUpado = 20
+
+        else:
+            self.xpUpado = 0
+    
+        if inimigoAtual.lvl < self.lvl:
+            self.xpUpado += 40
+            self.xp += self.xpUpado
 
         elif inimigoAtual.lvl == self.lvl:
-            self.xpUpado = 75
-            self.xp += 75
+            self.xpUpado += 60
+            self.xp += self.xpUpado
 
-        elif inimigoAtual.lvl < self.lvl:
-            self.xpUpado = 100
-            self.xp += 100
+        elif inimigoAtual.lvl > self.lvl:
+            self.xpUpado += 90
+            self.xp += self.xpUpado
 
         while self.xp >= 100:
-            self.xpUpado = 100
             self.lvlUpado += 1
             self.xp -= 100
 
@@ -662,10 +668,11 @@ class Protagonista(Combatente):
         print(f'{greenBg}{upadoTxt:^52}{fecharcor}')
         if self.lvlUpado > 0: print(f'{greenBg}{lvlTxt:^52}{fecharcor}')
 
-        sleep(0.8)
+        sleep(2)
+        limparTela()
 
-        for c in range (0, self.lvlUpado):
-            self.lvlUp()
+        if self.lvlUpado > 0:
+            self.lvlUp(self.lvlUpado)
 
 
 
@@ -749,7 +756,6 @@ class Inimigo(Combatente):
     def decidirLvl(self):
         self.girarDado()
 
-        #Level baseado na chamber ou no prota msm, depende de quem for maior
         if prota.lvl > self.chamber:
             self.lvlBaseado = prota.lvl
         else:
@@ -760,10 +766,10 @@ class Inimigo(Combatente):
             self.lvl = self.lvlBaseado
 
         elif self.dado6 > 4:
-            self.lvl = self.lvlBaseado + randint(1,3)*30/100
+            self.lvl = self.lvlBaseado * (1+randint(1,3)*10/100)
 
         else:
-            self.lvl = self.lvlBaseado - self.lvlBaseado * randint(1,3)*10 / 100
+            self.lvl = self.lvlBaseado * (1-randint(1,3)*10 / 100)
 
         if self.lvl < 1: self.lvl = 1 
 

@@ -5,8 +5,6 @@ from rpg import *
 #Alem de nao funcionar, se voce rejeitar voce toma mais um ataque, nao sei como
 #Colocar mais corzinhas quando cansar
 
-#IMPORTANTE PRA AGORA EM ORDEM DE IMPORTANCIA
-
 #BALANCEAMENTO-
 #Stats inimigos
 #Aumento de lvl dos inimigos
@@ -21,12 +19,9 @@ from rpg import *
 #GERAIS-
 
 #Documentacao para caso alguem queira mexer, bom ter
-#Voce tem certeza, antes de apagar save
 #Fazer continuar funcionar, preciso mandar os dados pro meu prota, talvez por parametro mesmo
 #Json editado depois da morte
-#Botao de voltar no menu (Preciso nos outros tbm)
 #Botao de continuar
-#Cores diferente para cada porcentagem, quanto pior mais vermelho, tipo isso
 #Arrumar os int input que faltam para nao tomar erro na cara
 #Ataques
 #Defesa
@@ -43,16 +38,11 @@ from rpg import *
 #Roleta pra tentar reviver
 
 #APARENCIA-
-#MENU DE LVL UP
-#NOTIFICACAO DE LVL UP
-#MENU DE BATALHA
 #ATAQUES
-#BARRA DE XP
 
 #NO GERAL FALTA-
 #BOSSES
 #BALANCEAR
-#TIRAR A BAGUNCA DE ANSICODES
 #DEIXAR BONITO, PRINCIPALMENTE PRIMEIRO MENU
 #BUGS
 #UPGRADES
@@ -60,8 +50,12 @@ from rpg import *
 #DEFESA
 #CONTINUAR
 
+#PENSAMENTOS
+#Nao faz sentido o inimigo poder se basear no LVL do personagem, isso te pune por voce ficar forte
+#Mesma coisa pro xp, acho que o prota deveria ganhar xp dependendo de como o inimigo esta em relacao a camara e nao ao prota em si
+#Com isso, depois de tantos lvls pode ter um boss com forca parecida do player
+#Para cada lvl acima + XP
+#Buff de XP se o Personagem esta abaixo do lvl da camara
+
 #iniciarJogo()
 iniciarDebug()
-#Pra que return
-#Dividir em 2 linhas
-#Do XP e do LVL
