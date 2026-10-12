@@ -251,7 +251,7 @@ class Jogo:
             prota.vida = 1000
             prota.vidaMax = prota.vida
             prota.atq = 1000
-            prota.atqMax = prota.atqMax
+            prota.atqMax = prota.atq
 
         self.chamber = 1
     
@@ -290,7 +290,7 @@ class Jogo:
 
         print(f'{BlackBlue}{nomeProtaTxt:^52}{fecharcor}\n{blackBg}{statsProtaTxt:^52}{fecharcor}')
 
-        espacoColorido(52, 'white')
+        prota.xpBar()
 
 
     def inimigoNovo(self):
@@ -572,6 +572,20 @@ class Protagonista(Combatente):
         self.xp = 0
         self.erro = None
 
+    def xpBar(self):
+        barSize = 46
+        textoXp = f'{self.xp}% XP'
+        preenchidas = round(self.xp/100*barSize)
+        naoPreenchidas = barSize - preenchidas
+
+        print(f'{greenBg} '*preenchidas, end=f'{fecharcor}')
+
+        if naoPreenchidas > 0:
+            print(f'{whiteBg} '*naoPreenchidas, end=f'{fecharcor}')
+
+        print(f'{greenTxt}{textoXp:^6}{fecharcor}')
+
+        
     def skillMenu(self):
         print(f'{purpleTxt}{whiteBg}                   Skill Points:{self.sp}                   {fecharcor}')
         print(f'{purpleTxt}{whiteBg}                 O que deseja upar?                 {fecharcor}')
