@@ -62,3 +62,6 @@ from rpg import *
 
 #iniciarJogo()
 iniciarDebug()
+#Pra que return
+#Dividir em 2 linhas
+#Do XP e do LVL

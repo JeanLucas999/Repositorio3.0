@@ -409,6 +409,7 @@ class Jogo:
 
         if self.prioridade == 'player':
             self.vezPlayer = True
+
         elif self.prioridade == 'inimigo':
             self.vezPlayer = False
         
@@ -471,7 +472,8 @@ class Jogo:
             if not inimigoAtual.vivo:
                 prota.novaChamber()
                 prota.xpUp()
-
+                
+                
                 self.chamber += 1
                 self.inimigoNovo()
 
@@ -630,21 +632,43 @@ class Protagonista(Combatente):
                 self.erro == True
 
     def xpUp(self):
-        #25% de xp a mais se o inimigo for lvl menor
-        #50% se tiverem os lvls iguais
+        #50% de xp a mais se o inimigo for lvl menor
+        #75% se tiverem os lvls iguais
         #100% se o inimigo tiver lvl maior
         #Precisa balancear
+        self.lvlUpado = 0
+        self.xpUpado = 0
 
-        if inimigoAtual.lvl > self.lvl: self.xp += 50
+        if inimigoAtual.lvl > self.lvl:
+            self.xpUpado = 50
+            self.xp += 50
 
-        elif inimigoAtual.lvl == self.lvl: self.xp += 75
+        elif inimigoAtual.lvl == self.lvl:
+            self.xpUpado = 75
+            self.xp += 75
 
-        elif inimigoAtual.lvl < self.lvl: self.xp += 100
+        elif inimigoAtual.lvl < self.lvl:
+            self.xpUpado = 100
+            self.xp += 100
 
         while self.xp >= 100:
+            self.xpUpado = 100
+            self.lvlUpado += 1
             self.xp -= 100
-            self.lvlUp()
+
+        upadoTxt = f'Você upou {self.xpUpado}% de XP!!!'
+        lvlTxt= f'E upou {self.lvlUpado} LVL!!!'
         
+        print(f'{greenBg}{upadoTxt:^52}{fecharcor}')
+        if self.lvlUpado > 0: print(f'{greenBg}{lvlTxt:^52}{fecharcor}')
+
+        sleep(0.8)
+
+        for c in range (0, self.lvlUpado):
+            self.lvlUp()
+
+
+
 
     def atacar(self):
         self.curasSeguidas = 0
@@ -726,7 +750,6 @@ class Inimigo(Combatente):
         self.girarDado()
 
         #Level baseado na chamber ou no prota msm, depende de quem for maior
-        print('CAMARA ANTES DE ESCOLHER LVL: ', self.chamber)
         if prota.lvl > self.chamber:
             self.lvlBaseado = prota.lvl
         else:
