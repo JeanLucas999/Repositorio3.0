@@ -1,5 +1,6 @@
 #Ordem para o dicionario de cada ataque:
-#NOME, MULTIPLICADOR DE DANO, CHANCE DE ACERTO, TAXA, DANO CRITICO, TIPO, LISTA COM FRASES DE ATAQUE NORMAL, LISTA COM FRASES DE DANO CRITICO, LISTA DE ERROS
+#TIPO
+#NOME, DESCRICAO, MULTIPLICADOR DE DANO, CHANCE DE ACERTO, TAXA, DANO CRITICO, TIPO, EFEITO, CHANCEEFEITO, LISTA COM FRASES DE ATAQUE NORMAL, LISTA COM FRASES DE DANO CRITICO, LISTA DE ERROS
     #{'nome': 'Investida', 'dano': 1, 'chance': 95, 'taxa': 1, 'critico': 1, 'tipo': 'basico', 
      
     #'acerto': 
@@ -22,10 +23,17 @@
 
 #O ERRO REFERE SE AO MESMO INDICE DO ACERTO
 #Girar dado para escolher qual tentativa, tipo comeu doritos 0 x nao conseguiu abrir o pacote 0
+#Efeitos tem duracao por turnos e dano porcento
+listaEfeitos = {
+    'veneno':
+    {'nome': 'Veneno', 'duracao': 5, 'dano': 10}
+}
 
-listaAtaques = [
-    {'nome': 'Investida', 'dano': 1, 'chance': 95, 'taxa': 10, 'critico': 1.5, 'tipo': 'basico', 
-     
+
+listaAtaques =  {
+    'investida':
+    {'nome': 'Investida', 'desc': 'Investe contra o inimigo causando 1x seu ataque', 'dano': 1, 'chance': 95, 'taxa': 10, 'critico': 1.5, 'tipo': 'basico', 'efeito': 'sem',
+
     'acerto': 
     [
         'investiu contra o oponente dando uma cabeçada',
@@ -43,11 +51,46 @@ listaAtaques = [
         'tentou investir, tropeçou e caiu no chão apenas perdendo aura',
         'foi dar uma ombrada no oponente, ele desviou e fez um sinal de "Não" com a cabeça'
     ]
+    },
+
+    'tapa':
+    {'nome': 'Tapa', 'desc': 'Dá um tapa no inimigo causando 1.2x seu ataque', 'dano': 1.2, 'chance': 80, 'taxa': 10, 'critico': 1.5, 'tipo': 'humanoide', 'efeito': 'sem',
+    
+    'acerto': 
+    [
+        'deu um tapa na cara do oponente',
+        'deu um tapa na bunda do oponente'
+    ],
+
+    'critou':
+    [
+        'deu um TAPÃO na cara do oponente que até deixou ele tonto',
+        'deu um baita dum tapa na bunda do oponente'
+    ],
+
+    'erro':
+    [
+        'foi dar um tapa na cara do oponente, o mesmo riu, quem usaria um tapa em uma luta?',
+        'tentou dar um tapa na bunda do oponente, você realmente achou que funcionaria.'
+    ]
+    },
+
+    'envenenamento':
+    {'nome': 'Envenenamento', 'desc': 'Envenena seu inimigo tirando 10% de vida por turno', 'dano': 0, 'chance': 60, 'taxa': 0, 'critico': 0, 'tipo': 'venenoso', 'efeito': listaEfeitos['veneno'], 'chanceEfeito': 100,
+    
+    'acerto': 
+    [
+        'jogou uma chuva de veneno no inimigo',
+        'deixou o inimigo fortemente envenenado'
+    ],
+
+    'erro':
+    [
+        'jogou uma chuva de veneno, NO CHÃO',
+        'deixou o inimigo extremamente normal'
+    ]
     }
-
-]
-
-listaEfeitos = []
+}
 
 #Ordem para as curas:
 #NOME, DESCRICAO, %VIDA, CHANCE DE ACERTO, FRASES ACERTO, ERRO

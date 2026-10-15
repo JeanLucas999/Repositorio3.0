@@ -41,6 +41,7 @@ from rpg import *
 #ATAQUES
 
 #NO GERAL FALTA-
+#ROUND/FLOOR/TETO no dano
 #BOSSES
 #BALANCEAR
 #DEIXAR BONITO, PRINCIPALMENTE PRIMEIRO MENU
@@ -56,6 +57,7 @@ from rpg import *
 #Com isso, depois de tantos lvls pode ter um boss com forca parecida do player
 #Para cada lvl acima + XP
 #Buff de XP se o Personagem esta abaixo do lvl da camara
+
 
 #iniciarJogo()
 iniciarDebug()

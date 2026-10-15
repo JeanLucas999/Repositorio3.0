@@ -1,4 +1,4 @@
-from random import randint
+from random import randint, choice
 from abc import ABC, abstractmethod
 from time import sleep
 from math import floor
@@ -278,14 +278,14 @@ class Jogo:
         espacoColorido(52, 'white')
 
         nomeInimigoTxt = f'{inimigoAtual.nome} LVL {inimigoAtual.lvl}'
-        statsInimigoTxt = f'Vida: {inimigoAtual.vida}/{inimigoAtual.vidaMax}|{inimigoAtual.vida * 100 / inimigoAtual.vidaMax:.0f}% Atq:{inimigoAtual.atq} Vel: {inimigoAtual.speed}'
+        statsInimigoTxt = f'Vida: {inimigoAtual.vida:.0f}/{inimigoAtual.vidaMax}|{inimigoAtual.vida * 100 / inimigoAtual.vidaMax:.0f}% Atq:{inimigoAtual.atq} Vel: {inimigoAtual.speed}'
 
         print(f'{blackBg}{statsInimigoTxt:^52}{fecharcor}\n{BlackRed}{nomeInimigoTxt:^52}{fecharcor}')
 
         espacoColorido(52, 'purple')
 
         nomeProtaTxt = f'{prota.nome.capitalize()} LVL {prota.lvl}'
-        statsProtaTxt = f'Vida: {prota.vida}/{prota.vidaMax}|{prota.vida * 100 / prota.vidaMax:.0f}% Atq:{prota.atq} Vel: {prota.speed}'
+        statsProtaTxt = f'Vida: {prota.vida:.0f}/{prota.vidaMax}|{prota.vida * 100 / prota.vidaMax:.0f}% Atq:{prota.atq} Vel: {prota.speed}'
 
 
         print(f'{BlackBlue}{nomeProtaTxt:^52}{fecharcor}\n{blackBg}{statsProtaTxt:^52}{fecharcor}')
@@ -344,7 +344,7 @@ class Jogo:
         #Pode ter maneiras melhores
 
         if movDecidida == 1:
-            prota.atacar()
+            prota.atacar(acaoDecidida)
         elif movDecidida == 2:
             prota.defender()
         elif movDecidida == 3:
@@ -440,8 +440,24 @@ class Jogo:
 
                 if 0 < movimento < 4:
                     if movimento == 1:
-                        self.decidirOrdem(movimento, 0)
-                        selecionado = True
+                        while not selecionado:
+                            for i, c in enumerate(prota.ataques):
+                                if i % 2 == 0:
+                                    cor = BlackBlue
+                                    corBarra = 'black'
+                                else:
+                                    cor = blueBg
+                                    corBarra = 'blue'
+
+                                atqTxt = f'{i+1}- {c['nome']} - {c['desc']}'
+                                infoTxt = f'{c['chance']}% de acerto, {c['taxa']}% de taxa crítica, {c['critico']}x de multiplicador crítico'
+
+                                
+                                print(f'{cor}{atqTxt:^72}{fecharcor}')
+                    
+                                print(f'{cor}{infoTxt:^72}{fecharcor}')
+                                espacoColorido(72, corBarra)
+                            selecionado = True
 
                     if movimento == 2:
                         selecionado = True
@@ -517,33 +533,33 @@ class Combatente(ABC):
 
 
     def atacarPai(self):
-        print('cheguei no atacar')
-        self.teste = listaAtaques[0]
+        self.teste = listaAtaques['humanoide'][0]
 
         dado = randint(1, 100)
 
         self.curasSeguidas = 0
         
-        print(self.teste)
         if dado < self.teste['chance']:
             if dado > self.teste['taxa']:
                 texto = randint(0, len(self.teste['acerto'])-1)
 
                 self.dano = self.atq * self.teste['dano']
 
-                print(f'{self.nome} {self.teste['acerto'][texto]}')
+                print(f'{self.nome} {self.teste['acerto'][texto]} e causou {self.dano} de dano')
             else:
                 texto = randint(0, len(self.teste['critou'])-1)
                 
                 self.dano = self.atq * self.teste['dano'] * self.teste['critico']
 
-                print(f'{self.nome} {self.teste['critou'][texto]}')
+                print(f'{self.nome} {self.teste['critou'][texto]} foi CRÍTICO e causou {self.dano} de dano')
         else:
             texto = randint(0, len(self.teste['erro'])-1)
 
             self.dano = 0
 
-            print(f'{self.nome} {self.teste['erro'][texto]}')
+            print(f'{self.nome} {self.teste['erro'][texto]} NADA aconteceu')
+
+        sleep(2)
 
     def curarPai(self):
         dado = randint(1, 100)
@@ -612,6 +628,7 @@ class Protagonista(Combatente):
         self.sp = 0
         self.xp = 0
         self.erro = None
+        self.ataques = [listaAtaques['investida'], listaAtaques['tapa'], listaAtaques['envenenamento'], listaAtaques['investida']]
 
     def xpBar(self):
         barSize = 46
@@ -825,10 +842,6 @@ class Aranha(Inimigo):
         self.tipos = ['basico', 'veneno', 'inseto']
         super().__init__()
 
-    def atacar(self):
-        super().atacar()
-        print('ataquei')
-
     def decidirStats(self):
         c = 1
         dadoStats = randint(1,100)
@@ -848,12 +861,8 @@ class Paladino(Inimigo):
         self.base = base
         self.complemento = comp
         self.chamber = chamber
-        self.tipos = ['basico', 'humano', 'magia']
+        self.tipos = ['basico', 'humanoide', 'magia']
         super().__init__()
-
-    def atacar(self):
-        super().atacar()
-        print('ataquei')
 
     def decidirStats(self):
         c = 1
@@ -877,10 +886,6 @@ class Urso(Inimigo):
         self.tipos = ['basico', 'pesado', 'animal']
         super().__init__()
 
-    def atacar(self):
-        super().atacar()
-        print('ataquei')
-
     def decidirStats(self):
         c = 1
         dadoStats = randint(1,100)
@@ -900,12 +905,8 @@ class Goblin(Inimigo):
         self.base = base
         self.complemento = comp
         self.chamber = chamber
-        self.tipos = ['basico', 'bandido', 'pequeno']
+        self.tipos = ['basico', 'bandido', 'pequeno', 'humanoide']
         super().__init__()
-
-    def atacar(self):
-        super().atacar()
-        print('ataquei')
 
     def decidirStats(self):
         c = 1
@@ -925,12 +926,8 @@ class Vampiro(Inimigo):
         self.base = base
         self.complemento = comp
         self.chamber = chamber
-        self.tipos = ['basico', 'voador', 'vampirismo']
+        self.tipos = ['basico', 'voador', 'vampirismo', 'humanoide']
         super().__init__()
-
-    def atacar(self):
-        super().atacar()
-        print('ataquei')
 
     def decidirStats(self):
         c = 1
