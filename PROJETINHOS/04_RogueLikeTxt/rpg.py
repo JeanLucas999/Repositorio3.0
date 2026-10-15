@@ -295,7 +295,7 @@ class Jogo:
 
     def inimigoNovo(self):
         global inimigoAtual
-        nomes = ['Aranha ', 'Goblin ', 'Paladino ', 'Leprechaum ', 'Urso ']
+        nomes = ['Aranha ', 'Goblin ', 'Paladino ', 'Vampiro ', 'Urso ']
         complementos = ['Gigante', 'Bazukeiro', 'Demoniaco', 'Malabarista', 'Peludo', 'Lambedor', 'Foguento', 'Serio']
         self.decisao1 = randint(0, len(nomes)-1)
         self.decisao2 = randint(0, len(complementos)-1)
@@ -313,22 +313,22 @@ class Jogo:
             print('Criei aranha')
 
         elif self.decisao1 == 1:
-            inimigoAtual = Aranha(self.nomeFeito, self.decisao1, self.decisao2, self.chamber)
+            inimigoAtual = Goblin(self.nomeFeito, self.decisao1, self.decisao2, self.chamber)
             print('Criei goblin')
 
 
         elif self.decisao1 == 2:
-            inimigoAtual = Aranha(self.nomeFeito, self.decisao1, self.decisao2, self.chamber)
+            inimigoAtual = Paladino(self.nomeFeito, self.decisao1, self.decisao2, self.chamber)
             print('Criei Paladino')
 
 
         elif self.decisao1 == 3:
-            inimigoAtual = Aranha(self.nomeFeito, self.decisao1, self.decisao2, self.chamber)
-            print('Criei Leprechaum')
+            inimigoAtual = Vampiro(self.nomeFeito, self.decisao1, self.decisao2, self.chamber)
+            print('Criei Vampiro')
 
 
         else:
-            inimigoAtual = Aranha(self.nomeFeito, self.decisao1, self.decisao2, self.chamber)
+            inimigoAtual = Urso(self.nomeFeito, self.decisao1, self.decisao2, self.chamber)
             print('Criei urso')
 
 
@@ -515,24 +515,61 @@ class Combatente(ABC):
         self.atqX = 2
         self. speedX = 5
 
+
+    def atacarPai(self):
+        print('cheguei no atacar')
+        self.teste = listaAtaques[0]
+
+        dado = randint(1, 100)
+
+        self.curasSeguidas = 0
+        
+        print(self.teste)
+        if dado < self.teste['chance']:
+            if dado > self.teste['taxa']:
+                texto = randint(0, len(self.teste['acerto'])-1)
+
+                self.dano = self.atq * self.teste['dano']
+
+                print(f'{self.nome} {self.teste['acerto'][texto]}')
+            else:
+                texto = randint(0, len(self.teste['critou'])-1)
+                
+                self.dano = self.atq * self.teste['dano'] * self.teste['critico']
+
+                print(f'{self.nome} {self.teste['critou'][texto]}')
+        else:
+            texto = randint(0, len(self.teste['erro'])-1)
+
+            self.dano = 0
+
+            print(f'{self.nome} {self.teste['erro'][texto]}')
+
+    def curarPai(self):
+        dado = randint(1, 100)
+
+        if dado <= listaCuras[self.curaDecidida]['chance']-self.curasSeguidas*20:
+            texto = randint(0, len(listaCuras[self.curaDecidida]['acerto'])-1)
+
+            print(f'{self.nome} {listaCuras[self.curaDecidida]['acerto'][texto]}')
+
+            self.vida += self.vidaMax*listaCuras[self.curaDecidida]['vida']/100
+
+            self.curasSeguidas += 1
+        else:
+            texto = randint(0, len(listaCuras[self.curaDecidida]['erro'])-1)
+
+            print(f'{self.nome} {listaCuras[self.curaDecidida]['erro'][texto]}')
+
+            self.curasSeguidas = 0
+            
+        if self.vida>self.vidaMax:
+            #SE PASSAR DE 100%
+            self.vida = self.vidaMax
+
+
     def girarDado(self):
         self.dado6 = randint(1,6)
-
-    def danoCritico(self):
-
-        self.num = randint(1, 101)
-
-        if self.num <= self.taxa:
-            print('DANO CRITICO!!!')
-            self.dano = self.crit*self.atq
-        elif self.num == 101:
-            print('O atacante tentou atacar, acabou tropeçando em uma pedra, caiu de cara no chão, perdeu "10%" de vida e 100 de aura')
-            self.vida -= self.vida*0.10
-            self.aura -= 100
-            self.dano = 0
-        else:
-            print('Dano normal')
-            self.dano = self.atq
 
     def upHp(self):
         self.vida += self.vidaX
@@ -675,14 +712,17 @@ class Protagonista(Combatente):
             self.lvlUp(self.lvlUpado)
 
 
-
-
     def atacar(self):
-        self.curasSeguidas = 0
-        self.danoCritico()
+        super().atacarPai()
+
         inimigoAtual.vida -= self.dano
         if inimigoAtual.vida <= 0:
             inimigoAtual.morrer()
+
+    def curar(self, curaEscolhida):
+        self.curaDecidida = curaEscolhida -1
+
+        super().curarPai()
 
     def novaChamber(self):
         self.vida = self.vidaMax
@@ -703,30 +743,6 @@ class Protagonista(Combatente):
         else:
             print('Fim de jogo')
 
-    def curar(self, curaEscolhida):
-        #curas seguidas diminuem a proxima chance de acerto
-        #20% a menos de chance de acerto por cura seguida
-        dado = randint(0, 100)
-        self.curaDecidida = curaEscolhida -1
-
-        if dado <= listaCuras[self.curaDecidida]['chance']-self.curasSeguidas*20:
-            #if texto = -1: texto = 0
-            texto = randint(0, len(listaCuras[self.curaDecidida]['acerto'])-1)
-            if texto == -1: texto = 0
-            print(f'{self.nome} {listaCuras[self.curaDecidida]['acerto'][texto]}')
-            self.vida += self.vidaMax*listaCuras[self.curaDecidida]['vida']/100
-
-            self.curasSeguidas += 1
-        else:
-            texto = randint(0, len(listaCuras[self.curaDecidida]['erro'])-1)
-            if texto == -1: texto = 0
-            print(f'{self.nome} {listaCuras[self.curaDecidida]['erro'][texto]}')
-
-            self.curasSeguidas = 0
-            
-        if self.vida>self.vidaMax:
-            #SE PASSAR DE 100%
-            self.vida = self.vidaMax
 
         
 
@@ -775,44 +791,20 @@ class Inimigo(Combatente):
 
         self.lvl = floor(self.lvl)
         
-        #Depois disso aqui tem que puxar um metodo nos inimigos filhos, para decidir os stats deles baseado no tipo de cada um
-        #super.decidirStats
-        #Chances de colocar mais de cada stat diferente pra cada classe
 
     def decidirStats(self):
         pass
 
     def atacar(self):
-        self.curasSeguidas = 0
-        #super().metodoPai() Puxa o metodo pai e pode sobrescrever a vontade sem perder nada
-        #COMENTAR O ACONTECIDO
-        self.danoCritico()
+        super().atacarPai()
+
         prota.vida -= self.dano
+
         if prota.vida <= 0:
             prota.morrer()
 
     def curar(self):
-        cura = randint(0, 1)
-        texto = randint(0, 2)
-        dado = randint(1, 100)
-        
-        if dado <= listaCuras[cura]['chance']-self.curasSeguidas*20:
-            texto = randint(0, len(listaCuras[cura]['acerto'])-1)
-            if texto == -1: texto = 0
-            print(f'{self.nome} {listaCuras[cura]['acerto'][texto]}')
-            self.vida += self.vidaMax*listaCuras[cura]['vida']/100
-
-            self.curasSeguidas += 1
-        else:
-            texto = randint(0, len(listaCuras[cura]['erro'])-1)
-            if texto == -1: texto = 0
-            print(f'{self.nome} {listaCuras[cura]['erro'][texto]}')
-
-            self.curasSeguidas = 0
-
-        if self.vida>self.vidaMax:
-            #SE PASSAR DE 100%
-            self.vida = self.vidaMax
+        super().curarPai()
 
     def defender(self):
         self.curasSeguidas = 0
@@ -823,12 +815,14 @@ class Inimigo(Combatente):
         self.vivo = False
         pass
 
+
 class Aranha(Inimigo):
     def __init__(self, nome, base, comp, chamber):
         self.nome = nome
         self.base = base
         self.complemento = comp
         self.chamber = chamber
+        self.tipos = ['basico', 'veneno', 'inseto']
         super().__init__()
 
     def atacar(self):
@@ -848,9 +842,107 @@ class Aranha(Inimigo):
                 else:
                     self.upHp()
 
-                
-            
+class Paladino(Inimigo):
+    def __init__(self, nome, base, comp, chamber):
+        self.nome = nome
+        self.base = base
+        self.complemento = comp
+        self.chamber = chamber
+        self.tipos = ['basico', 'humano', 'magia']
+        super().__init__()
 
+    def atacar(self):
+        super().atacar()
+        print('ataquei')
 
+    def decidirStats(self):
+        c = 1
+        dadoStats = randint(1,100)
 
-#Uma classe filha para cada inimigo
+        for c in range (1, self.sp+1):
+            if c%3 == 0:
+                self.upHp()
+            else:
+                if dadoStats < 76:
+                    self.upAtq()
+                else:
+                    self.upSpeed
+
+class Urso(Inimigo):
+    def __init__(self, nome, base, comp, chamber):
+        self.nome = nome
+        self.base = base
+        self.complemento = comp
+        self.chamber = chamber
+        self.tipos = ['basico', 'pesado', 'animal']
+        super().__init__()
+
+    def atacar(self):
+        super().atacar()
+        print('ataquei')
+
+    def decidirStats(self):
+        c = 1
+        dadoStats = randint(1,100)
+
+        for c in range (1, self.sp+1):
+            if c%3 == 0:
+                self.upAtq()
+            else:
+                if dadoStats < 51:
+                    self.upAtq()
+                else:
+                    self.upHp()
+
+class Goblin(Inimigo):
+    def __init__(self, nome, base, comp, chamber):
+        self.nome = nome
+        self.base = base
+        self.complemento = comp
+        self.chamber = chamber
+        self.tipos = ['basico', 'bandido', 'pequeno']
+        super().__init__()
+
+    def atacar(self):
+        super().atacar()
+        print('ataquei')
+
+    def decidirStats(self):
+        c = 1
+        dadoStats = randint(1,100)
+
+        for c in range (1, self.sp+1):
+            if dadoStats < 51:
+                self.upAtq()
+            elif 50 < dadoStats < 76:
+                self.upHp()
+            else:
+                self.upSpeed()
+
+class Vampiro(Inimigo):
+    def __init__(self, nome, base, comp, chamber):
+        self.nome = nome
+        self.base = base
+        self.complemento = comp
+        self.chamber = chamber
+        self.tipos = ['basico', 'voador', 'vampirismo']
+        super().__init__()
+
+    def atacar(self):
+        super().atacar()
+        print('ataquei')
+
+    def decidirStats(self):
+        c = 1
+        dadoStats = randint(1,100)
+
+        for c in range (1, self.sp+1):
+            if c%3 == 0:
+                self.upHp()
+            else:
+                if dadoStats < 70:
+                    self.upSpeed()
+                elif 70 < dadoStats < 91:
+                    self.upAtq()
+                else:
+                    self.upHp()

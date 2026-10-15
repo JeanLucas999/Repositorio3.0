@@ -1,5 +1,22 @@
 #Ordem para o dicionario de cada ataque:
-#NOME, DANO, CHANCE DE ACERTO, TAXA, DANO CRITICO, ELEMENTO, CLASSE, LISTA COM FRASES DE ATAQUE NORMAL, LISTA COM FRASES DE DANO CRITICO, LISTA DE ERROS
+#NOME, MULTIPLICADOR DE DANO, CHANCE DE ACERTO, TAXA, DANO CRITICO, TIPO, LISTA COM FRASES DE ATAQUE NORMAL, LISTA COM FRASES DE DANO CRITICO, LISTA DE ERROS
+    #{'nome': 'Investida', 'dano': 1, 'chance': 95, 'taxa': 1, 'critico': 1, 'tipo': 'basico', 
+     
+    #'acerto': 
+    #[
+
+    #],
+
+    #'critou':
+    #[
+    #    
+    #],
+
+    #'erro':
+    #[
+
+    #]
+    #}
 
 
 
@@ -7,9 +24,30 @@
 #Girar dado para escolher qual tentativa, tipo comeu doritos 0 x nao conseguiu abrir o pacote 0
 
 listaAtaques = [
+    {'nome': 'Investida', 'dano': 1, 'chance': 95, 'taxa': 10, 'critico': 1.5, 'tipo': 'basico', 
+     
+    'acerto': 
+    [
+        'investiu contra o oponente dando uma cabeçada',
+        'deu uma ombrada no oponente'
+    ],
+
+    'critou':
+    [
+        'investiu dando uma puta cabeçada no oponente que até deixou ele tonto',
+        'investiu dando uma ombrada que jogou o oponente para longe'
+    ],
+
+    'erro':
+    [
+        'tentou investir, tropeçou e caiu no chão apenas perdendo aura',
+        'foi dar uma ombrada no oponente, ele desviou e fez um sinal de "Não" com a cabeça'
+    ]
+    }
 
 ]
 
+listaEfeitos = []
 
 #Ordem para as curas:
 #NOME, DESCRICAO, %VIDA, CHANCE DE ACERTO, FRASES ACERTO, ERRO
