@@ -33,6 +33,7 @@ from rpg import *
 #Tipos, buffs, nerfs, efeitos
 
 #MECANICAS NOVAS-
+#Roubar ataques dos inimigos(unica maneira de conseguir novos)
 #Cartas de buff(Os inimigos precisam ficar mais fortes se tiver isso)
 #Olhar cartas atuais
 #Roleta pra tentar reviver
@@ -52,6 +53,9 @@ from rpg import *
 #CONTINUAR
 
 #PENSAMENTOS
+#Modo JxJ
+#Speed continua meio inutil, buff de dano por speed acima do oponente
+#Mostrar o desenrolar das vidas depois dos ataques
 #Nao faz sentido o inimigo poder se basear no LVL do personagem, isso te pune por voce ficar forte
 #Mesma coisa pro xp, acho que o prota deveria ganhar xp dependendo de como o inimigo esta em relacao a camara e nao ao prota em si
 #Com isso, depois de tantos lvls pode ter um boss com forca parecida do player

@@ -96,12 +96,12 @@ listaAtaques =  {
 #NOME, DESCRICAO, %VIDA, CHANCE DE ACERTO, FRASES ACERTO, ERRO
 
 listaCuras = [
-    {'nome': 'Cura Simples', 'desc': 'Cura 15% e tem 95% de SUCESSO', 'vida': 15, 'chance': 95, 
+    {'nome': 'Cura Simples', 'desc': 'Cura 20% e tem 95% de SUCESSO', 'vida': 20, 'chance': 95, 
     'acerto': 
     [
-        'curou 100% tomando uma xicara de café bem quentinho, queimou a lingua e perdeu 85% dos 100%',
-        'comeu um pacotão de doritos, ganhou 15% de cura e 10 anos a menos de expectativa de vida', 
-        'tentou meditar, escorregou, por sorte caiu de cara em uma poça deixada pela poção de cura que caiu de seu bolso, curou 15%',
+        'curou 100% tomando uma xicara de café bem quentinho, queimou a lingua e perdeu 80% dos 100%',
+        'comeu um pacotão de doritos, ganhou 20% de cura e 10 anos a menos de expectativa de vida', 
+        'tentou meditar, escorregou, por sorte caiu de cara em uma poça deixada pela poção de cura que caiu de seu bolso, curou 20%',
     ],
     'erro':
     [
@@ -111,12 +111,12 @@ listaCuras = [
     ],
     },
 
-    {'nome': 'Cura Media', 'desc': 'Cura 50% e tem 50% de SUCESSO', 'vida': 50, 'chance': 50, 
+    {'nome': 'Cura Media', 'desc': 'Cura 65% e tem 50% de SUCESSO', 'vida': 65, 'chance': 50, 
     'acerto': 
     [
-        'dormiu por 5 horas, como o adversario era muito generoso, acabou por não atrapalhar, curou 50% de vida',
-        'carregou seu ki e recuperou 50% de vida', 
-        'pesquisou metodos de como conquistar FÊMEAS, deu tudo errado, bebeu cachaça e recuperou 50% de vida',
+        'dormiu por 5 horas, como o adversario era muito generoso, acabou por não atrapalhar, curou 65% de vida',
+        'carregou seu ki e recuperou 65% de vida', 
+        'pesquisou metodos de como conquistar FÊMEAS, deu tudo errado, bebeu cachaça e recuperou 65% de vida',
     ],
     'erro':
     [

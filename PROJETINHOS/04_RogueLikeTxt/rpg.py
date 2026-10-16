@@ -26,10 +26,10 @@ def iniciarJogo():
     
     while erro or resposta == 0:
         try:
-            linha()
+            linha(50)
 
-            print(f'{BlueYellow}{'Continuar ou criar um novo save?':^40}{fecharcor}')
-            resposta = int(input(f'{whiteBg}{'1- Continuar':^40}{fecharcor}\n{whiteBg}{'2- Criar novo save':^40}{fecharcor}\n{whiteBg}{'3- Apagar save':^40}{fecharcor}\nEscolha: '))
+            print(f'{BlueYellow}{'Continuar ou criar um novo save?':^50}{fecharcor}')
+            resposta = int(input(f'{whiteBg}{'1- Continuar':^50}{fecharcor}\n{whiteBg}{'2- Criar novo save':^50}{fecharcor}\n{whiteBg}{'3- Apagar save':^50}{fecharcor}\nEscolha: '))
 
             limparTela()
 
@@ -48,13 +48,13 @@ def iniciarJogo():
 
                     #Se tiver, mostrar eles e depois fazer a escolha de um
                     if temSave:
-                        linha()
+                        linha(50)
 
-                        print(f'{BlueYellow}{'Qual save deseja abrir?':^40}{fecharcor}')
+                        print(f'{BlueYellow}{'Qual save deseja abrir?':^50}{fecharcor}')
 
                         for i, c in enumerate(personagens['geral']):
                             listarPersonagens = f'{c['nome']}, maior camara alcançada:{c['camaraMaxima']}'
-                            print(f'{whiteBg}{i+1}- {listarPersonagens:^37}{fecharcor}')
+                            print(f'{whiteBg}{i+1}- {listarPersonagens:^47}{fecharcor}')
 
                         escolhaSave = int(input('Escolha um save(0 PARA VOLTAR): '))
 
@@ -72,8 +72,8 @@ def iniciarJogo():
 
                     #Senao, subir o erro e voltar pro inicio
                     else:
-                        linha()
-                        print(f'{BlackRed}{'AINDA NAO EXISTEM SAVES':^40}{fecharcor}')
+                        linha(50)
+                        print(f'{BlackRed}{'AINDA NAO EXISTEM SAVES':^50}{fecharcor}')
                         sleep(1)
 
                         erro = True
@@ -88,13 +88,13 @@ def iniciarJogo():
         
                     while not certeza:
                         try:
-                            linha()
+                            linha(50)
 
-                            print(f'{BlueYellow}{'Onde quer colocar seu novo save?':^40}{fecharcor}')
+                            print(f'{BlueYellow}{'Onde quer colocar seu novo save?':^50}{fecharcor}')
 
                             for i, c in enumerate(personagens['geral']):
                                 listarPersonagens = f'{c['nome']}, maior camara alcançada:{c['camaraMaxima']}'
-                                print(f'{whiteBg}{i+1}- {listarPersonagens:^37}{fecharcor}')
+                                print(f'{whiteBg}{i+1}- {listarPersonagens:^47}{fecharcor}')
                             novoSave = int(input('Escolha(0 PARA VOLTAR): '))
                             limparTela()
 
@@ -107,12 +107,14 @@ def iniciarJogo():
                                         if respostaCerteza.upper() == 'S':
                                             certeza = True
                                             nomeProta = str(input('DIGITE O NOME DO SEU PROTAGONISTA: '))
+                                            limparTela()
                                             resetSave(novoSave, nomeProta)
                                             protafake = Protagonista(nomeProta)
                                             jogo = Jogo(protafake)
 
                                         elif respostaCerteza.upper() == 'N':
                                             certeza = False
+                                            limparTela()
                                             print('Voltando e apagando texto')
 
                                         else:
@@ -120,13 +122,14 @@ def iniciarJogo():
 
                                     else:
                                         nomeProta = str(input('DIGITE O NOME DO SEU PROTAGONISTA: '))
+                                        limparTela()
                                         resetSave(novoSave, nomeProta)
                                         protafake = Protagonista(nomeProta)
                                         jogo = Jogo(protafake)
                                     
                                 except KeyError:
                                     linha()
-                                    print(f'{redBg}{'DIGITE UM VALOR VALIDO!!!':^40}{fecharcor}') 
+                                    print(f'{redBg}{'DIGITE UM VALOR VALIDO!!!':^50}{fecharcor}') 
 
                             elif novoSave == 0:
                                 erro = True
@@ -136,7 +139,7 @@ def iniciarJogo():
 
                         except ValueError:
                             linha()
-                            print(f'{redBg}{'DIGITE UM NUMERO VALIDO!!!':^40}{fecharcor}') 
+                            print(f'{redBg}{'DIGITE UM NUMERO VALIDO!!!':^50}{fecharcor}') 
 
                         
                         
@@ -159,14 +162,14 @@ def iniciarJogo():
                             temSave = True
 
                     if temSave:
-                        linha()
+                        linha(50)
 
-                        print(f'{redBg}{'Qual save deseja apagar?':^40}{fecharcor}')
+                        print(f'{redBg}{'Qual save deseja apagar?':^50}{fecharcor}')
 
                         while not certeza:
                             for i, c in enumerate(personagens['geral']):
                                 listarPersonagens = f'{c['nome']}, maior camara alcançada:{c['camaraMaxima']}'
-                                print(f'{whiteBg}{i+1}- {listarPersonagens:^37}{fecharcor}')
+                                print(f'{whiteBg}{i+1}- {listarPersonagens:^47}{fecharcor}')
 
                             apagarSave = int(input('Escolha(0 PARA VOLTAR): '))
                             limparTela()
@@ -188,16 +191,16 @@ def iniciarJogo():
                                             raise KeyError
                                     else:
                                         linha()
-                                        print(f'{redBg}{'PERSONAGEM INEXISTENTE!!!':^40}{fecharcor}')
+                                        print(f'{redBg}{'PERSONAGEM INEXISTENTE!!!':^50}{fecharcor}')
 
                                 except KeyError:
-                                    linha()
-                                    print(f'{redBg}{'DIGITE UM VALOR VALIDO!!!':^40}{fecharcor}')
+                                    linha(50)
+                                    print(f'{redBg}{'DIGITE UM VALOR VALIDO!!!':^50}{fecharcor}')
                             if apagarSave == 0:
                                 certeza = True
                     else:
-                        linha()
-                        print(f'{BlackRed}{'AINDA NAO EXISTEM SAVES':^40}{fecharcor}')
+                        linha(50)
+                        print(f'{BlackRed}{'AINDA NAO EXISTEM SAVES':^50}{fecharcor}')
                         sleep(1)
             else:
                 raise ValueError
@@ -205,8 +208,8 @@ def iniciarJogo():
         except ValueError:
             erro = True
 
-            linha()
-            print(f'{redBg}{'DIGITE UM NUMERO VALIDO!!!':^40}{fecharcor}')
+            linha(50)
+            print(f'{redBg}{'DIGITE UM NUMERO VALIDO!!!':^50}{fecharcor}')
 
         #except TypeError:
             #erro = True
@@ -270,29 +273,6 @@ class Jogo:
         self.batalhas()
 
 
-    def menuBatalha(self):
-        
-        camaraTxt = f'Câmara: {self.chamber}'
-        print(f'{redBg}{camaraTxt:^52}{fecharcor}')
-
-        espacoColorido(52, 'white')
-
-        nomeInimigoTxt = f'{inimigoAtual.nome} LVL {inimigoAtual.lvl}'
-        statsInimigoTxt = f'Vida: {inimigoAtual.vida:.0f}/{inimigoAtual.vidaMax}|{inimigoAtual.vida * 100 / inimigoAtual.vidaMax:.0f}% Atq:{inimigoAtual.atq} Vel: {inimigoAtual.speed}'
-
-        print(f'{blackBg}{statsInimigoTxt:^52}{fecharcor}\n{BlackRed}{nomeInimigoTxt:^52}{fecharcor}')
-
-        espacoColorido(52, 'purple')
-
-        nomeProtaTxt = f'{prota.nome.capitalize()} LVL {prota.lvl}'
-        statsProtaTxt = f'Vida: {prota.vida:.0f}/{prota.vidaMax}|{prota.vida * 100 / prota.vidaMax:.0f}% Atq:{prota.atq} Vel: {prota.speed}'
-
-
-        print(f'{BlackBlue}{nomeProtaTxt:^52}{fecharcor}\n{blackBg}{statsProtaTxt:^52}{fecharcor}')
-
-        prota.xpBar()
-
-
     def inimigoNovo(self):
         global inimigoAtual
         nomes = ['Aranha ', 'Goblin ', 'Paladino ', 'Vampiro ', 'Urso ']
@@ -303,9 +283,11 @@ class Jogo:
         #Da pra fazer ataques diferentes por complemento dentro da classe inimigo, a classe pode receber o self.complemento alem do nome e com isso ter alguns ataques diferentes, uma classe para cada, cada complemento tem buff nos stats
 
         self.nomeFeito = nomes[self.decisao1] + complementos[self.decisao2]
+        camaraTxt = f'Camara: {self.chamber}'
         inimigoNovoTxt = f'Voce enfrentara um(a) {self.nomeFeito}'
 
-        print (f'{redBg}{inimigoNovoTxt:^52}{fecharcor}')
+        print(f'{whiteBg}{camaraTxt:^72}{fecharcor}')
+        print (f'{redBg}{inimigoNovoTxt:^72}{fecharcor}')
         sleep(2)
 
         if self.decisao1 == 0:
@@ -333,21 +315,16 @@ class Jogo:
 
 
 
-        #Classe do inimigo no lugar do inimigo, if para cada indice do nomes
-        pass
-
-
-
-    def acaoPlayer(self, movDecidida, acaoDecidida):
+    def acaoPlayer(self, movDecidido, acaoDecidida):
         #Preciso de algo para mov de prioridade
         #Talvez mandar para a decidirOrdem um parametro bool que o muda o self.vezPlayer
         #Pode ter maneiras melhores
 
-        if movDecidida == 1:
+        if movDecidido == 1:
             prota.atacar(acaoDecidida)
-        elif movDecidida == 2:
+        elif movDecidido == 2:
             prota.defender()
-        elif movDecidida == 3:
+        elif movDecidido == 3:
             prota.curar(acaoDecidida)
         pass
 
@@ -356,16 +333,17 @@ class Jogo:
 
         self.porcInimigo = inimigoAtual.vida/inimigoAtual.vidaMax
 
+        self.atqInimigo = choice(inimigoAtual.ataques)
         #escolha do inimigo
 
         dadoEscolha = randint(1, 100)
 
         if self.porcInimigo >= 0.8:
-            inimigoAtual.atacar()
+            inimigoAtual.atacar(self.atqInimigo)
 
         elif 0.8 > self.porcInimigo > 0.5:
             if dadoEscolha <= 75 or self.porcProta <= 0.15:
-                inimigoAtual.atacar()
+                inimigoAtual.atacar(self.atqInimigo)
             else:
                 inimigoAtual.curar()
 
@@ -373,13 +351,13 @@ class Jogo:
             if dadoEscolha <= 50 and self.porcProta >= 0.2:
                 inimigoAtual.curar()
             else:
-                inimigoAtual.atacar()
+                inimigoAtual.atacar(self.atqInimigo)
 
         else:
             if dadoEscolha <=75:
                 inimigoAtual.curar()
             else:
-                inimigoAtual.atacar()
+                inimigoAtual.atacar(self.atqInimigo)
 
     def decidirOrdem(self, movimento, acao, prioridade:str = 'nao'):
         #Decidir ordem de movimento
@@ -424,6 +402,27 @@ class Jogo:
             if prota.vivo:
                 self.acaoPlayer(movimento, acao)
 
+    def menuBatalha(self):
+        
+        camaraTxt = f'Câmara: {self.chamber}'
+        print(f'{redBg}{camaraTxt:^72}{fecharcor}')
+
+        espacoColorido(72, 'white')
+
+        nomeInimigoTxt = f'{inimigoAtual.nome} LVL {inimigoAtual.lvl}'
+        statsInimigoTxt = f'Vida: {inimigoAtual.vida:.0f}/{inimigoAtual.vidaMax}|{inimigoAtual.vida * 100 / inimigoAtual.vidaMax:.0f}% Atq:{inimigoAtual.atq} Vel: {inimigoAtual.speed}'
+
+        print(f'{blackBg}{statsInimigoTxt:^72}{fecharcor}\n{BlackRed}{nomeInimigoTxt:^72}{fecharcor}')
+
+        espacoColorido(72, 'purple')
+
+        nomeProtaTxt = f'{prota.nome.capitalize()} LVL {prota.lvl}'
+        statsProtaTxt = f'Vida: {prota.vida:.0f}/{prota.vidaMax}|{prota.vida * 100 / prota.vidaMax:.0f}% Atq:{prota.atq} Vel: {prota.speed}'
+
+
+        print(f'{BlackBlue}{nomeProtaTxt:^72}{fecharcor}\n{blackBg}{statsProtaTxt:^72}{fecharcor}')
+
+        prota.xpBar()
 
 
     def batalhas(self):
@@ -434,7 +433,7 @@ class Jogo:
             self.menuBatalha()
             try:
                 movimentoTxt = f'1- Atacar  2- Defender  3- Curar: '
-                print(f'{blueBg}{movimentoTxt:^52}{fecharcor}')
+                print(f'{blueBg}{movimentoTxt:^72}{fecharcor}')
                 movimento = int(input())
                 limparTela()
 
@@ -457,8 +456,22 @@ class Jogo:
                     
                                 print(f'{cor}{infoTxt:^72}{fecharcor}')
                                 espacoColorido(72, corBarra)
-                            selecionado = True
 
+                                
+                            self.atqEscolhido = int(input('Escolha(0 PARA VOLTAR): '))
+
+                            if 0 < self.atqEscolhido < len(prota.ataques)+1:
+                                selecionado = True
+                                limparTela()
+                                self.decidirOrdem(movimento, prota.ataques[self.atqEscolhido-1])
+
+                            elif self.atqEscolhido == 0:
+                                limparTela()
+                                break
+
+                            else:
+                                raise ValueError
+                            
                     if movimento == 2:
                         selecionado = True
 
@@ -532,32 +545,32 @@ class Combatente(ABC):
         self. speedX = 5
 
 
-    def atacarPai(self):
-        self.teste = listaAtaques['humanoide'][0]
+    def atacarPai(self, ataque):
+        self.ataque = ataque
 
         dado = randint(1, 100)
 
         self.curasSeguidas = 0
         
-        if dado < self.teste['chance']:
-            if dado > self.teste['taxa']:
-                texto = randint(0, len(self.teste['acerto'])-1)
+        if dado < self.ataque['chance']:
+            if dado > self.ataque['taxa']:
+                texto = randint(0, len(self.ataque['acerto'])-1)
 
-                self.dano = self.atq * self.teste['dano']
+                self.dano = self.atq * self.ataque['dano']
 
-                print(f'{self.nome} {self.teste['acerto'][texto]} e causou {self.dano} de dano')
+                print(f'{self.nome} {self.ataque['acerto'][texto]} e causou {self.dano} de dano')
             else:
-                texto = randint(0, len(self.teste['critou'])-1)
+                texto = randint(0, len(self.ataque['critou'])-1)
                 
-                self.dano = self.atq * self.teste['dano'] * self.teste['critico']
+                self.dano = self.atq * self.ataque['dano'] * self.ataque    ['critico']
 
-                print(f'{self.nome} {self.teste['critou'][texto]} foi CRÍTICO e causou {self.dano} de dano')
+                print(f'{self.nome} {self.ataque['critou'][texto]} foi CRÍTICO e causou {self.dano} de dano')
         else:
-            texto = randint(0, len(self.teste['erro'])-1)
+            texto = randint(0, len(self.ataque['erro'])-1)
 
             self.dano = 0
 
-            print(f'{self.nome} {self.teste['erro'][texto]} NADA aconteceu')
+            print(f'{self.nome} {self.ataque['erro'][texto]} NADA aconteceu')
 
         sleep(2)
 
@@ -582,6 +595,8 @@ class Combatente(ABC):
         if self.vida>self.vidaMax:
             #SE PASSAR DE 100%
             self.vida = self.vidaMax
+
+        sleep(1)
 
 
     def girarDado(self):
@@ -628,10 +643,11 @@ class Protagonista(Combatente):
         self.sp = 0
         self.xp = 0
         self.erro = None
-        self.ataques = [listaAtaques['investida'], listaAtaques['tapa'], listaAtaques['envenenamento'], listaAtaques['investida']]
+        self.ataques = [listaAtaques['investida']]
+        print(self.ataques)
 
     def xpBar(self):
-        barSize = 46
+        barSize = 66
         textoXp = f'{self.xp}% XP'
         preenchidas = round(self.xp/100*barSize)
         naoPreenchidas = barSize - preenchidas
@@ -645,8 +661,8 @@ class Protagonista(Combatente):
 
         
     def skillMenu(self):
-        print(f'{purpleTxt}{whiteBg}                   Skill Points:{self.sp}                   {fecharcor}')
-        print(f'{purpleTxt}{whiteBg}                 O que deseja upar?                 {fecharcor}')
+        print(f'{purpleTxt}{whiteBg}                             Skill Points:{self.sp}                             {fecharcor}')
+        print(f'{purpleTxt}{whiteBg}                           O que deseja upar?                           {fecharcor}')
 
     def lvlUp(self, ups):
         self.lvl += 1*ups
@@ -659,11 +675,11 @@ class Protagonista(Combatente):
             for i, c in enumerate(uparTxt):
                 #Precisa do if por causa das cores diferentes:(, poderia fazer uma lista das cores e puxar por indice mas nem compensa, diminuiria 3 linhas
                 
-                if i == 0: print(f'{PurpleYellow}{i+1} - {PurpleGreen}{c:^48}{fecharcor}')
+                if i == 0: print(f'{PurpleYellow}{i+1} - {PurpleGreen}{c:^68}{fecharcor}')
 
-                elif i == 1: print(f'{PurpleYellow}{i+1} - {PurpleRed}{c:^48}{fecharcor}')
+                elif i == 1: print(f'{PurpleYellow}{i+1} - {PurpleRed}{c:^68}{fecharcor}')
 
-                else: print(f'{PurpleYellow}{i+1} - {PurpleBlue}{c:^48}{fecharcor}')
+                else: print(f'{PurpleYellow}{i+1} - {PurpleBlue}{c:^68}{fecharcor}')
 
             upar = int(input(f'Escolha: '))
             
@@ -719,8 +735,8 @@ class Protagonista(Combatente):
         upadoTxt = f'Você upou {self.xpUpado}% de XP!!!'
         lvlTxt= f'E upou {self.lvlUpado} LVL!!!'
         
-        print(f'{greenBg}{upadoTxt:^52}{fecharcor}')
-        if self.lvlUpado > 0: print(f'{greenBg}{lvlTxt:^52}{fecharcor}')
+        print(f'{greenBg}{upadoTxt:^72}{fecharcor}')
+        if self.lvlUpado > 0: print(f'{greenBg}{lvlTxt:^72}{fecharcor}')
 
         sleep(2)
         limparTela()
@@ -729,8 +745,8 @@ class Protagonista(Combatente):
             self.lvlUp(self.lvlUpado)
 
 
-    def atacar(self):
-        super().atacarPai()
+    def atacar(self, ataque):
+        super().atacarPai(ataque)
 
         inimigoAtual.vida -= self.dano
         if inimigoAtual.vida <= 0:
@@ -750,7 +766,7 @@ class Protagonista(Combatente):
         prota.vivo = False
         sleep(1)
         limparTela()
-        print(f'{blackBg}{redTxt}Voce morreu :({fecharcor}')
+        print(f'{blackBg}{redTxt}Voce morreu :( Camâra alcançada: {jogo.chamber}{fecharcor}')
         sleep(1)
 
         re = str(input(f'{blueTxt}Quer continuar?{fecharcor} [{greenTxt}S{fecharcor}/{redTxt}N{fecharcor}]: '))
@@ -774,17 +790,30 @@ class Protagonista(Combatente):
 
 
 
-
 class Inimigo(Combatente):
     def __init__(self):
         super().__init__()
+        
         self.vidaMax = self.vida
         self.atqMax = self.atq
         self.speedMax = self.speed
+
         self.lvlBaseado = 0
         self.decidirLvl()
+
         self.sp = self.lvl*3
         self.decidirStats()
+
+        self.ataques = []
+        self.ataquesPossiveis = []
+
+        self.decidirAtaques()
+        self.decidirMoveset()
+
+        for c in self.ataques: print(c)
+            
+
+
 
     def decidirLvl(self):
         self.girarDado()
@@ -808,12 +837,35 @@ class Inimigo(Combatente):
 
         self.lvl = floor(self.lvl)
         
+    def decidirAtaques(self):
+        #OLHAR
+        #talvez melhor guardar o items?
+        for tipoC in self.tipos:
+            for ataqueC in listaAtaques.values():
+                if ataqueC['tipo'] == tipoC:
+                    self.ataquesPossiveis.append(ataqueC)
+        for c in self.ataquesPossiveis: print (c)
+
+    def decidirMoveset(self):
+        for c in range(0, len(self.ataquesPossiveis)):
+            pronto = False
+            while not pronto:
+                moveTemp = choice(self.ataquesPossiveis)
+                print(f'{c} moveTemp')
+                if moveTemp not in self.ataques:
+                    self.ataques.append(moveTemp)
+                    pronto = True
+                else:
+                    pronto = False
+        for c in self.ataques: print
+                
+
 
     def decidirStats(self):
         pass
 
-    def atacar(self):
-        super().atacarPai()
+    def atacar(self, ataque):
+        super().atacarPai(ataque)
 
         prota.vida -= self.dano
 
@@ -821,6 +873,7 @@ class Inimigo(Combatente):
             prota.morrer()
 
     def curar(self):
+        self.curaDecidida = randint(0, 1)
         super().curarPai()
 
     def defender(self):
@@ -828,7 +881,7 @@ class Inimigo(Combatente):
         pass
 
     def morrer(self):
-        print('O protagonista venceu')
+        print(f'{greenTxt}{self.nome} FOI MORTO{fecharcor}')
         self.vivo = False
         pass
 

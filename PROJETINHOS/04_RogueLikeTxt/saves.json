@@ -2,17 +2,17 @@
     "geral": [
         {
             "save": 1,
-            "nome": "Vi",
+            "nome": "Jean",
             "camaraMaxima": 0,
             "upgrades": [],
             "usado": true
         },
         {
             "save": 2,
-            "nome": "Inexistente",
+            "nome": "Jean2",
             "camaraMaxima": 0,
             "upgrades": [],
-            "usado": false
+            "usado": true
         },
         {
             "save": 3,
