@@ -104,7 +104,7 @@ listaAtaques =  {
 
     #DEVOTOS
     'cabecadaZen':
-    {'nome': 'Cabeçada Zen', 'desc': 'Medita um instante e dá uma cabeçada precisa, 1.5x seu ataque', 'dano': 1.5, 'chance': 50, 'taxa': 30, 'critico': 2.0, 'tipo': 'devoto', 'efeito': 'sem',
+    {'nome': 'Cabeçada Zen', 'desc': 'Medita e dá uma cabeçada precisa, 1.5x seu ataque', 'dano': 1.5, 'chance': 50, 'taxa': 30, 'critico': 2.0, 'tipo': 'devoto', 'efeito': 'sem',
 
     'acerto':
     [

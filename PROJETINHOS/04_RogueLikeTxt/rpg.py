@@ -783,11 +783,11 @@ class Protagonista(Combatente):
                         
                     self.ataqueRoubado = int(input('Escolha(0 para desistir): '))
 
-                    if 0 < self.ataqueRoubado > len(prota.ataques):
+                    if 0 < self.ataqueRoubado <= len(inimigoAtual.ataques):
 
                         if len(prota.ataques) == 4:
 
-                            print(f'{redBg}{'Você já tem 4 ataques, deseja trocar um: [S/N]'}{fecharcor}')
+                            print(f'{redBg}{'Você já tem 4 ataques, deseja trocar um: [S/N]':^72}{fecharcor}')
 
                             certezaTrocar = input('Escolha:')
 
@@ -810,15 +810,14 @@ class Protagonista(Combatente):
                                     print(f'{cor}{infoTxt:^72}{fecharcor}')
                                     espacoColorido(72, corBarra)
 
-                                    ataqueRemovido = int(input('Escolha: '))
+                                ataqueRemovido = int(input('Escolha: '))
 
-                                    if 0 < ataqueRemovido > 5:
-                                        selecionado = True
-                                        self.efetuarRoubo(self.ataqueRoubado, self.ataqueRemovido)
-                                        #Chance roubar ataque(ataqueRoubado, ataqueRemovido = None)- da prota.ataques.append(inimigo) print(sucesso/erro)
-                                        selecionado = True  
+                                if 0 < ataqueRemovido < 5:
+                                    selecionado = True
+                                    self.efetuarRoubo(self.ataqueRoubado, self.ataqueRemovido)
+                                    #Chance roubar ataque(ataqueRoubado, ataqueRemovido = None)- da prota.ataques.append(inimigo) print(sucesso/erro)
 
-                                    else: raise ValueError
+                                else: raise ValueError
 
                                 limparTela()
 
@@ -832,7 +831,7 @@ class Protagonista(Combatente):
                             selecionado = True
                             self.efetuarRoubo(self.ataqueRoubado)
                             
-                    elif self.atqEscolhido == 0:
+                    elif self.ataqueRoubado == 0:
                         limparTela()
                         break
 
@@ -869,11 +868,11 @@ class Protagonista(Combatente):
     def efetuarRoubo(self, roubado, removido = None):
         ganhou = False
 
-        if inimigoAtual.lvl > self.lvl: chance = 75
+        if inimigoAtual.lvl > self.lvl: chance = 100
 
-        elif inimigoAtual.lvl == self.lvl: chance = 50
+        elif inimigoAtual.lvl == self.lvl: chance = 100
 
-        else: chance = 25
+        else: chance = 100
 
         girarRoubo = randint(1, 100)
 
@@ -921,10 +920,12 @@ class Protagonista(Combatente):
 
                 sleep(0.05 + (c*0.02))
 
-                print(f'{redBg}{'Fez o L':^72}{fecharcor}')
+            print()
+            print(f'{redBg}{'Fez o L':^72}{fecharcor}')
 
         sleep(1)
 
+        limparTela()
 
         #Menor chance se o inimigo for lvl maior que vc
         pass

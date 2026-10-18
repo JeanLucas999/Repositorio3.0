@@ -42,6 +42,7 @@ from rpg import *
 #ATAQUES
 
 #NO GERAL FALTA-
+#Arrumar quando voce tem os 4 ataques
 #Lista com apenas os ataques do inimigo que o prota nao tem para o roubo
 #Do nada um paladino chegou com apenas um ponto
 #Try no lvl up
