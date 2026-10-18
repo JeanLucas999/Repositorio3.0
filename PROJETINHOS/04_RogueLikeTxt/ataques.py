@@ -19,11 +19,13 @@
     #]
     #}
 
-
-
-#O ERRO REFERE SE AO MESMO INDICE DO ACERTO
-#Girar dado para escolher qual tentativa, tipo comeu doritos 0 x nao conseguiu abrir o pacote 0
 #Efeitos tem duracao por turnos e dano porcento
+
+tiposAtuais = ['basico', 'humanoide', 'voador', 'devoto', 'animal', 'perverso', 'venenoso', 'inseto', 'sagrado', 'pesado', 'vampirismo']
+
+
+
+
 listaEfeitos = {
     'veneno':
     {'nome': 'Veneno', 'duracao': 5, 'dano': 10}
@@ -31,6 +33,7 @@ listaEfeitos = {
 
 
 listaAtaques =  {
+    #BASICOS
     'investida':
     {'nome': 'Investida', 'desc': 'Investe contra o inimigo causando 1x seu ataque', 'dano': 1, 'chance': 95, 'taxa': 10, 'critico': 1.5, 'tipo': 'basico', 'efeito': 'sem',
 
@@ -53,6 +56,7 @@ listaAtaques =  {
     ]
     },
 
+    #HUMANOIDES
     'tapa':
     {'nome': 'Tapa', 'desc': 'Dá um tapa no inimigo causando 1.2x seu ataque', 'dano': 1.2, 'chance': 80, 'taxa': 10, 'critico': 1.5, 'tipo': 'humanoide', 'efeito': 'sem',
     
@@ -75,6 +79,99 @@ listaAtaques =  {
     ]
     },
 
+    #VOADORES
+    'rasante':
+    {'nome': 'Rasante', 'desc': 'Sobe para voo e avança contra o inimigo', 'dano': 0.9, 'chance': 90, 'taxa': 20, 'critico': 1.8, 'tipo': 'voador', 'efeito': 'sem',
+        
+    'acerto': 
+    [
+        'subiu para o infinito e alem, desceu dando um chute no inimigo',
+        'voou para tras pegando impulso e voltou dando um soco no oponente'
+    ],
+
+    'critou':
+    [
+        'subiu até as estrelas e caiu dando um mortal duplo carpado bem na cabeça do oponente',
+        'voou para tras como se fosse um estilingue e numa velocidade absurda bateu no inimigo'
+    ],
+
+    'erro':
+    [
+        'subiu para o infinito e alem(tentou), o oponente segurou seus pés e devolveu para o chão',
+        'voou para tras. cansou.'
+    ]
+    },
+
+    #DEVOTOS
+    'cabecadaZen':
+    {'nome': 'Cabeçada Zen', 'desc': 'Medita um instante e dá uma cabeçada precisa, 1.5x seu ataque', 'dano': 1.5, 'chance': 50, 'taxa': 30, 'critico': 2.0, 'tipo': 'devoto', 'efeito': 'sem',
+
+    'acerto':
+    [
+        'respirou fundo, abriu os olhos e acertou uma cabeçada perfeita',
+        'encontrou a paz interior e a testa do oponente'
+    ],
+
+    'critou':
+    [
+        'atingiu a iluminação e a cabeça do oponente ao mesmo tempo',
+        'a cabeçada ecoou pela montanha inteira'
+    ],
+
+    'erro':
+    [
+        'meditou tanto que o oponente foi lanchar e voltou',
+        'ficou em paz consigo mesmo. O oponente não ficou em paz com ele.'
+    ]
+    },
+
+    #ANIMAIS
+    'mordida':
+    {'nome': 'Mordida', 'desc': 'Morde o inimigo causando 1.3x seu ataque', 'dano': 1.3, 'chance': 75, 'taxa': 10, 'critico': 1.6, 'tipo': 'animal', 'efeito': 'sem',
+
+    'acerto':
+    [
+        'mordeu a perna do oponente e não soltou por alguns segundos',
+        'cravou os dentes no braço do oponente'
+    ],
+
+    'critou':
+    [
+        'mordeu com tanta força que o oponente gritou igual criança',
+        'arrancou um pedaço do oponente (não era pra ter feito isso)'
+    ],
+
+    'erro':
+    [
+        'tentou morder, mas mordeu a própria língua',
+        'abriu a boca pra morder e o oponente colocou um pimentão ali dentro'
+    ]
+    },
+
+    #PERVERSOS
+    'golpeBaixo':
+    {'nome': 'Golpe Baixo', 'desc': 'Ataque sujo, 1.1x seu ataque e alto crítico', 'dano': 1.1, 'chance': 90, 'taxa': 10, 'critico': 2.5, 'tipo': 'perverso', 'efeito': 'sem',
+
+    'acerto':
+    [
+        'acertou um golpe baixo e fingiu que foi sem querer',
+        'chutou onde não devia'
+    ],
+
+    'critou':
+    [
+        'acertou o ponto mais sensível do oponente, que viu a vida passar diante dos olhos',
+        'o golpe foi tão baixo que a torcida vaiou. Mas funcionou.'
+    ],
+
+    'erro':
+    [
+        'tentou um golpe baixo, mas o oponente estava de proteção. Ele veio preparado.',
+        'errou o golpe baixo e acertou o chão. Baixo demais.'
+    ]
+    },
+
+    #VENENOSOS
     'envenenamento':
     {'nome': 'Envenenamento', 'desc': 'Envenena seu inimigo tirando 10% de vida por turno', 'dano': 0, 'chance': 60, 'taxa': 0, 'critico': 0, 'tipo': 'venenoso', 'efeito': listaEfeitos['veneno'], 'chanceEfeito': 100,
     
@@ -111,12 +208,12 @@ listaCuras = [
     ],
     },
 
-    {'nome': 'Cura Media', 'desc': 'Cura 65% e tem 50% de SUCESSO', 'vida': 65, 'chance': 50, 
+    {'nome': 'Cura Media', 'desc': 'Cura 50% e tem 50% de SUCESSO', 'vida': 65, 'chance': 50, 
     'acerto': 
     [
-        'dormiu por 5 horas, como o adversario era muito generoso, acabou por não atrapalhar, curou 65% de vida',
-        'carregou seu ki e recuperou 65% de vida', 
-        'pesquisou metodos de como conquistar FÊMEAS, deu tudo errado, bebeu cachaça e recuperou 65% de vida',
+        'dormiu por 5 horas, como o adversario era muito generoso, acabou por não atrapalhar, curou 50% de vida',
+        'carregou seu ki e recuperou 50% de vida', 
+        'pesquisou metodos de como conquistar FÊMEAS, deu tudo errado, bebeu cachaça e recuperou 50% de vida',
     ],
     'erro':
     [

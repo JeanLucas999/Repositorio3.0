@@ -43,6 +43,8 @@ WhiteRed = '\033[047;091m'
 WhiteBlue = '\033[047;094m'
 WhitePurple = '\033[047;095m'
 
+
+YellowWhite = '\033[043;097m'
 #CORES COM SEMANTICA
 #ruim
 #muitoruim

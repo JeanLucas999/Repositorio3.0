@@ -2,6 +2,7 @@ from random import randint, choice
 from abc import ABC, abstractmethod
 from time import sleep
 from math import floor
+from sys import stdout
 import json
 
 from ataques import listaAtaques, listaCuras, listaDefesas
@@ -275,8 +276,8 @@ class Jogo:
 
     def inimigoNovo(self):
         global inimigoAtual
-        nomes = ['Aranha ', 'Goblin ', 'Paladino ', 'Vampiro ', 'Urso ']
-        complementos = ['Gigante', 'Bazukeiro', 'Demoniaco', 'Malabarista', 'Peludo', 'Lambedor', 'Foguento', 'Serio']
+        nomes = ['Aranha ', 'Goblin ', 'Paladino ', 'Vampiro ', 'Urso ',]
+        complementos = ['Gigante', 'Bazukeiro', 'Demoniaco', 'Malabarista', 'Peludo', 'Lambedor', 'Foguento', 'Serio', 'Fedorento', 'Dançarino', 'Sonolento', 'Mal-humorado', 'Raivoso', 'Faminto', 'Congelado', 'Invisivel', 'Cantor', 'Cabeludo', 'Desempregado','Filosofo', 'Bêbado', 'Anabolizado', 'Atrasado']
         self.decisao1 = randint(0, len(nomes)-1)
         self.decisao2 = randint(0, len(complementos)-1)
 
@@ -333,7 +334,7 @@ class Jogo:
 
         self.porcInimigo = inimigoAtual.vida/inimigoAtual.vidaMax
 
-        self.atqInimigo = choice(inimigoAtual.ataques)
+        self.atqInimigo = randint(0, len(inimigoAtual.ataques)-1)
         #escolha do inimigo
 
         dadoEscolha = randint(1, 100)
@@ -432,8 +433,7 @@ class Jogo:
             
             self.menuBatalha()
             try:
-                movimentoTxt = f'1- Atacar  2- Defender  3- Curar: '
-                print(f'{blueBg}{movimentoTxt:^72}{fecharcor}')
+                print(f'{blueBg}{'1- Atacar 2- Defender 3- Curar: ':^72}{fecharcor}')
                 movimento = int(input())
                 limparTela()
 
@@ -503,7 +503,7 @@ class Jogo:
             if not inimigoAtual.vivo:
                 prota.novaChamber()
                 prota.xpUp()
-                
+                prota.roubarAtaque()
                 
                 self.chamber += 1
                 self.inimigoNovo()
@@ -596,7 +596,7 @@ class Combatente(ABC):
             #SE PASSAR DE 100%
             self.vida = self.vidaMax
 
-        sleep(1)
+        sleep(2)
 
 
     def girarDado(self):
@@ -757,6 +757,178 @@ class Protagonista(Combatente):
 
         super().curarPai()
 
+    def roubarAtaque(self):
+        selecionado = False
+        while not selecionado:
+            try:
+                roubarEscolha = input(f'{WhiteGreen}{'Você pode tentar roubar um ataque do inimigo, deseja fazer isso? [S/N]':^72}{fecharcor}')
+
+                if roubarEscolha.upper() == 'S':
+                    for i, c in enumerate(inimigoAtual.ataques):
+                        if i % 2 == 0:
+                            cor = YellowWhite
+                            corBarra = 'yellow'
+                        else:
+                            cor = WhiteYellow
+                            corBarra = 'white'
+
+                        atqTxt = f'{i+1}- {c['nome']} - {c['desc']}'
+                        infoTxt = f'{c['chance']}% de acerto, {c['taxa']}% de taxa crítica, {c['critico']}x de multiplicador crítico'
+
+                        print(f'{cor}{atqTxt:^72}{fecharcor}')
+
+                        print(f'{cor}{infoTxt:^72}{fecharcor}')
+                        espacoColorido(72, corBarra)
+
+                        
+                    self.ataqueRoubado = int(input('Escolha(0 para desistir): '))
+
+                    if 0 < self.ataqueRoubado > len(prota.ataques):
+
+                        if len(prota.ataques) == 4:
+
+                            print(f'{redBg}{'Você já tem 4 ataques, deseja trocar um: [S/N]'}{fecharcor}')
+
+                            certezaTrocar = input('Escolha:')
+
+                            if certezaTrocar.upper() == 'S':
+                                print(f'{redBg}{'Qual?':^72}{fecharcor}')
+
+                                for i, c in enumerate(prota.ataques):
+                                    if i % 2 == 0:
+                                        cor = WhiteBlue
+                                        corBarra = 'white'
+                                    else:
+                                        cor = BlueWhite
+                                        corBarra = 'blue'
+
+                                    atqTxt = f'{i+1}- {c['nome']} - {c['desc']}'
+                                    infoTxt = f'{c['chance']}% de acerto, {c['taxa']}% de taxa crítica, {c['critico']}x de multiplicador crítico'
+
+                                    print(f'{cor}{atqTxt:^72}{fecharcor}')
+
+                                    print(f'{cor}{infoTxt:^72}{fecharcor}')
+                                    espacoColorido(72, corBarra)
+
+                                    ataqueRemovido = int(input('Escolha: '))
+
+                                    if 0 < ataqueRemovido > 5:
+                                        selecionado = True
+                                        self.efetuarRoubo(self.ataqueRoubado, self.ataqueRemovido)
+                                        #Chance roubar ataque(ataqueRoubado, ataqueRemovido = None)- da prota.ataques.append(inimigo) print(sucesso/erro)
+                                        selecionado = True  
+
+                                    else: raise ValueError
+
+                                limparTela()
+
+                            elif certezaTrocar.upper() == 'N': 
+                                selecionado = False
+                                limparTela()
+
+                            else: raise KeyError
+
+                        else:
+                            selecionado = True
+                            self.efetuarRoubo(self.ataqueRoubado)
+                            
+                    elif self.atqEscolhido == 0:
+                        limparTela()
+                        break
+
+                    else: raise ValueError
+                    
+                elif roubarEscolha.upper() == 'N':
+                    print (f'{WhiteRed}{f'Tem certeza disso? [S/N]':^72}{fecharcor}')
+                    if len(self.ataques) < 4:
+                        print (f'{WhiteRed}{'Você ainda não tem todos os 4 ataques!!!':^72}{fecharcor}')
+
+                    certeza = input('Escolha:')
+
+                    if certeza.upper() == 'S':
+                        selecionado = True
+                        limparTela()
+
+                    elif certeza.upper() == 'N': 
+                        selecionado = False
+                        limparTela()
+
+                    else: raise KeyError
+
+                else: raise KeyError
+
+            except ValueError:
+                print(f'{redBg}{'DIGITE UM NUMERO VALIDO!!!':^72}{fecharcor}') 
+
+            except KeyError:
+                print(f'{redBg}{'DIGITE UM VALOR VALIDO!!!':^72}{fecharcor}') 
+
+            except:
+                print(print(f'{redBg}{'ERRO!!!':^72}{fecharcor}') )
+
+    def efetuarRoubo(self, roubado, removido = None):
+        ganhou = False
+
+        if inimigoAtual.lvl > self.lvl: chance = 75
+
+        elif inimigoAtual.lvl == self.lvl: chance = 50
+
+        else: chance = 25
+
+        girarRoubo = randint(1, 100)
+
+        if girarRoubo <= chance: ganhou = True
+
+        rouboTxt = f'Chance de dar certo: {chance}%'
+        print(f'{WhiteBlue}{rouboTxt:^72}{fecharcor}')
+
+        if ganhou:
+            for c in range(0, 20):
+                if c%2 == 0:
+                    roletaCor = WhiteRed
+                    stdout.write(f"\r{roletaCor}{'Perdeu':^72}{fecharcor}")
+                    stdout.flush()
+
+                else:
+                    roletaCor = WhiteGreen
+                    stdout.write(f"\r{roletaCor}{'Ganhou':^72}{fecharcor}")
+                    stdout.flush()
+
+                sleep(0.05 + (c*0.02))
+
+            if removido != None:
+                prota.ataques.pop(removido-1)
+                prota.ataques.append(inimigoAtual.ataques[roubado-1])
+
+            else:
+                prota.ataques.append(inimigoAtual.ataques[roubado-1])
+
+            print()
+            print(f'{greenBg}{'SUCESSO!!!':^72}{fecharcor}')
+            
+
+        else:
+            for c in range(0, 20):
+                if c%2 != 0:
+                    roletaCor = WhiteRed
+                    stdout.write(f"\r{roletaCor}{'Perdeu':^72}{fecharcor}")
+                    stdout.flush()
+
+                else:
+                    roletaCor = WhiteGreen
+                    stdout.write(f"\r{roletaCor}{'Ganhou':^72}{fecharcor}")
+                    stdout.flush()
+
+                sleep(0.05 + (c*0.02))
+
+                print(f'{redBg}{'Fez o L':^72}{fecharcor}')
+
+        sleep(1)
+
+
+        #Menor chance se o inimigo for lvl maior que vc
+        pass
+
     def novaChamber(self):
         self.vida = self.vidaMax
         self.atq = self.atqMax
@@ -766,8 +938,8 @@ class Protagonista(Combatente):
         prota.vivo = False
         sleep(1)
         limparTela()
-        print(f'{blackBg}{redTxt}Voce morreu :( Camâra alcançada: {jogo.chamber}{fecharcor}')
-        sleep(1)
+        print(f'{blackBg}{redTxt}Voce morreu :( Camâra alcançada: {inimigoAtual.chamber}{fecharcor}')
+        sleep(2)
 
         re = str(input(f'{blueTxt}Quer continuar?{fecharcor} [{greenTxt}S{fecharcor}/{redTxt}N{fecharcor}]: '))
         if re.upper() == 'S':
@@ -791,8 +963,14 @@ class Protagonista(Combatente):
 
 
 class Inimigo(Combatente):
-    def __init__(self):
+    def __init__(self, nome, base, comp, chamber):
+        self.nome = nome
+        self.base = base
+        self.complemento = comp
+        self.chamber = chamber
+
         super().__init__()
+
         
         self.vidaMax = self.vida
         self.atqMax = self.atq
@@ -809,8 +987,6 @@ class Inimigo(Combatente):
 
         self.decidirAtaques()
         self.decidirMoveset()
-
-        for c in self.ataques: print(c)
             
 
 
@@ -844,28 +1020,30 @@ class Inimigo(Combatente):
             for ataqueC in listaAtaques.values():
                 if ataqueC['tipo'] == tipoC:
                     self.ataquesPossiveis.append(ataqueC)
-        for c in self.ataquesPossiveis: print (c)
 
     def decidirMoveset(self):
+
         for c in range(0, len(self.ataquesPossiveis)):
             pronto = False
+            if c > 3:
+                break
+
             while not pronto:
                 moveTemp = choice(self.ataquesPossiveis)
-                print(f'{c} moveTemp')
                 if moveTemp not in self.ataques:
                     self.ataques.append(moveTemp)
+                    print('appendou')
                     pronto = True
                 else:
                     pronto = False
-        for c in self.ataques: print
+        for c in self.ataques: print(c)
                 
-
 
     def decidirStats(self):
         pass
 
     def atacar(self, ataque):
-        super().atacarPai(ataque)
+        super().atacarPai(self.ataques[ataque])
 
         prota.vida -= self.dano
 
@@ -888,12 +1066,8 @@ class Inimigo(Combatente):
 
 class Aranha(Inimigo):
     def __init__(self, nome, base, comp, chamber):
-        self.nome = nome
-        self.base = base
-        self.complemento = comp
-        self.chamber = chamber
-        self.tipos = ['basico', 'veneno', 'inseto']
-        super().__init__()
+        self.tipos = ['basico', 'venenoso', 'inseto']
+        super().__init__(nome, base, comp, chamber)
 
     def decidirStats(self):
         c = 1
@@ -910,12 +1084,8 @@ class Aranha(Inimigo):
 
 class Paladino(Inimigo):
     def __init__(self, nome, base, comp, chamber):
-        self.nome = nome
-        self.base = base
-        self.complemento = comp
-        self.chamber = chamber
-        self.tipos = ['basico', 'humanoide', 'magia']
-        super().__init__()
+        self.tipos = ['basico', 'humanoide', 'sagrado', 'devoto']
+        super().__init__(nome, base, comp, chamber)
 
     def decidirStats(self):
         c = 1
@@ -932,12 +1102,8 @@ class Paladino(Inimigo):
 
 class Urso(Inimigo):
     def __init__(self, nome, base, comp, chamber):
-        self.nome = nome
-        self.base = base
-        self.complemento = comp
-        self.chamber = chamber
         self.tipos = ['basico', 'pesado', 'animal']
-        super().__init__()
+        super().__init__(nome, base, comp, chamber)
 
     def decidirStats(self):
         c = 1
@@ -954,12 +1120,8 @@ class Urso(Inimigo):
 
 class Goblin(Inimigo):
     def __init__(self, nome, base, comp, chamber):
-        self.nome = nome
-        self.base = base
-        self.complemento = comp
-        self.chamber = chamber
-        self.tipos = ['basico', 'bandido', 'pequeno', 'humanoide']
-        super().__init__()
+        self.tipos = ['basico', 'bandido', 'pequeno', 'humanoide', 'perverso']
+        super().__init__(nome, base, comp, chamber)
 
     def decidirStats(self):
         c = 1
@@ -975,12 +1137,8 @@ class Goblin(Inimigo):
 
 class Vampiro(Inimigo):
     def __init__(self, nome, base, comp, chamber):
-        self.nome = nome
-        self.base = base
-        self.complemento = comp
-        self.chamber = chamber
-        self.tipos = ['basico', 'voador', 'vampirismo', 'humanoide']
-        super().__init__()
+        self.tipos = ['basico', 'voador', 'vampirismo', 'humanoide', 'perverso']
+        super().__init__(nome, base, comp, chamber)
 
     def decidirStats(self):
         c = 1
