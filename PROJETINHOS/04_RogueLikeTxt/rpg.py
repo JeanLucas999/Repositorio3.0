@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from time import sleep
 from math import floor
 from sys import stdout
+from pathlib import Path
 import json
 
 from ataques import listaAtaques, listaCuras, listaDefesas
@@ -19,7 +20,11 @@ def iniciarDebug():
     jogo = Jogo(protafake)
 
 def iniciarJogo():
-    global jogo, debug
+    global jogo, debug, pasta, path
+
+    pasta = Path(__file__).parent
+    path = pasta / 'saves.json'
+
     debug = False
     resposta = 0
     erro = False
@@ -39,7 +44,7 @@ def iniciarJogo():
                 temSave = False
 
                 #Ler saves
-                with open('PROJETINHOS/04_RogueLikeTxt/saves.json', 'r', encoding='utf-8') as arq:
+                with open(path, 'r', encoding='utf-8') as arq:
                     personagens = json.load(arq)
 
                     #Verificar se tem saves
@@ -83,7 +88,7 @@ def iniciarJogo():
                 erro = False
                 certeza = False
 
-                with open('PROJETINHOS/04_RogueLikeTxt/saves.json', 'r', encoding='utf-8') as arq:
+                with open(path, 'r', encoding='utf-8') as arq:
 
                     personagens = json.load(arq)
         
@@ -156,7 +161,7 @@ def iniciarJogo():
 
 
 
-                with open('PROJETINHOS/04_RogueLikeTxt/saves.json', 'r', encoding='utf-8') as arq:
+                with open(path, 'r', encoding='utf-8') as arq:
                     personagens = json.load(arq)
                     for c in personagens['geral']:
                         if c['usado']:
@@ -219,7 +224,7 @@ def iniciarJogo():
 
 
 def resetSave(numRecebido=0, nomeProta='', apagar:bool = False):
-    with open('PROJETINHOS/04_RogueLikeTxt/saves.json', 'r+', encoding='utf-8') as arq:
+    with open(path, 'r+', encoding='utf-8') as arq:
         personagens = json.load(arq)
 
         numArrumado = numRecebido-1
@@ -558,13 +563,14 @@ class Combatente(ABC):
 
                 self.dano = self.atq * self.ataque['dano']
 
-                print(f'{self.nome} {self.ataque['acerto'][texto]} e causou {self.dano} de dano')
+                print(f'{self.nome} {self.ataque['acerto'][texto]} e causou {self.dano:.0f} de dano')
+
             else:
                 texto = randint(0, len(self.ataque['critou'])-1)
                 
                 self.dano = self.atq * self.ataque['dano'] * self.ataque    ['critico']
 
-                print(f'{self.nome} {self.ataque['critou'][texto]} foi CRÍTICO e causou {self.dano} de dano')
+                print(f'{self.nome} {self.ataque['critou'][texto]} foi CRÍTICO e causou {self.dano:.0f} de dano')
         else:
             texto = randint(0, len(self.ataque['erro'])-1)
 
@@ -782,54 +788,66 @@ class Protagonista(Combatente):
 
                         
                     self.ataqueRoubado = int(input('Escolha(0 para desistir): '))
+                    
+                    limparTela()
 
                     if 0 < self.ataqueRoubado <= len(inimigoAtual.ataques):
+                        if inimigoAtual.ataques[self.ataqueRoubado-1] not in self.ataques:
 
-                        if len(prota.ataques) == 4:
+                            if len(prota.ataques) == 4:
 
-                            print(f'{redBg}{'Você já tem 4 ataques, deseja trocar um: [S/N]':^72}{fecharcor}')
+                                print(f'{redBg}{'Você já tem 4 ataques, deseja trocar um: [S/N]':^72}{fecharcor}')
 
-                            certezaTrocar = input('Escolha:')
-
-                            if certezaTrocar.upper() == 'S':
-                                print(f'{redBg}{'Qual?':^72}{fecharcor}')
-
-                                for i, c in enumerate(prota.ataques):
-                                    if i % 2 == 0:
-                                        cor = WhiteBlue
-                                        corBarra = 'white'
-                                    else:
-                                        cor = BlueWhite
-                                        corBarra = 'blue'
-
-                                    atqTxt = f'{i+1}- {c['nome']} - {c['desc']}'
-                                    infoTxt = f'{c['chance']}% de acerto, {c['taxa']}% de taxa crítica, {c['critico']}x de multiplicador crítico'
-
-                                    print(f'{cor}{atqTxt:^72}{fecharcor}')
-
-                                    print(f'{cor}{infoTxt:^72}{fecharcor}')
-                                    espacoColorido(72, corBarra)
-
-                                ataqueRemovido = int(input('Escolha: '))
-
-                                if 0 < ataqueRemovido < 5:
-                                    selecionado = True
-                                    self.efetuarRoubo(self.ataqueRoubado, self.ataqueRemovido)
-                                    #Chance roubar ataque(ataqueRoubado, ataqueRemovido = None)- da prota.ataques.append(inimigo) print(sucesso/erro)
-
-                                else: raise ValueError
-
+                                certezaTrocar = input('Escolha:')
                                 limparTela()
 
-                            elif certezaTrocar.upper() == 'N': 
-                                selecionado = False
-                                limparTela()
+                                if certezaTrocar.upper() == 'S':
+                                    print(f'{redBg}{'Qual?':^72}{fecharcor}')
 
-                            else: raise KeyError
+                                    for i, c in enumerate(prota.ataques):
+                                        if i % 2 == 0:
+                                            cor = WhiteBlue
+                                            corBarra = 'white'
+                                        else:
+                                            cor = BlueWhite
+                                            corBarra = 'blue'
 
+                                        atqTxt = f'{i+1}- {c['nome']} - {c['desc']}'
+                                        infoTxt = f'{c['chance']}% de acerto, {c['taxa']}% de taxa crítica, {c['critico']}x de multiplicador crítico'
+
+                                        print(f'{cor}{atqTxt:^72}{fecharcor}')
+
+                                        print(f'{cor}{infoTxt:^72}{fecharcor}')
+                                        espacoColorido(72, corBarra)
+
+                                    self.ataqueRemovido = int(input('Escolha: '))
+
+                                    limparTela()
+                                    
+                                    if 0 < self.ataqueRemovido < 5:
+                                        selecionado = True
+                                        self.efetuarRoubo(self.ataqueRoubado, self.ataqueRemovido)
+                                        #Chance roubar ataque(ataqueRoubado, ataqueRemovido = None)- da prota.ataques.append(inimigo) print(sucesso/erro)
+
+                                    else: raise ValueError
+
+                                    limparTela()
+
+                                elif certezaTrocar.upper() == 'N': 
+                                    selecionado = False
+                                    limparTela()
+
+                                else: raise KeyError
+
+                            else:
+                                selecionado = True
+                                self.efetuarRoubo(self.ataqueRoubado)
                         else:
-                            selecionado = True
-                            self.efetuarRoubo(self.ataqueRoubado)
+                            print(f'{redBg}{'VOCÊ JÁ POSSUI ESSE ATAQUE!!!':^72}{fecharcor}')
+                            sleep(1)
+                            limparTela()
+
+                            selecionado = False
                             
                     elif self.ataqueRoubado == 0:
                         limparTela()
@@ -868,11 +886,11 @@ class Protagonista(Combatente):
     def efetuarRoubo(self, roubado, removido = None):
         ganhou = False
 
-        if inimigoAtual.lvl > self.lvl: chance = 100
+        if inimigoAtual.lvl > self.lvl: chance = 75
 
-        elif inimigoAtual.lvl == self.lvl: chance = 100
+        elif inimigoAtual.lvl == self.lvl: chance = 50
 
-        else: chance = 100
+        else: chance = 25
 
         girarRoubo = randint(1, 100)
 

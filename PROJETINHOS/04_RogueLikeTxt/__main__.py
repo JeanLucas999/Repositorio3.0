@@ -42,14 +42,11 @@ from rpg import *
 #ATAQUES
 
 #NO GERAL FALTA-
-#Arrumar quando voce tem os 4 ataques
-#Lista com apenas os ataques do inimigo que o prota nao tem para o roubo
-#Do nada um paladino chegou com apenas um ponto
+#Deixar cura bonita
 #Try no lvl up
 #ROUND/FLOOR/TETO no dano
 #BOSSES
 #BALANCEAR
-#DEIXAR BONITO, PRINCIPALMENTE PRIMEIRO MENU
 #BUGS
 #UPGRADES
 #ATAQUES
@@ -57,6 +54,7 @@ from rpg import *
 #CONTINUAR
 
 #PENSAMENTOS
+#Do nada um paladino chegou com apenas um ponto
 #Modo JxJ
 #Speed continua meio inutil, buff de dano por speed acima do oponente
 #Mostrar o desenrolar das vidas depois dos ataques
@@ -64,8 +62,7 @@ from rpg import *
 #Mesma coisa pro xp, acho que o prota deveria ganhar xp dependendo de como o inimigo esta em relacao a camara e nao ao prota em si
 #Com isso, depois de tantos lvls pode ter um boss com forca parecida do player
 #Para cada lvl acima + XP
-#Buff de XP se o Personagem esta abaixo do lvl da camara
 
 
-#iniciarJogo()
-iniciarDebug()
+iniciarJogo()
+#iniciarDebug()
