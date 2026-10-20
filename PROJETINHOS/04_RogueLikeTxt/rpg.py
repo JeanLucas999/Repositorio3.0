@@ -300,8 +300,8 @@ class Jogo:
         camaraTxt = f'Camara: {self.chamber}'
         inimigoNovoTxt = f'Voce enfrentara um(a) {self.nomeFeito}'
 
-        print(f'{whiteBg}{camaraTxt:^72}{fecharcor}')
-        print (f'{redBg}{inimigoNovoTxt:^72}{fecharcor}')
+        print(f'{whiteBg}{camaraTxt:^82}{fecharcor}')
+        print (f'{redBg}{inimigoNovoTxt:^82}{fecharcor}')
         sleep(2)
 
         inimigoAtual = classesInimigos[self.decisao1](self.nomeFeito, self.decisao1, self.decisao2, self.chamber)
@@ -396,22 +396,22 @@ class Jogo:
     def menuBatalha(self):
         
         camaraTxt = f'Câmara: {self.chamber}'
-        print(f'{redBg}{camaraTxt:^72}{fecharcor}')
+        print(f'{redBg}{camaraTxt:^82}{fecharcor}')
 
-        espacoColorido(72, 'white')
+        espacoColorido(82, 'white')
 
         nomeInimigoTxt = f'{inimigoAtual.nome} LVL {inimigoAtual.lvl}'
         statsInimigoTxt = f'Vida: {inimigoAtual.vida:.0f}/{inimigoAtual.vidaMax}|{inimigoAtual.vida * 100 / inimigoAtual.vidaMax:.0f}% Atq:{inimigoAtual.atq} Vel: {inimigoAtual.speed}'
 
-        print(f'{blackBg}{statsInimigoTxt:^72}{fecharcor}\n{BlackRed}{nomeInimigoTxt:^72}{fecharcor}')
+        print(f'{blackBg}{statsInimigoTxt:^82}{fecharcor}\n{BlackRed}{nomeInimigoTxt:^82}{fecharcor}')
 
-        espacoColorido(72, 'purple')
+        espacoColorido(82, 'purple')
 
         nomeProtaTxt = f'{prota.nome.capitalize()} LVL {prota.lvl}'
         statsProtaTxt = f'Vida: {prota.vida:.0f}/{prota.vidaMax}|{prota.vida * 100 / prota.vidaMax:.0f}% Atq:{prota.atq} Vel: {prota.speed}'
 
 
-        print(f'{BlackBlue}{nomeProtaTxt:^72}{fecharcor}\n{blackBg}{statsProtaTxt:^72}{fecharcor}')
+        print(f'{BlackBlue}{nomeProtaTxt:^82}{fecharcor}\n{blackBg}{statsProtaTxt:^82}{fecharcor}')
 
         prota.xpBar()
 
@@ -423,7 +423,7 @@ class Jogo:
             
             self.menuBatalha()
             try:
-                print(f'{blueBg}{'1- Atacar 2- Defender 3- Curar: ':^72}{fecharcor}')
+                print(f'{blueBg}{'1- Atacar 2- Defender(AINDA SEM UTILIDADE) 3- Curar: ':^82}{fecharcor}')
                 movimento = int(input())
                 limparTela()
 
@@ -433,19 +433,18 @@ class Jogo:
                             for i, c in enumerate(prota.ataques):
                                 if i % 2 == 0:
                                     cor = BlackBlue
-                                    corBarra = 'black'
                                 else:
                                     cor = blueBg
-                                    corBarra = 'blue'
 
                                 atqTxt = f'{i+1}- {c['nome']} - {c['desc']}'
                                 infoTxt = f'{c['chance']}% de acerto, {c['taxa']}% de taxa crítica, {c['critico']}x de multiplicador crítico'
-
+                                danoTxt = f'Causará {c['dano']*prota.atq:.0f} ou {c['dano']*c['critico']*prota.atq:.0f} de dano'
                                 
-                                print(f'{cor}{atqTxt:^72}{fecharcor}')
+                                print(f'{cor}{atqTxt:^82}{fecharcor}')
                     
-                                print(f'{cor}{infoTxt:^72}{fecharcor}')
-                                espacoColorido(72, corBarra)
+                                print(f'{cor}{infoTxt:^82}{fecharcor}')
+
+                                print(f'{cor}{danoTxt:^82}{fecharcor}')
 
                                 
                             self.atqEscolhido = int(input('Escolha(0 PARA VOLTAR): '))
@@ -472,13 +471,13 @@ class Jogo:
                             cura2Txt =  f'2- Cura Media: {listaCuras[1]['desc']}'
                             cura3Txt = f'3- Cura Avançada: {listaCuras[2]['desc']}'
 
-                            print(f'{BlackRed}{'A CADA CURA SEGUIDA VOCÊ TEM MAIS CHANCE DE ERRAR!!!':^72}{fecharcor}')
+                            print(f'{BlackRed}{'A CADA CURA SEGUIDA VOCÊ TEM MAIS CHANCE DE ERRAR!!!':^82}{fecharcor}')
 
-                            print(f'{redBg}{chanceMaisTxt:^72}{fecharcor}')
+                            print(f'{redBg}{chanceMaisTxt:^82}{fecharcor}')
 
-                            print(f'{greenBg}{cura1Txt:^72}{fecharcor}')
-                            print(f'{WhiteGreen}{cura2Txt:^72}{fecharcor}')
-                            print(f'{greenBg}{cura3Txt:^72}{fecharcor}')
+                            print(f'{greenBg}{cura1Txt:^82}{fecharcor}')
+                            print(f'{WhiteGreen}{cura2Txt:^82}{fecharcor}')
+                            print(f'{greenBg}{cura3Txt:^82}{fecharcor}')
 
                             self.curaEscolhida = int(input('Escolha(0 PARA VOLTAR): '))
 
@@ -502,7 +501,7 @@ class Jogo:
             except ValueError:
                 limparTela()
 
-                print(f'{redBg}{'Número inválido, tente novamente!':^72}{fecharcor}')
+                print(f'{redBg}{'Número inválido, tente novamente!':^82}{fecharcor}')
 
             if not inimigoAtual.vivo:
                 prota.novaChamber()
@@ -651,7 +650,7 @@ class Protagonista(Combatente):
         self.ataques = [listaAtaques['investida']]
 
     def xpBar(self):
-        barSize = 66
+        barSize = 76
         textoXp = f'{self.xp}% XP'
         preenchidas = round(self.xp/100*barSize)
         naoPreenchidas = barSize - preenchidas
@@ -739,8 +738,8 @@ class Protagonista(Combatente):
         upadoTxt = f'Você upou {self.xpUpado}% de XP!!!'
         lvlTxt= f'E upou {self.lvlUpado} LVL!!!'
         
-        print(f'{greenBg}{upadoTxt:^72}{fecharcor}')
-        if self.lvlUpado > 0: print(f'{greenBg}{lvlTxt:^72}{fecharcor}')
+        print(f'{greenBg}{upadoTxt:^82}{fecharcor}')
+        if self.lvlUpado > 0: print(f'{greenBg}{lvlTxt:^82}{fecharcor}')
 
         sleep(2)
         limparTela()
@@ -765,7 +764,7 @@ class Protagonista(Combatente):
         selecionado = False
         while not selecionado:
             try:
-                roubarEscolha = input(f'{WhiteGreen}{'Você pode tentar roubar um ataque do inimigo, deseja fazer isso? [S/N]':^72}{fecharcor}')
+                roubarEscolha = input(f'{WhiteGreen}{'Você pode tentar roubar um ataque do inimigo, deseja fazer isso? [S/N]':^82}{fecharcor}')
 
                 if roubarEscolha.upper() == 'S':
                     for i, c in enumerate(inimigoAtual.ataques):
@@ -779,10 +778,11 @@ class Protagonista(Combatente):
                         atqTxt = f'{i+1}- {c['nome']} - {c['desc']}'
                         infoTxt = f'{c['chance']}% de acerto, {c['taxa']}% de taxa crítica, {c['critico']}x de multiplicador crítico'
 
-                        print(f'{cor}{atqTxt:^72}{fecharcor}')
+                        print(f'{cor}{atqTxt:^82}{fecharcor}')
 
-                        print(f'{cor}{infoTxt:^72}{fecharcor}')
-                        espacoColorido(72, corBarra)
+                        print(f'{cor}{infoTxt:^82}{fecharcor}')
+
+                        espacoColorido(82, corBarra)
 
                         
                     self.ataqueRoubado = int(input('Escolha(0 para desistir): '))
@@ -794,13 +794,13 @@ class Protagonista(Combatente):
 
                             if len(prota.ataques) == 4:
 
-                                print(f'{redBg}{'Você já tem 4 ataques, deseja trocar um: [S/N]':^72}{fecharcor}')
+                                print(f'{redBg}{'Você já tem 4 ataques, deseja trocar um: [S/N]':^82}{fecharcor}')
 
                                 certezaTrocar = input('Escolha:')
                                 limparTela()
 
                                 if certezaTrocar.upper() == 'S':
-                                    print(f'{redBg}{'Qual?':^72}{fecharcor}')
+                                    print(f'{redBg}{'Qual?':^82}{fecharcor}')
 
                                     for i, c in enumerate(prota.ataques):
                                         if i % 2 == 0:
@@ -812,11 +812,11 @@ class Protagonista(Combatente):
 
                                         atqTxt = f'{i+1}- {c['nome']} - {c['desc']}'
                                         infoTxt = f'{c['chance']}% de acerto, {c['taxa']}% de taxa crítica, {c['critico']}x de multiplicador crítico'
+                                        
+                                        print(f'{cor}{atqTxt:^82}{fecharcor}')
 
-                                        print(f'{cor}{atqTxt:^72}{fecharcor}')
-
-                                        print(f'{cor}{infoTxt:^72}{fecharcor}')
-                                        espacoColorido(72, corBarra)
+                                        print(f'{cor}{infoTxt:^82}{fecharcor}')
+                                        espacoColorido(82, corBarra)
 
                                     self.ataqueRemovido = int(input('Escolha: '))
 
@@ -840,7 +840,7 @@ class Protagonista(Combatente):
                                 selecionado = True
                                 self.efetuarRoubo(self.ataqueRoubado)
                         else:
-                            print(f'{redBg}{'VOCÊ JÁ POSSUI ESSE ATAQUE!!!':^72}{fecharcor}')
+                            print(f'{redBg}{'VOCÊ JÁ POSSUI ESSE ATAQUE!!!':^82}{fecharcor}')
                             sleep(1)
                             limparTela()
 
@@ -853,9 +853,9 @@ class Protagonista(Combatente):
                     else: raise ValueError
                     
                 elif roubarEscolha.upper() == 'N':
-                    print (f'{WhiteRed}{f'Tem certeza disso? [S/N]':^72}{fecharcor}')
+                    print (f'{WhiteRed}{f'Tem certeza disso? [S/N]':^82}{fecharcor}')
                     if len(self.ataques) < 4:
-                        print (f'{WhiteRed}{'Você ainda não tem todos os 4 ataques!!!':^72}{fecharcor}')
+                        print (f'{WhiteRed}{'Você ainda não tem todos os 4 ataques!!!':^82}{fecharcor}')
 
                     certeza = input('Escolha:')
 
@@ -872,13 +872,13 @@ class Protagonista(Combatente):
                 else: raise KeyError
 
             except ValueError:
-                print(f'{redBg}{'DIGITE UM NUMERO VALIDO!!!':^72}{fecharcor}') 
+                print(f'{redBg}{'DIGITE UM NUMERO VALIDO!!!':^82}{fecharcor}') 
 
             except KeyError:
-                print(f'{redBg}{'DIGITE UM VALOR VALIDO!!!':^72}{fecharcor}') 
+                print(f'{redBg}{'DIGITE UM VALOR VALIDO!!!':^82}{fecharcor}') 
 
             except:
-                print(print(f'{redBg}{'ERRO!!!':^72}{fecharcor}') )
+                print(print(f'{redBg}{'ERRO!!!':^82}{fecharcor}') )
 
     def efetuarRoubo(self, roubado, removido = None):
         ganhou = False
@@ -894,18 +894,18 @@ class Protagonista(Combatente):
         if girarRoubo <= chance: ganhou = True
 
         rouboTxt = f'Chance de dar certo: {chance}%'
-        print(f'{WhiteBlue}{rouboTxt:^72}{fecharcor}')
+        print(f'{WhiteBlue}{rouboTxt:^82}{fecharcor}')
 
         if ganhou:
             for c in range(0, 20):
                 if c%2 == 0:
                     roletaCor = WhiteRed
-                    stdout.write(f"\r{roletaCor}{'Perdeu':^72}{fecharcor}")
+                    stdout.write(f"\r{roletaCor}{'Perdeu':^82}{fecharcor}")
                     stdout.flush()
 
                 else:
                     roletaCor = WhiteGreen
-                    stdout.write(f"\r{roletaCor}{'Ganhou':^72}{fecharcor}")
+                    stdout.write(f"\r{roletaCor}{'Ganhou':^82}{fecharcor}")
                     stdout.flush()
 
                 sleep(0.05 + (c*0.02))
@@ -918,25 +918,25 @@ class Protagonista(Combatente):
                 prota.ataques.append(inimigoAtual.ataques[roubado-1])
 
             print()
-            print(f'{greenBg}{'SUCESSO!!!':^72}{fecharcor}')
+            print(f'{greenBg}{'SUCESSO!!!':^82}{fecharcor}')
             
 
         else:
             for c in range(0, 20):
                 if c%2 != 0:
                     roletaCor = WhiteRed
-                    stdout.write(f"\r{roletaCor}{'Perdeu':^72}{fecharcor}")
+                    stdout.write(f"\r{roletaCor}{'Perdeu':^82}{fecharcor}")
                     stdout.flush()
 
                 else:
                     roletaCor = WhiteGreen
-                    stdout.write(f"\r{roletaCor}{'Ganhou':^72}{fecharcor}")
+                    stdout.write(f"\r{roletaCor}{'Ganhou':^82}{fecharcor}")
                     stdout.flush()
 
                 sleep(0.05 + (c*0.02))
 
             print()
-            print(f'{redBg}{'Fez o L':^72}{fecharcor}')
+            print(f'{redBg}{'Fez o L':^82}{fecharcor}')
 
         sleep(1)
 
@@ -1048,7 +1048,6 @@ class Inimigo(Combatente):
                 moveTemp = choice(self.ataquesPossiveis)
                 if moveTemp not in self.ataques:
                     self.ataques.append(moveTemp)
-                    print('appendou')
                     pronto = True
                 else:
                     pronto = False

@@ -42,6 +42,7 @@ from rpg import *
 #ATAQUES
 
 #NO GERAL FALTA-
+#Arrumar a chance de qual cura o inimigo vai escolher
 #Deixar cura bonita
 #Try no lvl up
 #ROUND/FLOOR/TETO no dano

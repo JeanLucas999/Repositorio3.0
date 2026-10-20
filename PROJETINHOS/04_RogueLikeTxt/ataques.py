@@ -107,7 +107,7 @@ listaAtaques =  {
         'deu uma cotovelada tão forte que o oponente ouviu o próprio osso reclamar',
         'acertou a cotovelada no queixo e o oponente viu estrelinhas',
         'cotovelou com tanta classe que o oponente quase pediu bis',
-        'a cotovelada foi tão precisa que o oponente sentiu nos dentes'
+        'acertou uma cotovelada tão precisa que o oponente sentiu nos dentes'
     ],
 
     'erro':
@@ -162,7 +162,7 @@ listaAtaques =  {
     'critou':
     [
         'bateu as asas e criou um furacão pessoal que lançou o oponente longe',
-        'a ventania foi tão forte que o oponente voou e ainda levou o dano de volta',
+        'criou uma ventania tão forte que o oponente voou e ainda levou o dano de volta',
         'bateu as asas e o oponente grudou na parede por alguns segundos',
         'criou uma tempestade de penas e poeira que deixou o oponente girando'
     ],
@@ -191,8 +191,8 @@ listaAtaques =  {
     'critou':
     [
         'atingiu a iluminação e a cabeça do oponente ao mesmo tempo',
-        'a cabeçada ecoou pela montanha inteira',
-        'a cabeçada foi tão pura que o oponente viu a luz no fim do túnel',
+        'deu uma cabeçada que ecoou pela montanha inteira',
+        'deu uma cabeçada tão pura que o oponente viu a luz no fim do túnel',
         'transcendeu o corpo e a testa, o oponente foi junto para outra dimensão'
     ],
 
@@ -219,8 +219,8 @@ listaAtaques =  {
     'critou':
     [
         'rezou com tanta devoção que um raio de luz atingiu o oponente em cheio',
-        'a oração foi tão poderosa que o oponente se ajoelhou sem querer',
-        'a fé foi tão grande que até o chão pediu perdão',
+        'rezou uma oração tão poderosa que o oponente se ajoelhou sem querer',
+        'rezou com tanta fé que até o chão pediu perdão',
         'gritou um amém tão forte que a montanha respondeu'
     ],
 
@@ -278,7 +278,7 @@ listaAtaques =  {
         'deu uma patada tão forte que deixou marcas até na armadura',
         'arranhou o oponente com tanta fúria que ele perdeu a pose',
         'pulou e acertou três patadas seguidas antes de o oponente piscar',
-        'a patada foi tão violenta que o oponente rodou no ar'
+        'deu uma patada tão violenta que o oponente rodou no ar'
     ],
 
     'erro':
@@ -305,8 +305,8 @@ listaAtaques =  {
     'critou':
     [
         'acertou o ponto mais sensível do oponente, que viu a vida passar diante dos olhos',
-        'o golpe foi tão baixo que a torcida vaiou. Mas funcionou.',
-        'o golpe foi tão sujo que o juiz imaginário apitou falta',
+        'deu um golpe tão baixo que a torcida vaiou. Mas funcionou.',
+        'deu um golpe tão sujo que o juiz imaginário apitou falta',
         'acertou o oponente tão baixo que ele sentiu até nos antepassados'
     ],
 
@@ -333,7 +333,7 @@ listaAtaques =  {
     'critou':
     [
         'jogou areia com tanta pontaria que o oponente ficou cego por um instante e levou todos os golpes',
-        'a areia entrou em lugares que o oponente nem sabia que tinha',
+        'jogou areia que entrou em lugares que o oponente nem sabia que tinha',
         'acertou areia no olho e ainda deu um sorrisinho malvado',
         'jogou uma nuvem de areia tão grande que o oponente tossiu e levou dano extra'
     ],
@@ -382,9 +382,9 @@ listaAtaques =  {
     'critou':
     [
         'atirou um espinho com tanta força que atravessou a armadura',
-        'o espinho acertou em cheio e o oponente ficou meio esverdeado',
+        'acertou um espinho em cheio e o oponente ficou meio esverdeado',
         'lançou vários espinhos de uma vez e todos acertaram',
-        'o espinho foi tão certeiro que o oponente jurou ter visto a vida passar'
+        'lançou um espinho tão certeiro que o oponente jurou ter visto a vida passar'
     ],
 
     'erro':
@@ -404,24 +404,24 @@ listaAtaques =  {
     [
         'chamou um enxame que picou o oponente por todos os lados',
         'soltou um enxame de besouros que cobriu o oponente inteiro',
-        'o enxame zumbiu tão alto que o oponente se desesperou e levou dano',
+        'chamou um enxame que zumbiu tão alto que o oponente se desesperou e levou dano',
         'chamou os amigos insetos para uma festa e o convidado de honra era o oponente'
     ],
 
     'critou':
     [
-        'o enxame cobriu o oponente tão completamente que ele sumiu por alguns segundos',
-        'milhares de insetos picaram o oponente de uma só vez',
+        'fez um enxame que cobriu o oponente tão completamente que ele sumiu por alguns segundos',
+        'fez milhares de insetos picarem o oponente de uma só vez',
         'chamou um enxame tão grande que escureceu o céu',
-        'o enxame foi tão intenso que o oponente jurou nunca mais comer mel'
+        'fez um enxame que foi tão intenso que o oponente jurou nunca mais comer mel'
     ],
 
     'erro':
     [
         'chamou o enxame, mas eles estavam em horário de almoço e não vieram',
-        'o enxame veio, confundiu o alvo e picou o próprio dono',
+        'chamou, o enxame veio, confundiu o alvo e picou o próprio dono',
         'chamou o enxame, mas só apareceu uma mosca perdida',
-        'o enxame se distraiu com uma lâmpada e esqueceu do oponente'
+        'chamou, o enxame se distraiu com uma lâmpada e esqueceu do oponente'
     ]
     },
 
@@ -433,22 +433,22 @@ listaAtaques =  {
     [
         'invocou uma luz do céu que queimou o oponente',
         'abriu os braços e uma luz sagrada atingiu o oponente',
-        'uma luz divina caiu do céu e o oponente ficou com cara de quem viu um fantasma',
+        'invocou uma luz divina que caiu do céu e deixou o oponente com cara de quem viu um fantasma',
         'brilhou tanto que o oponente teve que cobrir os olhos e levou o dano'
     ],
 
     'critou':
     [
-        'a luz divina caiu com tanta força que o oponente viu o paraíso por um segundo',
-        'um raio sagrado atravessou o oponente, que ficou com cheiro de queimado',
-        'o céu se abriu e uma luz dourada acertou o oponente em cheio',
-        'a luz foi tão forte que até os anjos pediram para baixar o brilho'
+        'fez uma luz divina cair com tanta força que o oponente viu o paraíso por um segundo',
+        'conjurou um raio sagrado que atravessou o oponente, que ficou com cheiro de queimado',
+        'fez o céu se abrir e uma luz dourada acertou o oponente em cheio',
+        'fez uma luz tão forte que até os anjos pediram para baixar o brilho'
     ],
 
     'erro':
     [
         'invocou a luz divina, mas o céu estava nublado e só caiu uma gota',
-        'a luz sagrada acertou o chão e deixou a grama mais verde',
+        'invocou uma luz sagrada que acertou o chão e deixou a grama mais verde',
         'invocou a luz, mas ela foi resolver outro assunto e nunca chegou',
         'tentou brilhar, mas a lanterna estava sem pilha'
     ]
@@ -490,9 +490,9 @@ listaAtaques =  {
     'critou':
     [
         'deu um pisão tão forte que abriu uma rachadura no chão',
-        'o pisão ecoou pela arena inteira e o oponente sentiu nos ossos',
+        'deu um pisão que ecoou pela arena inteira e o oponente sentiu nos ossos',
         'pisou com tanta força que o oponente afundou meio metro',
-        'o pisão foi tão pesado que até os vizinhos reclamaram'
+        'deu um pisão tão pesado que até os vizinhos reclamaram'
     ],
 
     'erro':
@@ -506,7 +506,7 @@ listaAtaques =  {
 
     #VAMPIRISMO
     'sugada':
-    {'nome': 'Sugada', 'desc': 'Morde e suga o sangue do inimigo, causando 1x seu ataque e curando parte do dano', 'dano': 1, 'chance': 75, 'taxa': 10, 'critico': 1.2, 'tipo': 'vampirismo', 'efeito': 'sem',
+    {'nome': 'Sugada', 'desc': 'Morde e suga sangue, causa 1x seu ataque e curando parte do dano', 'dano': 1, 'chance': 75, 'taxa': 10, 'critico': 1.2, 'tipo': 'vampirismo', 'efeito': 'sem',
 
     'acerto':
     [
@@ -520,7 +520,7 @@ listaAtaques =  {
     [
         'sugou tanto sangue que o oponente ficou pálido e ele ficou corado',
         'bebeu o sangue do oponente de uma vez só, estilo canudinho',
-        'a mordida foi tão profunda que o oponente jurou ouvir o próprio coração parando',
+        'deu uma mordida tão profunda que o oponente jurou ouvir o próprio coração parando',
         'sugou o sangue com tanta vontade que o oponente ficou meio murcho'
     ],
 
@@ -547,17 +547,17 @@ listaAtaques =  {
 
     'critou':
     [
-        'o raio arcano foi tão potente que o oponente ficou com o cabelo em pé',
-        'um relâmpago roxo cortou o céu e acertou o oponente em cheio',
-        'o feitiço saiu tão forte que o próprio mago se assustou',
-        'o raio acertou o oponente e ainda sobrou energia para acender uma lâmpada'
+        'conjurou um raio arcano tão potente que o oponente ficou com o cabelo em pé',
+        'invocou um relâmpago roxo que cortou o céu e acertou o oponente em cheio',
+        'lançou um feitiço tão forte que o próprio mago se assustou',
+        'acertou um raio no oponente e ainda sobrou energia para acender uma lâmpada'
     ],
 
     'erro':
     [
         'recitou o feitiço, mas errou uma palavra e saiu só uma faísca',
         'apontou o cajado e saiu uma fumacinha, nada mais',
-        'o raio saiu, mas acertou uma árvore que já estava queimada',
+        'soltou um raio, mas acertou uma árvore que já estava queimada',
         'conjurou o feitiço, mas esqueceu de colocar a energia e nada aconteceu'
     ]
     },
@@ -577,18 +577,18 @@ listaAtaques =  {
 
     'critou':
     [
-        'o plano foi tão genial que o oponente demorou a entender o que tinha acontecido',
+        'executou um plano tão genial que o oponente demorou a entender o que tinha acontecido',
         'calculou tudo ao milímetro e o golpe acertou o ponto exato',
-        'o plano deu tão certo que até o inimigo elogiou depois',
+        'executou um plano que deu tão certo que até o inimigo elogiou depois',
         'previu o movimento do oponente com três turnos de antecedência'
     ],
 
     'erro':
     [
-        'o plano era perfeito, só esqueceu de considerar o oponente se mexendo',
+        'traçou um plano perfeito, só esqueceu de considerar o oponente se mexendo',
         'calculou a trajetória, errou uma conta e acertou a própria sombra',
         'montou um plano genial, mas esqueceu onde deixou a anotação',
-        'o plano falhou porque o oponente decidiu não seguir o roteiro'
+        'bolou um plano, mas o oponente decidiu não seguir o roteiro'
     ]
     },
 
@@ -606,9 +606,9 @@ listaAtaques =  {
 
     'critou':
     [
-        'a facada foi tão rápida que o oponente nem viu de onde veio',
+        'deu uma facada tão rápida que o oponente nem viu de onde veio',
         'assaltou o oponente tão bem que ele ainda agradeceu pelo atendimento',
-        'o golpe pelas costas foi tão limpo que até o juiz aplaudiu',
+        'deu um golpe pelas costas tão limpo que até o juiz aplaudiu',
         'levou o dinheiro, a dignidade e o dano crítico do oponente'
     ],
 
@@ -635,9 +635,9 @@ listaAtaques =  {
 
     'critou':
     [
-        'o chute foi tão certeiro que o oponente pulou num pé só por uma hora',
+        'deu um chute tão certeiro que o oponente pulou num pé só por uma hora',
         'acertou a canela com tanta força que o oponente fez uma dança involuntária',
-        'o chute na canela foi tão forte que o oponente chorou escondido',
+        'deu um chute na canela tão forte que o oponente chorou escondido',
         'acertou o chute e o oponente prometeu nunca mais subestimar os baixinhos'
     ],
 
@@ -664,10 +664,10 @@ listaAtaques =  {
 
     'critou':
     [
-        'a temperatura subiu tanto que o oponente viu miragem e ainda levou o dano em dobro',
-        'o calor foi tão intenso que até o chão ficou derretido e o oponente saiu pulando',
+        'subiu a temperatura tanto que o oponente viu miragem e ainda levou o dano em dobro',
+        'soltou um calor tão intenso que até o chão ficou derretido e o oponente saiu pulando',
         'esquentou a arena inteira e o oponente jurou que estava no deserto do Saara',
-        'a temperatura chegou ao nível "churrasco" e o oponente quase foi servido com farofa'
+        'elevou a temperatura ao nível "churrasco" e o oponente quase foi servido com farofa'
     ],
 
     'erro':
@@ -694,8 +694,8 @@ listaAtaques =  {
     'critou':
     [
         'criou uma onda tão grande que o "mini" do nome virou mentira',
-        'o tsunami veio com tanta força que o oponente foi parar do outro lado da arena',
-        'a onda foi tão forte que até os peixes ficaram assustados',
+        'invocou um tsunami com tanta força que o oponente foi parar do outro lado da arena',
+        'criou uma onda tão forte que até os peixes ficaram assustados',
         'soltou uma onda tão grande que o oponente achou que estava no Titanic'
     ],
 
@@ -703,7 +703,7 @@ listaAtaques =  {
     [
         'invocou a onda, mas ela se perdeu no caminho e foi para a casa do vizinho',
         'criou um tsunami tão mini que só molhou o sapato do oponente',
-        'a onda veio com força, mas voltou e arrastou o próprio invocador',
+        'invocou uma onda com força, mas ela voltou e arrastou o próprio invocador',
         'tentou criar um tsunami, mas só saiu um respingo de torneira'
     ]
     },
@@ -782,7 +782,7 @@ listaCuras = [
         'invocou um anjo da guarda que estava de plantão, ele pediu desculpa pelo atraso e curou 100% de vida',
         'encontrou uma fonte da juventude, bebeu um gole e curou 100% de vida',
         'dormiu em uma cama king size que apareceu do nada, acordou novinho em folha e curou 100% de vida',
-        'o roteirista sentiu pena, reescreveu a cena e curou 100% de vida',
+        ': o roteirista sentiu pena, reescreveu a cena e curou 100% de vida',
         'comeu o prato do dia do restaurante mais caro do reino, curou 100% de vida e deixou a carteira vazia',
         'meditou por 7 dias em 7 segundos, atingiu a iluminação e curou 100% de vida',
         'achou uma poção lendária dentro de um baú esquecido, curou 100% de vida',
