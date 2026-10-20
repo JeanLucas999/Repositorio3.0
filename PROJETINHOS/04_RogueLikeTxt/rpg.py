@@ -486,6 +486,7 @@ class Jogo:
                             self.curaEscolhida = int(input(f'{yellowTxt}1- {greenTxt}Cura Simples:{fecharcor} {listaCuras[0]['desc']} \n{yellowTxt}2- {greenTxt}Cura Media:{fecharcor} {listaCuras[1]['desc']}\n{yellowTxt}3- {greenTxt}Cura Avançada:{fecharcor} {listaCuras[1]['desc']}\n{yellowTxt}0- {redTxt}Voltar{fecharcor}\nEscolha: '))
 
                             if 0 < self.curaEscolhida < 4:
+                                limparTela()
                                 selecionado = True
                                 self.decidirOrdem(movimento, self.curaEscolhida)
 
@@ -564,14 +565,14 @@ class Combatente(ABC):
 
                 self.dano = self.atq * self.ataque['dano']
 
-                print(f'{self.nome} {self.ataque['acerto'][texto]} e causou {self.dano:.0f} de dano')
+                print(f'{self.nome} {self.ataque['acerto'][texto]}, causou {self.dano:.0f} de dano')
 
             else:
                 texto = randint(0, len(self.ataque['critou'])-1)
                 
                 self.dano = self.atq * self.ataque['dano'] * self.ataque    ['critico']
 
-                print(f'{self.nome} {self.ataque['critou'][texto]} foi CRÍTICO e causou {self.dano:.0f} de dano')
+                print(f'{self.nome} {self.ataque['critou'][texto]} foi CRÍTICO, causou {self.dano:.0f} de dano')
         else:
             texto = randint(0, len(self.ataque['erro'])-1)
 
@@ -603,7 +604,7 @@ class Combatente(ABC):
             #SE PASSAR DE 100%
             self.vida = self.vidaMax
 
-        sleep(2)
+        sleep(2.2)
 
 
     def girarDado(self):
@@ -651,7 +652,6 @@ class Protagonista(Combatente):
         self.xp = 0
         self.erro = None
         self.ataques = [listaAtaques['investida']]
-        print(self.ataques)
 
     def xpBar(self):
         barSize = 66
@@ -828,7 +828,6 @@ class Protagonista(Combatente):
                                     if 0 < self.ataqueRemovido < 5:
                                         selecionado = True
                                         self.efetuarRoubo(self.ataqueRoubado, self.ataqueRemovido)
-                                        #Chance roubar ataque(ataqueRoubado, ataqueRemovido = None)- da prota.ataques.append(inimigo) print(sucesso/erro)
 
                                     else: raise ValueError
 

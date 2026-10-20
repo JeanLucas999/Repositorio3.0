@@ -235,7 +235,7 @@ listaAtaques =  {
     #PESADOS
 
     'barrigada':
-    {'nome': 'Barrigada', 'desc': 'Se joga de barriga, causa 1.7x seu ataque, sem critico', 'dano': 1.7, 'chance': 60, 'taxa': 0, 'critico': 0, 'tipo': 'pesado', 'efeito': 'sem',
+    {'nome': 'Barrigada', 'desc': 'Se joga de barriga, causa 1.6x seu ataque, sem critico', 'dano': 1.6, 'chance': 55, 'taxa': 0, 'critico': 0, 'tipo': 'pesado', 'efeito': 'sem',
 
     'acerto':
     [
@@ -291,7 +291,7 @@ listaCuras = [
     ],
     },
 
-    {'nome': 'Cura Media', 'desc': 'Cura 50% e tem 50% de SUCESSO', 'vida': 65, 'chance': 50, 
+    {'nome': 'Cura Media', 'desc': 'Cura 65% e tem 50% de SUCESSO', 'vida': 65, 'chance': 50, 
     'acerto': 
     [
         'dormiu por 5 horas, como o adversario era muito generoso, acabou por não atrapalhar, curou 65% de vida',

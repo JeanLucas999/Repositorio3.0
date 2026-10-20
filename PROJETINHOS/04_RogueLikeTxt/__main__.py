@@ -54,6 +54,7 @@ from rpg import *
 #CONTINUAR
 
 #PENSAMENTOS
+#Limpar tela antes do menu aparecer
 #Do nada um paladino chegou com apenas um ponto
 #Modo JxJ
 #Speed continua meio inutil, buff de dano por speed acima do oponente
