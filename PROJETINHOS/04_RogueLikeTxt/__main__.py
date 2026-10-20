@@ -54,6 +54,7 @@ from rpg import *
 #CONTINUAR
 
 #PENSAMENTOS
+#Mostrar quanto dano o ataque pode causar
 #Limpar tela antes do menu aparecer
 #Do nada um paladino chegou com apenas um ponto
 #Modo JxJ

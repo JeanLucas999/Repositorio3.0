@@ -285,14 +285,18 @@ class Jogo:
 
     def inimigoNovo(self):
         global inimigoAtual
-        nomes = ['Aranha ', 'Goblin ', 'Paladino ', 'Vampiro ', 'Urso ',]
+
+        classesInimigos = [Aranha, Goblin, Paladino, Vampiro, Urso, Monge, Mago, Nordestino]
+        nomes = ['Aranha', 'Goblin', 'Paladino', 'Vampiro', 'Urso', 'Monge', 'Mago', 'Nordestino']
+
         complementos = ['Gigante', 'Bazukeiro', 'Demoniaco', 'Malabarista', 'Peludo', 'Lambedor', 'Foguento', 'Serio', 'Fedorento', 'Dançarino', 'Sonolento', 'Mal-humorado', 'Raivoso', 'Faminto', 'Congelado', 'Invisivel', 'Cantor', 'Cabeludo', 'Desempregado','Filosofo', 'Bêbado', 'Anabolizado', 'Atrasado']
+
         self.decisao1 = randint(0, len(nomes)-1)
         self.decisao2 = randint(0, len(complementos)-1)
 
         #Da pra fazer ataques diferentes por complemento dentro da classe inimigo, a classe pode receber o self.complemento alem do nome e com isso ter alguns ataques diferentes, uma classe para cada, cada complemento tem buff nos stats
 
-        self.nomeFeito = nomes[self.decisao1] + complementos[self.decisao2]
+        self.nomeFeito = f'{nomes[self.decisao1]} {complementos[self.decisao2]}'
         camaraTxt = f'Camara: {self.chamber}'
         inimigoNovoTxt = f'Voce enfrentara um(a) {self.nomeFeito}'
 
@@ -300,25 +304,7 @@ class Jogo:
         print (f'{redBg}{inimigoNovoTxt:^72}{fecharcor}')
         sleep(2)
 
-        if self.decisao1 == 0:
-            inimigoAtual = Aranha(self.nomeFeito, self.decisao1, self.decisao2, self.chamber)
-
-        elif self.decisao1 == 1:
-            inimigoAtual = Goblin(self.nomeFeito, self.decisao1, self.decisao2, self.chamber)
-
-
-        elif self.decisao1 == 2:
-            inimigoAtual = Paladino(self.nomeFeito, self.decisao1, self.decisao2, self.chamber)
-
-
-        elif self.decisao1 == 3:
-            inimigoAtual = Vampiro(self.nomeFeito, self.decisao1, self.decisao2, self.chamber)
-
-
-        else:
-            inimigoAtual = Urso(self.nomeFeito, self.decisao1, self.decisao2, self.chamber)
-
-
+        inimigoAtual = classesInimigos[self.decisao1](self.nomeFeito, self.decisao1, self.decisao2, self.chamber)
 
     def acaoPlayer(self, movDecidido, acaoDecidida):
         #Preciso de algo para mov de prioridade
@@ -481,9 +467,20 @@ class Jogo:
 
                     if movimento == 3:
                         while not selecionado:
-                            print(f'{BlackRed}A CADA CURA SEGUIDA VOCÊ TEM MAIS CHANCE DE ERRAR!!!{fecharcor}')
-                            print(f'{BlackRed}{prota.curasSeguidas*20}% A MAIS DE CHANCE DE ERRO!!!{fecharcor}')
-                            self.curaEscolhida = int(input(f'{yellowTxt}1- {greenTxt}Cura Simples:{fecharcor} {listaCuras[0]['desc']} \n{yellowTxt}2- {greenTxt}Cura Media:{fecharcor} {listaCuras[1]['desc']}\n{yellowTxt}3- {greenTxt}Cura Avançada:{fecharcor} {listaCuras[1]['desc']}\n{yellowTxt}0- {redTxt}Voltar{fecharcor}\nEscolha: '))
+                            chanceMaisTxt = f'{prota.curasSeguidas*20}% A MAIS DE CHANCE DE ERRO!!!'
+                            cura1Txt = f'1- Cura simples: {listaCuras[0]['desc']}'
+                            cura2Txt =  f'2- Cura Media: {listaCuras[1]['desc']}'
+                            cura3Txt = f'3- Cura Avançada: {listaCuras[2]['desc']}'
+
+                            print(f'{BlackRed}{'A CADA CURA SEGUIDA VOCÊ TEM MAIS CHANCE DE ERRAR!!!':^72}{fecharcor}')
+
+                            print(f'{redBg}{chanceMaisTxt:^72}{fecharcor}')
+
+                            print(f'{greenBg}{cura1Txt:^72}{fecharcor}')
+                            print(f'{WhiteGreen}{cura2Txt:^72}{fecharcor}')
+                            print(f'{greenBg}{cura3Txt:^72}{fecharcor}')
+
+                            self.curaEscolhida = int(input('Escolha(0 PARA VOLTAR): '))
 
                             if 0 < self.curaEscolhida < 4:
                                 limparTela()
@@ -580,7 +577,7 @@ class Combatente(ABC):
 
             print(f'{self.nome} {self.ataque['erro'][texto]} NADA aconteceu')
 
-        sleep(2.2)
+        sleep(2.5)
 
     def curarPai(self):
         dado = randint(1, 100)
@@ -604,7 +601,7 @@ class Combatente(ABC):
             #SE PASSAR DE 100%
             self.vida = self.vidaMax
 
-        sleep(2.2)
+        sleep(2.5)
 
 
     def girarDado(self):
@@ -1055,7 +1052,6 @@ class Inimigo(Combatente):
                     pronto = True
                 else:
                     pronto = False
-        for c in self.ataques: print(c)
                 
 
     def decidirStats(self):
@@ -1070,7 +1066,7 @@ class Inimigo(Combatente):
             prota.morrer()
 
     def curar(self):
-        self.curaDecidida = randint(0, 1)
+        self.curaDecidida = randint(0, 2)
         super().curarPai()
 
     def defender(self):
@@ -1139,7 +1135,7 @@ class Urso(Inimigo):
 
 class Goblin(Inimigo):
     def __init__(self, nome, base, comp, chamber):
-        self.tipos = ['basico', 'bandido', 'pequeno', 'humanoide', 'perverso']
+        self.tipos = ['bandido', 'pequeno', 'humanoide', 'perverso']
         super().__init__(nome, base, comp, chamber)
 
     def decidirStats(self):
@@ -1156,7 +1152,7 @@ class Goblin(Inimigo):
 
 class Vampiro(Inimigo):
     def __init__(self, nome, base, comp, chamber):
-        self.tipos = ['basico', 'voador', 'vampirismo', 'humanoide', 'perverso']
+        self.tipos = ['voador', 'vampirismo', 'humanoide', 'perverso']
         super().__init__(nome, base, comp, chamber)
 
     def decidirStats(self):
@@ -1171,5 +1167,85 @@ class Vampiro(Inimigo):
                     self.upSpeed()
                 elif 70 < dadoStats < 91:
                     self.upAtq()
+                else:
+                    self.upHp()
+
+class Monge(Inimigo):
+    def __init__(self, nome, base, comp, chamber):
+        self.tipos = ['basico', 'humanoide', 'devoto', 'sagrado']
+        super().__init__(nome, base, comp, chamber)
+
+    def decidirStats(self):
+        c = 1
+        dadoStats = randint(1,100)
+
+        for c in range (1, self.sp+1):
+            if c%3 == 0:
+                self.upHp()
+            else:
+                if dadoStats < 70:
+                    self.upAtq()
+                elif 70 < dadoStats < 91:
+                    self.upHp()
+                else:
+                    self.upSpeed()
+
+class Monge(Inimigo):
+    def __init__(self, nome, base, comp, chamber):
+        self.tipos = ['humanoide', 'devoto', 'sagrado']
+        super().__init__(nome, base, comp, chamber)
+
+    def decidirStats(self):
+        c = 1
+        dadoStats = randint(1,100)
+
+        for c in range (1, self.sp+1):
+            if c%3 == 0:
+                self.upHp()
+            else:
+                if dadoStats < 70:
+                    self.upAtq()
+                elif 70 < dadoStats < 91:
+                    self.upHp()
+                else:
+                    self.upSpeed()
+
+class Mago(Inimigo):
+    def __init__(self, nome, base, comp, chamber):
+        self.tipos = ['humanoide', 'magico', 'genial', 'fogo', 'agua']
+        super().__init__(nome, base, comp, chamber)
+
+    def decidirStats(self):
+        c = 1
+        dadoStats = randint(1,100)
+
+        for c in range (1, self.sp+1):
+            if c%3 == 0:
+                self.upAtq()
+            else:
+                if dadoStats < 70:
+                    self.upAtq()
+                elif 70 < dadoStats < 91:
+                    self.upSpeed()
+                else:
+                    self.upHp()
+
+class Nordestino(Inimigo):
+    def __init__(self, nome, base, comp, chamber):
+        self.tipos = ['humanoide', 'fogo', 'basico']
+        super().__init__(nome, base, comp, chamber)
+
+    def decidirStats(self):
+        c = 1
+        dadoStats = randint(1,100)
+
+        for c in range (1, self.sp+1):
+            if c%3 == 0:
+                self.upAtq()
+            else:
+                if dadoStats < 70:
+                    self.upAtq()
+                elif 70 < dadoStats < 91:
+                    self.upSpeed()
                 else:
                     self.upHp()
