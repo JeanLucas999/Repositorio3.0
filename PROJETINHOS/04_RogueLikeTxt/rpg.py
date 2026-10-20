@@ -184,6 +184,7 @@ def iniciarJogo():
                                 try:
                                     if personagens['geral'][apagarSave-1]['usado']:
                                         respostaCerteza = input(f'VOCÊ TEM CERTEZA QUE DESEJA APAGAR O SAVE {apagarSave}- {personagens['geral'][apagarSave-1]['nome']} [S/N] ')
+                                        limparTela()
 
                                         if respostaCerteza.upper() == 'S':
                                             certeza = True
@@ -191,7 +192,6 @@ def iniciarJogo():
 
                                         elif respostaCerteza.upper() == 'N':
                                             certeza = False
-                                            print('Voltando e apagando texto')
 
                                         else:
                                             raise KeyError
@@ -205,6 +205,7 @@ def iniciarJogo():
                             if apagarSave == 0:
                                 certeza = True
                     else:
+
                         linha(50)
                         print(f'{BlackRed}{'AINDA NAO EXISTEM SAVES':^50}{fecharcor}')
                         sleep(1)
@@ -213,14 +214,17 @@ def iniciarJogo():
                 
         except ValueError:
             erro = True
+            limparTela()
 
             linha(50)
             print(f'{redBg}{'DIGITE UM NUMERO VALIDO!!!':^50}{fecharcor}')
 
-        #except TypeError:
-            #erro = True
+        except TypeError:
+            erro = True
+            limparTela
 
-            #print('Digite um numero!!!')
+            linha(50)
+            print(f'{redBg}{'DIGITE UM NUMERO!!!':^50}{fecharcor}')
 
 
 def resetSave(numRecebido=0, nomeProta='', apagar:bool = False):
@@ -298,26 +302,21 @@ class Jogo:
 
         if self.decisao1 == 0:
             inimigoAtual = Aranha(self.nomeFeito, self.decisao1, self.decisao2, self.chamber)
-            print('Criei aranha')
 
         elif self.decisao1 == 1:
             inimigoAtual = Goblin(self.nomeFeito, self.decisao1, self.decisao2, self.chamber)
-            print('Criei goblin')
 
 
         elif self.decisao1 == 2:
             inimigoAtual = Paladino(self.nomeFeito, self.decisao1, self.decisao2, self.chamber)
-            print('Criei Paladino')
 
 
         elif self.decisao1 == 3:
             inimigoAtual = Vampiro(self.nomeFeito, self.decisao1, self.decisao2, self.chamber)
-            print('Criei Vampiro')
 
 
         else:
             inimigoAtual = Urso(self.nomeFeito, self.decisao1, self.decisao2, self.chamber)
-            print('Criei urso')
 
 
 
@@ -503,7 +502,9 @@ class Jogo:
                     raise ValueError
 
             except ValueError:
-                print('Numero invalido, tente novamente')
+                limparTela()
+
+                print(f'{redBg}{'Número inválido, tente novamente!':^72}{fecharcor}')
 
             if not inimigoAtual.vivo:
                 prota.novaChamber()
@@ -578,7 +579,7 @@ class Combatente(ABC):
 
             print(f'{self.nome} {self.ataque['erro'][texto]} NADA aconteceu')
 
-        sleep(2)
+        sleep(2.2)
 
     def curarPai(self):
         dado = randint(1, 100)
