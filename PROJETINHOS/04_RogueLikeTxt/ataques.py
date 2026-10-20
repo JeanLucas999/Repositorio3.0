@@ -180,7 +180,7 @@ listaAtaques =  {
 
     #PERVERSOS
     'golpeBaixo':
-    {'nome': 'Golpe Baixo', 'desc': 'Ataque sujo, 1x seu ataque e alto crítico', 'dano': 1.1, 'chance': 90, 'taxa': 10, 'critico': 2.5, 'tipo': 'perverso', 'efeito': 'sem',
+    {'nome': 'Golpe Baixo', 'desc': 'Ataque sujo, 1x seu ataque e alto crítico', 'dano': 1, 'chance': 80, 'taxa': 10, 'critico': 2.5, 'tipo': 'perverso', 'efeito': 'sem',
 
     'acerto':
     [
@@ -226,7 +226,7 @@ listaAtaques =  {
         'jogou o veneno, o vento levou de volta e quase se envenenou',
         'ofereceu uma bebida envenenada, o oponente recusou educadamente'
     ]
-    }
+    },
 
     #INSETOS
 
@@ -234,7 +234,25 @@ listaAtaques =  {
 
     #PESADOS
 
-    #Cair em cima
+    'barrigada':
+    {'nome': 'Barrigada', 'desc': 'Se joga de barriga, causa 1.7x seu ataque, sem critico', 'dano': 1.7, 'chance': 60, 'taxa': 0, 'critico': 0, 'tipo': 'pesado', 'efeito': 'sem',
+
+    'acerto':
+    [
+        'tomou distância, correu e se jogou de barriga em cima do oponente',
+        'deu um pulo e caiu de barriga, o chão tremeu e o oponente também',
+        'se jogou de barriga como quem pula numa piscina, mas a piscina era o oponente',
+        'mergulhou de barriga no oponente e ainda deslizou alguns metros'
+    ],
+
+    'erro':
+    [
+        'se jogou de barriga, o oponente saiu da frente e o chão levou o golpe sozinho',
+        'pulou para a barrigada, mas a barriga chegou antes do resto e ele travou no meio do ar',
+        'se jogou com tudo, errou o oponente e ficou preso no chão sem conseguir levantar',
+        'tomou impulso para a barrigada, escorregou numa casca de banana e caiu de costas'
+    ]
+    },
 
     #VAMPIRISMO
 
