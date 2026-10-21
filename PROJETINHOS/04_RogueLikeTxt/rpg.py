@@ -926,19 +926,32 @@ class Protagonista(Combatente):
         self.speed = self.speedMax
 
     def morrer(self):
-        prota.vivo = False
+        self.vivo = False
         sleep(1)
         limparTela()
         print(f'{blackBg}{redTxt}Voce morreu :( Camâra alcançada: {inimigoAtual.chamber}{fecharcor}')
         sleep(2/textSpeed)
 
-        re = str(input(f'{blueTxt}Quer continuar (10% de chance de reviver)?{fecharcor} [{greenTxt}S{fecharcor}/{redTxt}N{fecharcor}]: '))
+        re = str(input(f'{blueTxt}Quer continuar (5% de chance de reviver)?{fecharcor} [{greenTxt}S{fecharcor}/{redTxt}N{fecharcor}]: '))
+
         if re.upper() == 'S':
-            if randint(1, 100) <= 10:
+            print()
+
+            if randint(1, 100) <= 5:
+                self.vivo = True
+
                 self.roletaGanha()
+
+                self.novaChamber()
+
             else:
                 self.roletaGanha(False)
+
+                limparTela()
+                print('Fim de jogo')
+
         else:
+            limparTela()
             print('Fim de jogo')
 
     def roletaGanha(self, ganhou = True):
