@@ -1,9 +1,7 @@
 from rpg import *
 
-#Falta mais sleeps para deixar jogavel
 #Continuar nao funfa
 #Alem de nao funcionar, se voce rejeitar voce toma mais um ataque, nao sei como
-#Colocar mais corzinhas quando cansar
 
 #BALANCEAMENTO-
 #Stats inimigos
@@ -17,15 +15,12 @@ from rpg import *
 #Pensar levando speed em relação
 
 #GERAIS-
-
 #Documentacao para caso alguem queira mexer, bom ter
 #Fazer continuar funcionar, preciso mandar os dados pro meu prota, talvez por parametro mesmo
 #Json editado depois da morte
 #Botao de continuar
-#Arrumar os int input que faltam para nao tomar erro na cara
-#Ataques
+#Arrumar os input que faltam para nao tomar erro na cara
 #Defesa
-#Cura avançada
 
 
 #MOVIMENTOS-
@@ -33,18 +28,13 @@ from rpg import *
 #Tipos, buffs, nerfs, efeitos
 
 #MECANICAS NOVAS-
-#Roubar ataques dos inimigos(unica maneira de conseguir novos)
-#Cartas de buff(Os inimigos precisam ficar mais fortes se tiver isso)
+#Efeitos
+#Cartas de buff
 #Olhar cartas atuais
 #Roleta pra tentar reviver
 
-#APARENCIA-
-#ATAQUES
-
 #NO GERAL FALTA-
 #Arrumar a chance de qual cura o inimigo vai escolher
-#Deixar cura bonita
-#Try no lvl up
 #ROUND/FLOOR/TETO no dano
 #BOSSES
 #BALANCEAR
@@ -55,9 +45,6 @@ from rpg import *
 #CONTINUAR
 
 #PENSAMENTOS
-#Mostrar quanto dano o ataque pode causar
-#Limpar tela antes do menu aparecer
-#Do nada um paladino chegou com apenas um ponto
 #Modo JxJ
 #Speed continua meio inutil, buff de dano por speed acima do oponente
 #Mostrar o desenrolar das vidas depois dos ataques

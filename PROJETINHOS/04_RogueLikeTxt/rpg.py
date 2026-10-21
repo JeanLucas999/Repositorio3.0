@@ -905,6 +905,44 @@ class Protagonista(Combatente):
         print(f'{WhiteBlue}{rouboTxt:^82}{fecharcor}')
 
         if ganhou:
+            self.roletaGanha()
+
+            if removido != None:
+                prota.ataques.pop(removido-1)
+                prota.ataques.append(inimigoAtual.ataques[roubado-1])
+
+            else:
+                prota.ataques.append(inimigoAtual.ataques[roubado-1])
+
+        else:
+            self.roletaGanha(False)
+
+        #Menor chance se o inimigo for lvl maior que vc
+        pass
+
+    def novaChamber(self):
+        self.vida = self.vidaMax
+        self.atq = self.atqMax
+        self.speed = self.speedMax
+
+    def morrer(self):
+        prota.vivo = False
+        sleep(1)
+        limparTela()
+        print(f'{blackBg}{redTxt}Voce morreu :( Camâra alcançada: {inimigoAtual.chamber}{fecharcor}')
+        sleep(2/textSpeed)
+
+        re = str(input(f'{blueTxt}Quer continuar (10% de chance de reviver)?{fecharcor} [{greenTxt}S{fecharcor}/{redTxt}N{fecharcor}]: '))
+        if re.upper() == 'S':
+            if randint(1, 100) <= 10:
+                self.roletaGanha()
+            else:
+                self.roletaGanha(False)
+        else:
+            print('Fim de jogo')
+
+    def roletaGanha(self, ganhou = True):
+        if ganhou:
             for c in range(0, 20):
                 if c%2 == 0:
                     roletaCor = WhiteRed
@@ -918,17 +956,9 @@ class Protagonista(Combatente):
 
                 sleep(0.05 + (c*0.02))
 
-            if removido != None:
-                prota.ataques.pop(removido-1)
-                prota.ataques.append(inimigoAtual.ataques[roubado-1])
-
-            else:
-                prota.ataques.append(inimigoAtual.ataques[roubado-1])
-
             print()
             print(f'{greenBg}{'SUCESSO!!!':^82}{fecharcor}')
             
-
         else:
             for c in range(0, 20):
                 if c%2 != 0:
@@ -949,31 +979,6 @@ class Protagonista(Combatente):
         sleep(1)
 
         limparTela()
-
-        #Menor chance se o inimigo for lvl maior que vc
-        pass
-
-    def novaChamber(self):
-        self.vida = self.vidaMax
-        self.atq = self.atqMax
-        self.speed = self.speedMax
-
-    def morrer(self):
-        prota.vivo = False
-        sleep(1)
-        limparTela()
-        print(f'{blackBg}{redTxt}Voce morreu :( Camâra alcançada: {inimigoAtual.chamber}{fecharcor}')
-        sleep(2/textSpeed)
-
-        re = str(input(f'{blueTxt}Quer continuar?{fecharcor} [{greenTxt}S{fecharcor}/{redTxt}N{fecharcor}]: '))
-        if re.upper() == 'S':
-            iniciarJogo()
-            pass
-        else:
-            print('Fim de jogo')
-
-
-        
 
     def defender(self):
         self.curasSeguidas = 0
@@ -1120,7 +1125,7 @@ class Paladino(Inimigo):
                 if dadoStats < 76:
                     self.upAtq()
                 else:
-                    self.upSpeed
+                    self.upSpeed()
 
 class Urso(Inimigo):
     def __init__(self, nome, base, comp, chamber):
@@ -1170,32 +1175,12 @@ class Vampiro(Inimigo):
             if c%3 == 0:
                 self.upHp()
             else:
-                if dadoStats < 70:
+                if dadoStats <= 70:
                     self.upSpeed()
                 elif 70 < dadoStats < 91:
                     self.upAtq()
                 else:
                     self.upHp()
-
-class Monge(Inimigo):
-    def __init__(self, nome, base, comp, chamber):
-        self.tipos = ['basico', 'humanoide', 'devoto', 'sagrado']
-        super().__init__(nome, base, comp, chamber)
-
-    def decidirStats(self):
-        c = 1
-        dadoStats = randint(1,100)
-
-        for c in range (1, self.sp+1):
-            if c%3 == 0:
-                self.upHp()
-            else:
-                if dadoStats < 70:
-                    self.upAtq()
-                elif 70 < dadoStats < 91:
-                    self.upHp()
-                else:
-                    self.upSpeed()
 
 class Monge(Inimigo):
     def __init__(self, nome, base, comp, chamber):
@@ -1210,7 +1195,7 @@ class Monge(Inimigo):
             if c%3 == 0:
                 self.upHp()
             else:
-                if dadoStats < 70:
+                if dadoStats <= 70:
                     self.upAtq()
                 elif 70 < dadoStats < 91:
                     self.upHp()
@@ -1230,7 +1215,7 @@ class Mago(Inimigo):
             if c%3 == 0:
                 self.upAtq()
             else:
-                if dadoStats < 70:
+                if dadoStats <= 70:
                     self.upAtq()
                 elif 70 < dadoStats < 91:
                     self.upSpeed()
@@ -1250,7 +1235,7 @@ class Nordestino(Inimigo):
             if c%3 == 0:
                 self.upAtq()
             else:
-                if dadoStats < 70:
+                if dadoStats <= 70:
                     self.upAtq()
                 elif 70 < dadoStats < 91:
                     self.upSpeed()
