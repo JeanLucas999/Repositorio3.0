@@ -20,27 +20,26 @@ def iniciarDebug():
     jogo = Jogo(protafake)
 
 def iniciarJogo():
-    global jogo, debug, pasta, path
+    global jogo, debug, pasta, path, textSpeed
 
     pasta = Path(__file__).parent
     path = pasta / 'saves.json'
-
     debug = False
     resposta = 0
-    erro = False
+    voltar = False
     temSave = False
     
-    while erro or resposta == 0:
+    while voltar or resposta == 0:
         try:
             linha(50)
 
             print(f'{BlueYellow}{'Continuar ou criar um novo save?':^50}{fecharcor}')
-            resposta = int(input(f'{whiteBg}{'1- Continuar':^50}{fecharcor}\n{whiteBg}{'2- Criar novo save':^50}{fecharcor}\n{whiteBg}{'3- Apagar save':^50}{fecharcor}\nEscolha: '))
+            resposta = int(input(f'{whiteBg}{'1- Continuar':^50}{fecharcor}\n{whiteBg}{'2- Criar novo save':^50}{fecharcor}\n{whiteBg}{'3- Apagar save':^50}{fecharcor}\n{whiteBg}{'4- Mudar velocidade do texto':^50}{fecharcor}\nEscolha: '))
 
             limparTela()
 
             if resposta == 1:
-                erro = False
+                voltar = False
                 temSave = False
 
                 #Ler saves
@@ -67,8 +66,7 @@ def iniciarJogo():
                         limparTela()
 
                         if escolhaSave == 0:
-                            #Erro para voltar pro menu inicial 
-                            erro = True
+                            voltar = True
 
                         elif personagens['geral'][escolhaSave-1]['usado']:
                             print('ok')
@@ -76,16 +74,15 @@ def iniciarJogo():
                         else:
                             raise ValueError
 
-                    #Senao, subir o erro e voltar pro inicio
                     else:
                         linha(50)
                         print(f'{BlackRed}{'AINDA NAO EXISTEM SAVES':^50}{fecharcor}')
                         sleep(1)
 
-                        erro = True
+                        voltar = True
 
             elif resposta == 2:
-                erro = False
+                voltar = False
                 certeza = False
 
                 with open(path, 'r', encoding='utf-8') as arq:
@@ -138,7 +135,7 @@ def iniciarJogo():
                                     print(f'{redBg}{'DIGITE UM VALOR VALIDO!!!':^50}{fecharcor}') 
 
                             elif novoSave == 0:
-                                erro = True
+                                voltar = True
                                 certeza = True
 
                             else: raise ValueError
@@ -153,8 +150,7 @@ def iniciarJogo():
                 #criar o save
 
             elif resposta == 3:
-                #erro = True para voltar pro menu sempre
-                erro = True
+                voltar = True
                 certeza = False
                 temSave = False
                 certeza = False
@@ -209,18 +205,29 @@ def iniciarJogo():
                         linha(50)
                         print(f'{BlackRed}{'AINDA NAO EXISTEM SAVES':^50}{fecharcor}')
                         sleep(1)
+
+            elif resposta == 4:
+                voltar = True
+                try:
+                    textSpeed = float(input(f'{BlueWhite}{'Qual velocidade você quer usar?':^50}{fecharcor}\n{whiteBg}{'Padrões: 1x(1) 2x(2) 3x(3)':^50}{fecharcor}\n{whiteBg}{'Ou qualquer outra que desejar:)':^50}{fecharcor}\n{'Escolha: '}'))
+                except:
+                    print(f'{redBg}{'DIGITE UM VALOR VALIDO!!!':^50}{fecharcor}')
+                print(f'Texto configurado para a velocidade {textSpeed}x')
+                sleep(1)
+                limparTela()
+
             else:
                 raise ValueError
                 
         except ValueError:
-            erro = True
+            voltar = True
             limparTela()
 
             linha(50)
             print(f'{redBg}{'DIGITE UM NUMERO VALIDO!!!':^50}{fecharcor}')
 
         except TypeError:
-            erro = True
+            voltar = True
             limparTela
 
             linha(50)
@@ -302,7 +309,8 @@ class Jogo:
 
         print(f'{whiteBg}{camaraTxt:^82}{fecharcor}')
         print (f'{redBg}{inimigoNovoTxt:^82}{fecharcor}')
-        sleep(2)
+        sleep(2/textSpeed)
+        limparTela()
 
         inimigoAtual = classesInimigos[self.decisao1](self.nomeFeito, self.decisao1, self.decisao2, self.chamber)
 
@@ -576,7 +584,7 @@ class Combatente(ABC):
 
             print(f'{self.nome} {self.ataque['erro'][texto]} NADA aconteceu')
 
-        sleep(2.5)
+        sleep(2.5/textSpeed)
 
     def curarPai(self):
         dado = randint(1, 100)
@@ -600,7 +608,7 @@ class Combatente(ABC):
             #SE PASSAR DE 100%
             self.vida = self.vidaMax
 
-        sleep(2.5)
+        sleep(2.5/textSpeed)
 
 
     def girarDado(self):
@@ -741,7 +749,7 @@ class Protagonista(Combatente):
         print(f'{greenBg}{upadoTxt:^82}{fecharcor}')
         if self.lvlUpado > 0: print(f'{greenBg}{lvlTxt:^82}{fecharcor}')
 
-        sleep(2)
+        sleep(2/textSpeed)
         limparTela()
 
         if self.lvlUpado > 0:
@@ -955,7 +963,7 @@ class Protagonista(Combatente):
         sleep(1)
         limparTela()
         print(f'{blackBg}{redTxt}Voce morreu :( Camâra alcançada: {inimigoAtual.chamber}{fecharcor}')
-        sleep(2)
+        sleep(2/textSpeed)
 
         re = str(input(f'{blueTxt}Quer continuar?{fecharcor} [{greenTxt}S{fecharcor}/{redTxt}N{fecharcor}]: '))
         if re.upper() == 'S':

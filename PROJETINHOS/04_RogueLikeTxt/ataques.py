@@ -92,7 +92,7 @@ listaAtaques =  {
     },
 
     'cotovelada':
-    {'nome': 'Cotovelada', 'desc': 'Acerta uma cotovelada, causando 1.3x seu ataque', 'dano': 1.3, 'chance': 80, 'taxa': 10, 'critico': 1.6, 'tipo': 'humanoide', 'efeito': 'sem',
+    {'nome': 'Cotovelada', 'desc': 'Acerta uma cotovelada, causando 1.2x seu ataque', 'dano': 1.2, 'chance': 80, 'taxa': 10, 'critico': 1.6, 'tipo': 'humanoide', 'efeito': 'sem',
 
     'acerto':
     [
@@ -178,7 +178,7 @@ listaAtaques =  {
 
     #DEVOTOS
     'cabecadaZen':
-    {'nome': 'Cabeçada Zen', 'desc': 'Medita e dá uma cabeçada precisa, 1.3x seu ataque', 'dano': 1.3, 'chance': 50, 'taxa': 30, 'critico': 2.0, 'tipo': 'devoto', 'efeito': 'sem',
+    {'nome': 'Cabeçada Zen', 'desc': 'Medita e dá uma cabeçada precisa, 1.3x seu ataque', 'dano': 1.3, 'chance': 50, 'taxa': 30, 'critico': 1.8, 'tipo': 'devoto', 'efeito': 'sem',
 
     'acerto':
     [
@@ -206,7 +206,7 @@ listaAtaques =  {
     },
 
     'oracaoFuriosa':
-    {'nome': 'Oração Furiosa', 'desc': 'Reza com tanta fé que machuca, causando 1.6x seu ataque', 'dano': 1.6, 'chance': 55, 'taxa': 25, 'critico': 1.8, 'tipo': 'devoto', 'efeito': 'sem',
+    {'nome': 'Oração Furiosa', 'desc': 'Reza com tanta fé que machuca, causando 1.6x seu ataque', 'dano': 1.6, 'chance': 35, 'taxa': 25, 'critico': 1.8, 'tipo': 'devoto', 'efeito': 'sem',
 
     'acerto':
     [
@@ -263,7 +263,7 @@ listaAtaques =  {
     },
 
     'patada':
-    {'nome': 'Patada', 'desc': 'Acerta uma patada, causando 1.4x seu ataque', 'dano': 1.4, 'chance': 78, 'taxa': 10, 'critico': 1.7, 'tipo': 'animal', 'efeito': 'sem',
+    {'nome': 'Patada', 'desc': 'Acerta uma patada, causando 1.2x seu ataque', 'dano': 1.2, 'chance': 70, 'taxa': 10, 'critico': 1.7, 'tipo': 'animal', 'efeito': 'sem',
 
     'acerto':
     [
@@ -427,7 +427,7 @@ listaAtaques =  {
 
     #SAGRADOS
     'luzDivina':
-    {'nome': 'Luz Divina', 'desc': 'Invoca uma luz sagrada, causando 1.5x seu ataque', 'dano': 1.5, 'chance': 65, 'taxa': 20, 'critico': 2.0, 'tipo': 'sagrado', 'efeito': 'sem',
+    {'nome': 'Luz Divina', 'desc': 'Invoca uma luz sagrada, causando 1.2x seu ataque', 'dano': 1.2, 'chance': 65, 'taxa': 20, 'critico': 1.8, 'tipo': 'sagrado', 'efeito': 'sem',
 
     'acerto':
     [
@@ -457,7 +457,7 @@ listaAtaques =  {
     #PESADOS
 
     'barrigada':
-    {'nome': 'Barrigada', 'desc': 'Se joga de barriga, causa 1.6x seu ataque, sem critico', 'dano': 1.6, 'chance': 55, 'taxa': 0, 'critico': 0, 'tipo': 'pesado', 'efeito': 'sem',
+    {'nome': 'Barrigada', 'desc': 'Se joga de barriga, causa 1.6x seu ataque, sem critico', 'dano': 1.6, 'chance': 50, 'taxa': 0, 'critico': 0, 'tipo': 'pesado', 'efeito': 'sem',
 
     'acerto':
     [
@@ -535,7 +535,7 @@ listaAtaques =  {
 
     #MAGICO
         'raioArcano':
-    {'nome': 'Raio Arcano', 'desc': 'Conjura um raio mágico, causando 1.6x seu ataque', 'dano': 1.6, 'chance': 70, 'taxa': 20, 'critico': 1.8, 'tipo': 'magico', 'efeito': 'sem',
+    {'nome': 'Raio Arcano', 'desc': 'Conjura um raio mágico, causando 1.3x seu ataque', 'dano': 1.3, 'chance': 70, 'taxa': 20, 'critico': 1.8, 'tipo': 'magico', 'efeito': 'sem',
 
     'acerto':
     [
@@ -714,7 +714,7 @@ listaAtaques =  {
 
 
 listaCuras = [
-    {'nome': 'Cura Simples', 'desc': 'Cura 20% e tem 95% de SUCESSO', 'vida': 20, 'chance': 95, 
+    {'nome': 'Cura Simples', 'desc': 'Cura 20% e tem 90% de SUCESSO', 'vida': 20, 'chance': 90, 
     'acerto': 
     [
         'curou 100% tomando uma xicara de café bem quentinho, queimou a lingua e perdeu 80% dos 100%',
@@ -745,20 +745,20 @@ listaCuras = [
     ],
     },
 
-    {'nome': 'Cura Media', 'desc': 'Cura 65% e tem 50% de SUCESSO', 'vida': 65, 'chance': 50, 
+    {'nome': 'Cura Media', 'desc': 'Cura 50% e tem 50% de SUCESSO', 'vida': 50, 'chance': 50, 
     'acerto': 
     [
-        'dormiu por 5 horas, como o adversario era muito generoso, acabou por não atrapalhar, curou 65% de vida',
-        'carregou seu ki e recuperou 65% de vida', 
-        'pesquisou metodos de como conquistar FÊMEAS, deu tudo errado, bebeu cachaça e recuperou 65% de vida',
-        'assistiu vídeos de gatinhos por 5 minutos, o adversário assistiu junto, curou 65% de vida',
-        'fez um churrasco no meio da luta, até o oponente pegou um espetinho, curou 65% de vida',
-        'rezou para todos os santos que conhecia, um deles atendeu, curou 65% de vida',
-        'tomou um banho de cachoeira que apareceu do nada, o roteirista agradeceu, curou 65% de vida',
-        'encontrou um sofá no meio do campo de batalha, deitou e curou 65% de vida',
-        'ligou pra mãe, ela mandou se agasalhar e preparou um caldo por telepatia, curou 65% de vida',
-        'foi ao mercado no meio da luta, comprou um pão de queijo quentinho e curou 65% de vida',
-        'ganhou um abraço de um desconhecido que passava, curou 65% de vida',
+        'dormiu por 5 horas, como o adversario era muito generoso, acabou por não atrapalhar, curou 50% de vida',
+        'carregou seu ki e recuperou 50% de vida', 
+        'pesquisou metodos de como conquistar FÊMEAS, deu tudo errado, bebeu cachaça e recuperou 50% de vida',
+        'assistiu vídeos de gatinhos por 5 minutos, o adversário assistiu junto, curou 50% de vida',
+        'fez um churrasco no meio da luta, até o oponente pegou um espetinho, curou 50% de vida',
+        'rezou para todos os santos que conhecia, um deles atendeu, curou 50% de vida',
+        'tomou um banho de cachoeira que apareceu do nada, o roteirista agradeceu, curou 50% de vida',
+        'encontrou um sofá no meio do campo de batalha, deitou e curou 50% de vida',
+        'ligou pra mãe, ela mandou se agasalhar e preparou um caldo por telepatia, curou 50% de vida',
+        'foi ao mercado no meio da luta, comprou um pão de queijo quentinho e curou 50% de vida',
+        'ganhou um abraço de um desconhecido que passava, curou 50% de vida',
     ],
     'erro':
     [
