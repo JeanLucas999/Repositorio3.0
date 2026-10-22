@@ -528,9 +528,6 @@ class Jogo:
 
 class Combatente(ABC):
     def __init__(self):
-        #Preciso de status absolutos, tipo, o self.dano nao deve ser o que vai bater, mas sim apenas o que vai ser multiplicado para descobrir o que vai bater, talvez nao
-        #talvez seja apenas colocar um * depois do self.atq
-
         self.vida = 50
         self.vidaMax = self.vida
 
@@ -542,7 +539,7 @@ class Combatente(ABC):
 
         self.vivo = True
 
-        self.aura = 100
+        self.efeitos = []
 
         self.taxa = 5
         self.crit = 1.5
@@ -562,29 +559,84 @@ class Combatente(ABC):
         dado = randint(1, 100)
 
         self.curasSeguidas = 0
-        
-        if dado < self.ataque['chance']:
-            if dado > self.ataque['taxa']:
-                texto = randint(0, len(self.ataque['acerto'])-1)
 
-                self.dano = self.atq * self.ataque['dano']
+        if self.ataque['efeito'] == 'sem':
 
-                print(f'{self.nome} {self.ataque['acerto'][texto]}, causou {self.dano:.0f} de dano')
+            if dado < self.ataque['chance']:
+                if dado > self.ataque['taxa']:
+                    texto = randint(0, len(self.ataque['acerto'])-1)
 
+                    self.dano = self.atq * self.ataque['dano']
+
+                    print(f'{self.nome} {self.ataque['acerto'][texto]}, causou {self.dano:.0f} de dano')
+
+                else:
+                    texto = randint(0, len(self.ataque['critou'])-1)
+                    
+                    self.dano = self.atq * self.ataque['dano'] * self.ataque['critico']
+
+                    print(f'{self.nome} {self.ataque['critou'][texto]} foi CRÍTICO, causou {self.dano:.0f} de dano')
             else:
-                texto = randint(0, len(self.ataque['critou'])-1)
-                
-                self.dano = self.atq * self.ataque['dano'] * self.ataque    ['critico']
+                texto = randint(0, len(self.ataque['erro'])-1)
 
-                print(f'{self.nome} {self.ataque['critou'][texto]} foi CRÍTICO, causou {self.dano:.0f} de dano')
+                self.dano = 0
+
+                print(f'{self.nome} {self.ataque['erro'][texto]} NADA aconteceu')
+
         else:
-            texto = randint(0, len(self.ataque['erro'])-1)
+            #Partir pra logica dos efeitos em si
+            
+            if dado < self.ataque['chanceEfeito']:  
+                aplicarEfeito = True
+                textoEfeito = randint(0, len(self.ataque['efeito']['frasesEfeito']-1))
 
-            self.dano = 0
+            else: aplicarEfeito = False
 
-            print(f'{self.nome} {self.ataque['erro'][texto]} NADA aconteceu')
+            if dado < self.ataque['chance']:
+                #Caso o ataque tenha dano
+                if self.ataque['dano'] > 0:
+                    if dado > self.ataque['taxa']:
+                        texto = randint(0, len(self.ataque['acerto'])-1)
+                        self.dano = self.atq * self.ataque['dano']
 
-        sleep(2.5/textSpeed)
+                        print(f'{self.nome} {self.ataque['acerto'][texto]}, causou {self.dano:.0f} de dano')
+
+                        if aplicarEfeito:
+                            sleep(1.5/textSpeed)
+
+                            print(f'{self.ataque['efeito']['frasesEfeito'][textoEfeito]}')
+
+                    else:
+                        texto = randint(0, len(self.ataque['critou'])-1)
+                        self.dano = self.atq * self.ataque['dano'] * self.ataque['critico']
+
+                        print(f'{self.nome} {self.ataque['critou'][texto]} foi CRÍTICO, causou {self.dano:.0f} de dano')
+
+                        if aplicarEfeito:
+                            sleep(1.5/textSpeed)
+
+                            print(f'{self.ataque['efeito']['frasesEfeito'][textoEfeito]}')
+
+                #Caso não tenha dano
+                else:
+                    texto = randint(0, len(self.ataque['acerto'])-1)
+                    self.dano = 0
+
+                    print(f'{self.nome} {self.ataque['acerto'][texto]}')
+                    
+                    sleep(1.5/textSpeed)
+
+                    print(f'{self.ataque['efeito']['frasesEfeito'][textoEfeito]}')
+
+            else: 
+                texto = randint(0, len(self.ataque['erro'])-1)
+
+                self.dano = 0
+
+                print(f'{self.nome} {self.ataque['erro'][texto]} NADA aconteceu')
+
+            sleep(2.5/textSpeed)
+
 
     def curarPai(self):
         dado = randint(1, 100)
@@ -609,6 +661,22 @@ class Combatente(ABC):
             self.vida = self.vidaMax
 
         sleep(2.5/textSpeed)
+
+    def processarEfeitos(self):
+        for c in self.efeitos:
+    
+            if not c['aplicado']:
+                c['aplicado'] = True
+                self.atq *= c.get('buffAtq', 1)
+                self.speed *= c.get('buffSpeed', 1)
+            self.vida -= c.get('dano', 0)
+
+        efeitosCopia = self.efeitos[:]
+
+        for c in efeitosCopia:
+            c['duracao'] -= 1
+            if c['duracao'] <= 0:
+                self.efeitos.remove(c)
 
 
     def girarDado(self):
@@ -648,12 +716,15 @@ class Protagonista(Combatente):
         super().__init__()
         self.nome = nome
         self.atq = 10
+
         self.vidaMax = self.vida
         self.atqMax = self.atq
         self.speedMax = self.speed
+
         self.lvl = 0
         self.sp = 0
         self.xp = 0
+        
         self.erro = None
         self.ataques = [listaAtaques['investida']]
 

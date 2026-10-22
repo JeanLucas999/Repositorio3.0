@@ -19,16 +19,23 @@
     #]
     #}
 
-#Efeitos tem duracao por turnos e dano porcento
-
 tiposAtuais = ['basico', 'humanoide', 'voador', 'devoto', 'animal', 'perverso', 'venenoso', 'inseto', 'sagrado', 'pesado', 'vampirismo', 'magico', 'genial', 'bandido', 'pequeno', 'fogo', 'agua']
 
 
+#Efeitos tem duracao por turnos e dano porcento
+
+#Necessarios para efeitos sao nome, aplicado, duracao, frasesEfeito
+
+#Usáveis atualmente são buffAtq, buffSpeed, dano
 
 
 listaEfeitos = {
     'veneno':
-    {'nome': 'Veneno', 'duracao': 5, 'dano': 10}
+    {'nome': 'Veneno', 'aplicado': False, 'duracao': 5, 'dano': 10, 
+    'frasesEfeito': {
+        'o inimigo está passando muito mal por conta do veneno aplicado'
+    }
+    }
 }
 
 
@@ -354,7 +361,7 @@ listaAtaques =  {
     'acerto': 
     [
         'jogou uma chuva de veneno no inimigo',
-        'deixou o inimigo fortemente envenenado',
+        'deixou o inimigo extremamente mal',
         'misturou veneno na bebida do oponente, que bebeu feliz da vida',
         'soprou uma nuvem verde e fedorenta no inimigo'
     ],
