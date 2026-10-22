@@ -226,12 +226,7 @@ def iniciarJogo():
             linha(50)
             print(f'{redBg}{'DIGITE UM NUMERO VALIDO!!!':^50}{fecharcor}')
 
-        except TypeError:
-            voltar = True
-            limparTela
 
-            linha(50)
-            print(f'{redBg}{'DIGITE UM NUMERO!!!':^50}{fecharcor}')
 
 
 def resetSave(numRecebido=0, nomeProta='', apagar:bool = False):
@@ -362,6 +357,7 @@ class Jogo:
         #Decidir ordem de movimento
         #Precisa de um parametro tipo prioridade player que muda o self.vezPlayer, facin facin
         #str deve ser player ou inimigo
+
         self.vezPlayer = None
         self.prioridade = prioridade
 
@@ -390,16 +386,24 @@ class Jogo:
         elif self.prioridade == 'inimigo':
             self.vezPlayer = False
         
-
         if self.vezPlayer:
             self.acaoPlayer(movimento, acao)
+
             if inimigoAtual.vivo:
+                if len(inimigoAtual.efeitos) != 0:
+                    inimigoAtual.processarEfeitos()
+
                 self.acaoInimigo()
 
         if not self.vezPlayer:
             self.acaoInimigo()
+
             if prota.vivo:
+                if len(prota.efeitos) != 0:
+                    prota.processarEfeitos()
+
                 self.acaoPlayer(movimento, acao)
+ 
 
     def menuBatalha(self):
         
@@ -521,11 +525,6 @@ class Jogo:
 
 
 
-
-
-
-
-
 class Combatente(ABC):
     def __init__(self):
         self.vida = 50
@@ -584,8 +583,6 @@ class Combatente(ABC):
                 print(f'{self.nome} {self.ataque['erro'][texto]} NADA aconteceu')
 
         else:
-            #Partir pra logica dos efeitos em si
-            
             if dado < self.ataque['chanceEfeito']:  
                 tentativaEfeito = True
 
@@ -601,7 +598,7 @@ class Combatente(ABC):
                         print(f'{self.nome} {self.ataque['acerto'][texto]}, causou {self.dano:.0f} de dano')
 
                         if tentativaEfeito:
-                            self.aplicarEfeito(=)
+                            self.aplicarEfeito()
 
                     else:
                         texto = randint(0, len(self.ataque['critou'])-1)
@@ -629,7 +626,7 @@ class Combatente(ABC):
 
                 print(f'{self.nome} {self.ataque['erro'][texto]} NADA aconteceu')
 
-            sleep(2.5/textSpeed)
+        sleep(2.5/textSpeed)
 
 
     def curarPai(self):
@@ -658,32 +655,55 @@ class Combatente(ABC):
 
     def processarEfeitos(self):
         apagar = []
-        
+
+        #Diminuindo duracao dos existentes e vendo se precisa apagar
         for c in self.efeitos:
             c['duracao'] -= 1
 
             if c['duracao'] <= 0:
                 apagar.append(c.index())
 
+        #Apagando e recalculando
         for c in apagar:
             self.efeitos.remove(c)
             self.recalcularStats()
 
+        #Aplicando efeitos
         for c in self.efeitos:
-    
+            buffAtq = c.get('buffAtq', 1)
+            buffSpeed = c.get('buffSpeed', 1)
+            danoEfeito = c.get('dano', 1)
+
             if not c['aplicado']:
                 c['aplicado'] = True
-                self.atq *= c.get('buffAtq', 1)
-                self.speed *= c.get('buffSpeed', 1)
 
-            self.vida -= c.get('dano', 0)   
+                if buffAtq != 1:
+                    self.atq *= buffAtq
+                    if buffAtq < 1:
+                        print(f'{fecharcor}{self.nome} perdeu {1-buffAtq*100}% de dano{fecharcor}')
+                    else:
+                        print(f'{blueTxt}{self.nome} ganhou {1-buffAtq*100}% de dano{fecharcor}')
+
+                if buffSpeed != 1:
+                    self.speed *= buffSpeed
+                    if buffSpeed < 1:
+                        print(f'{redTxt}{self.nome} perdeu {1-buffSpeed*100}% de velocidade{fecharcor}')
+                    else:
+                        print(f'{blueTxt}{self.nome} ganhou {1-buffSpeed*100}% de velocidade{fecharcor}')
+
+            if danoEfeito > 0:
+                self.vida -= self.vidaMax*danoEfeito/100  
+                print(f'{redTxt}{self.nome} sofreu com {c['nome'].lower()} e perdeu {self.vidaMax*danoEfeito/100} de vida{fecharcor}')
+
+            sleep(2/textSpeed)
+
+            c['aplicado'] = True
 
     def aplicarEfeito(self):
         textoEfeito = randint(0, len(self.ataque['efeito']['frasesEfeito'])-1)
 
         sleep(1.5/textSpeed)
-        
-        print(f'{self.ataque['efeito']['frasesEfeito'][textoEfeito]}')
+        print(f'{redTxt}{self.ataque['efeito']['frasesEfeito'][textoEfeito]}{fecharcor}')
 
         alvo = self.ataque['efeito'].get('alvo', 'adversario')
 
@@ -754,7 +774,7 @@ class Protagonista(Combatente):
         self.xp = 0
         
         self.erro = None
-        self.ataques = [listaAtaques['investida']]
+        self.ataques = [listaAtaques['investida'], listaAtaques['envenenamento']]
 
     def xpBar(self):
         barSize = 76
@@ -1023,6 +1043,7 @@ class Protagonista(Combatente):
         self.vida = self.vidaMax
         self.atq = self.atqMax
         self.speed = self.speedMax
+        self.efeitos = []
 
     def morrer(self):
         self.vivo = False

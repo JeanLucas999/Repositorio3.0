@@ -32,9 +32,9 @@ tiposAtuais = ['basico', 'humanoide', 'voador', 'devoto', 'animal', 'perverso', 
 listaEfeitos = {
     'veneno':
     {'nome': 'Veneno', 'aplicado': False, 'alvo': 'adversario', 'duracao': 5, 'dano': 10, 
-    'frasesEfeito': {
-        'o inimigo está passando muito mal por conta do veneno aplicado'
-    }
+    'frasesEfeito': [
+        'O inimigo está passando mal por conta do veneno',
+    ]
     }
 }
 

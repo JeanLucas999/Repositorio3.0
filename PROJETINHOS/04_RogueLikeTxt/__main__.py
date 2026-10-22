@@ -34,6 +34,7 @@ from rpg import *
 #Roleta pra tentar reviver
 
 #NO GERAL FALTA-
+#Mostrar efeitos que esta sofrendo
 #Arrumar a chance de qual cura o inimigo vai escolher
 #ROUND/FLOOR/TETO no dano
 #BOSSES
