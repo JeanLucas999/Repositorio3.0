@@ -24,14 +24,14 @@ tiposAtuais = ['basico', 'humanoide', 'voador', 'devoto', 'animal', 'perverso', 
 
 #Efeitos tem duracao por turnos e dano porcento
 
-#Necessarios para efeitos sao nome, aplicado, duracao, frasesEfeito
+#Necessarios para efeitos sao nome, aplicado, alvo, duracao, frasesEfeito
 
 #Usáveis atualmente são buffAtq, buffSpeed, dano
-
+#alvo usuario ou adversario
 
 listaEfeitos = {
     'veneno':
-    {'nome': 'Veneno', 'aplicado': False, 'duracao': 5, 'dano': 10, 
+    {'nome': 'Veneno', 'aplicado': False, 'alvo': 'adversario', 'duracao': 5, 'dano': 10, 
     'frasesEfeito': {
         'o inimigo está passando muito mal por conta do veneno aplicado'
     }

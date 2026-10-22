@@ -587,10 +587,9 @@ class Combatente(ABC):
             #Partir pra logica dos efeitos em si
             
             if dado < self.ataque['chanceEfeito']:  
-                aplicarEfeito = True
-                textoEfeito = randint(0, len(self.ataque['efeito']['frasesEfeito']-1))
+                tentativaEfeito = True
 
-            else: aplicarEfeito = False
+            else: tentativaEfeito = False
 
             if dado < self.ataque['chance']:
                 #Caso o ataque tenha dano
@@ -601,10 +600,8 @@ class Combatente(ABC):
 
                         print(f'{self.nome} {self.ataque['acerto'][texto]}, causou {self.dano:.0f} de dano')
 
-                        if aplicarEfeito:
-                            sleep(1.5/textSpeed)
-
-                            print(f'{self.ataque['efeito']['frasesEfeito'][textoEfeito]}')
+                        if tentativaEfeito:
+                            self.aplicarEfeito(=)
 
                     else:
                         texto = randint(0, len(self.ataque['critou'])-1)
@@ -612,21 +609,18 @@ class Combatente(ABC):
 
                         print(f'{self.nome} {self.ataque['critou'][texto]} foi CRÍTICO, causou {self.dano:.0f} de dano')
 
-                        if aplicarEfeito:
-                            sleep(1.5/textSpeed)
-
-                            print(f'{self.ataque['efeito']['frasesEfeito'][textoEfeito]}')
+                        if tentativaEfeito:
+                            self.aplicarEfeito()
 
                 #Caso não tenha dano
                 else:
                     texto = randint(0, len(self.ataque['acerto'])-1)
+                    
                     self.dano = 0
 
                     print(f'{self.nome} {self.ataque['acerto'][texto]}')
                     
-                    sleep(1.5/textSpeed)
-
-                    print(f'{self.ataque['efeito']['frasesEfeito'][textoEfeito]}')
+                    self.aplicarEfeito()
 
             else: 
                 texto = randint(0, len(self.ataque['erro'])-1)
@@ -663,22 +657,56 @@ class Combatente(ABC):
         sleep(2.5/textSpeed)
 
     def processarEfeitos(self):
+        apagar = []
+        
+        for c in self.efeitos:
+            c['duracao'] -= 1
+
+            if c['duracao'] <= 0:
+                apagar.append(c.index())
+
+        for c in apagar:
+            self.efeitos.remove(c)
+            self.recalcularStats()
+
         for c in self.efeitos:
     
             if not c['aplicado']:
                 c['aplicado'] = True
                 self.atq *= c.get('buffAtq', 1)
                 self.speed *= c.get('buffSpeed', 1)
-            self.vida -= c.get('dano', 0)
 
-        efeitosCopia = self.efeitos[:]
+            self.vida -= c.get('dano', 0)   
 
-        for c in efeitosCopia:
-            c['duracao'] -= 1
-            if c['duracao'] <= 0:
-                self.efeitos.remove(c)
+    def aplicarEfeito(self):
+        textoEfeito = randint(0, len(self.ataque['efeito']['frasesEfeito'])-1)
 
+        sleep(1.5/textSpeed)
+        
+        print(f'{self.ataque['efeito']['frasesEfeito'][textoEfeito]}')
 
+        alvo = self.ataque['efeito'].get('alvo', 'adversario')
+
+        if isinstance(self, Inimigo):
+            if alvo == 'adversario':
+                prota.efeitos.append(self.ataque['efeito'].copy())
+            else:
+                inimigoAtual.efeitos.append(self.ataque['efeito'].copy())
+
+        else:
+            if alvo == 'adversario':
+                inimigoAtual.efeitos.append(self.ataque['efeito'].copy())
+            else:
+                prota.efeitos.append(self.ataque['efeito'].copy())
+
+    def recalcularStats(self):
+        self.atq = self.atqMax
+        self.speed = self.speedMax
+        for c in self.efeitos:
+            if c['aplicado']:
+                self.atq *= c.get('buffAtq', 1)
+                self.speed *= c.get('buffSpeed', 1)
+        
     def girarDado(self):
         self.dado6 = randint(1,6)
 
