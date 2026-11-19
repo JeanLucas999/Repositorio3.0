@@ -22,6 +22,7 @@ def iniciarDebug():
 def iniciarJogo():
     global jogo, debug, pasta, path, textSpeed
 
+    
     pasta = Path(__file__).parent
     path = pasta / 'saves.json'
     debug = False
