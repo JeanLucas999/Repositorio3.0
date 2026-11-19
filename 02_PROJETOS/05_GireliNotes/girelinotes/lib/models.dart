@@ -142,7 +142,8 @@ class NotePage {
   factory NotePage.fromJson(Map<String, dynamic> j) {
     final bg = (j['bg'] as int?) ?? 0;
     return NotePage(
-      background: PageBackground.values[bg.clamp(0, PageBackground.values.length - 1)],
+      background:
+          PageBackground.values[bg.clamp(0, PageBackground.values.length - 1).toInt()],
       strokes: [
         for (final s in (j['strokes'] as List? ?? const []))
           Stroke.fromJson(s as Map<String, dynamic>),

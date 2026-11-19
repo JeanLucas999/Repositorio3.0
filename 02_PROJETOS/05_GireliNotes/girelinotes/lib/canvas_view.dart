@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import 'canvas_controller.dart';
 import 'models.dart';
+import 'palm_guard.dart';
 
 /// Tamanho lógico da página (proporção A4).
 const Size kPageSize = Size(1000, 1414);
@@ -18,9 +19,12 @@ void paintStroke(Canvas canvas, Stroke s) {
     ..strokeJoin = StrokeJoin.round
     ..strokeWidth = s.effectiveWidth
     ..isAntiAlias = true
-    ..color = s.highlighter ? Color(s.color).withAlpha(90) : Color(s.color);
+    ..color = s.highlighter ? Color(s.color).withAlpha(105) : Color(s.color);
   canvas.drawPath(s.path, paint);
 }
+
+bool _isPen(PointerDeviceKind k) =>
+    k == PointerDeviceKind.stylus || k == PointerDeviceKind.invertedStylus;
 
 class CanvasView extends StatefulWidget {
   const CanvasView({super.key, required this.controller});
@@ -42,6 +46,8 @@ class _CanvasViewState extends State<CanvasView> {
   bool _drawIsTouch = false;
   Timer? _holdTimer;
   Offset _holdAnchor = Offset.zero;
+
+  late final PalmGuard _guard = PalmGuard(c.settings);
 
   CanvasController get c => widget.controller;
 
@@ -87,16 +93,39 @@ class _CanvasViewState extends State<CanvasView> {
     return 0.5; // mouse: sem pressão
   }
 
+  void _cancelTouchDrawing() {
+    if (_drawPointer != null && _drawIsTouch) {
+      c.cancelStroke();
+      _drawPointer = null;
+      _holdTimer?.cancel();
+    }
+  }
+
   // ---------------- ponteiros ----------------
+  void _onHover(PointerHoverEvent e) {
+    if (_isPen(e.kind)) _guard.onPenHover(e.timeStamp.inMilliseconds);
+  }
+
   void _onDown(PointerDownEvent e) {
+    final now = e.timeStamp.inMilliseconds;
+
+    if (_isPen(e.kind)) {
+      _guard.onPenDown(now);
+      if (c.settings.palmRejection) {
+        // A palma pode ter pousado antes da caneta: esses toques viram lixo.
+        for (final id in _touches.keys) {
+          _guard.ignore(id);
+        }
+        _touches.clear();
+      }
+      _cancelTouchDrawing(); // caneta tem prioridade sobre o dedo
+    }
+
     if (e.kind == PointerDeviceKind.touch) {
+      if (_guard.rejectTouchDown(e.pointer, now, e.radiusMajor)) return;
       _touches[e.pointer] = e.localPosition;
       if (_touches.length >= 2) {
-        if (_drawPointer != null && _drawIsTouch) {
-          c.cancelStroke();
-          _drawPointer = null;
-          _holdTimer?.cancel();
-        }
+        _cancelTouchDrawing();
         return;
       }
       if (!c.fingerDraws) return;
@@ -121,13 +150,23 @@ class _CanvasViewState extends State<CanvasView> {
 
   void _restartHold() {
     _holdTimer?.cancel();
-    _holdTimer = Timer(const Duration(milliseconds: 500), () {
+    _holdTimer = Timer(Duration(milliseconds: c.settings.holdMs), () {
       if (_drawPointer == null) return;
       if (c.holdDetected()) HapticFeedback.selectionClick();
     });
   }
 
   void _onMove(PointerMoveEvent e) {
+    if (_isPen(e.kind)) _guard.onPenMove(e.timeStamp.inMilliseconds);
+
+    if (e.kind == PointerDeviceKind.touch &&
+        _guard.rejectTouchMove(e.pointer, e.radiusMajor)) {
+      // O toque virou palma (ou já era): sai da conta e, se desenhava, cancela.
+      _touches.remove(e.pointer);
+      if (e.pointer == _drawPointer) _cancelTouchDrawing();
+      return;
+    }
+
     if (e.pointer == _drawPointer) {
       c.extendStroke(_toPage(e.localPosition), _norm(e));
       if ((e.localPosition - _holdAnchor).distance > 4) {
@@ -170,6 +209,8 @@ class _CanvasViewState extends State<CanvasView> {
   }
 
   void _onUp(PointerEvent e, {bool cancel = false}) {
+    if (_isPen(e.kind)) _guard.onPenUp(e.timeStamp.inMilliseconds);
+    _guard.touchEnded(e.pointer);
     _touches.remove(e.pointer);
     if (e.pointer == _drawPointer) {
       _holdTimer?.cancel();
@@ -204,32 +245,49 @@ class _CanvasViewState extends State<CanvasView> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return LayoutBuilder(builder: (context, constraints) {
       _viewSize = constraints.biggest;
       if (!_fitted) {
         _fitted = true;
         _fit();
       }
+      c.pixelSize = 1 / _scale;
       return Listener(
         behavior: HitTestBehavior.opaque,
         onPointerDown: _onDown,
         onPointerMove: _onMove,
         onPointerUp: _onUp,
         onPointerCancel: (e) => _onUp(e, cancel: true),
+        onPointerHover: _onHover,
         onPointerSignal: _onSignal,
         child: ClipRect(
           child: Stack(
             fit: StackFit.expand,
             children: [
-              ColoredBox(color: Theme.of(context).colorScheme.surfaceContainerHighest),
+              ColoredBox(color: scheme.surfaceContainerHighest),
+              // Camadas, de baixo para cima: papel -> marca-texto -> tinta -> traço ao vivo.
+              // O marca-texto fica ATRÁS da tinta, então o texto continua 100% da cor dele.
               RepaintBoundary(
                 child: CustomPaint(
-                  painter: _PagePainter(c, _scale, _offset, c.version, c.pageIndex),
+                  painter: _BackgroundPainter(c, _scale, _offset),
+                  size: Size.infinite,
+                ),
+              ),
+              RepaintBoundary(
+                child: CustomPaint(
+                  painter: _HighlightPainter(c, _scale, _offset),
+                  size: Size.infinite,
+                ),
+              ),
+              RepaintBoundary(
+                child: CustomPaint(
+                  painter: _InkPainter(c, _scale, _offset),
                   size: Size.infinite,
                 ),
               ),
               CustomPaint(
-                painter: _LivePainter(c, _scale, _offset),
+                painter: _LiveInkPainter(c, _scale, _offset),
                 size: Size.infinite,
               ),
             ],
@@ -240,37 +298,33 @@ class _CanvasViewState extends State<CanvasView> {
   }
 }
 
-class _PagePainter extends CustomPainter {
-  _PagePainter(this.c, this.scale, this.offset, this.version, this.pageIndex)
-      : super(repaint: c.committed);
+Rect _visibleRect(Size size, Offset offset, double scale) => Rect.fromLTWH(
+    -offset.dx / scale, -offset.dy / scale, size.width / scale, size.height / scale);
+
+void _beginPage(Canvas canvas, Offset offset, double scale) {
+  canvas.save();
+  canvas.translate(offset.dx, offset.dy);
+  canvas.scale(scale);
+}
+
+class _BackgroundPainter extends CustomPainter {
+  _BackgroundPainter(this.c, this.scale, this.offset) : super(repaint: c.committed);
 
   final CanvasController c;
   final double scale;
   final Offset offset;
-  final int version;
-  final int pageIndex;
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.save();
-    canvas.translate(offset.dx, offset.dy);
-    canvas.scale(scale);
-
+    _beginPage(canvas, offset, scale);
     final pageRect = Offset.zero & kPageSize;
     canvas.drawShadow(Path()..addRect(pageRect), Colors.black, 3, false);
     canvas.drawRect(pageRect, Paint()..color = Colors.white);
-    _paintBackground(canvas, c.page.background);
-
-    canvas.clipRect(pageRect);
-    final visible = Rect.fromLTWH(
-        -offset.dx / scale, -offset.dy / scale, size.width / scale, size.height / scale);
-    for (final s in c.page.strokes) {
-      if (s.bounds.overlaps(visible)) paintStroke(canvas, s);
-    }
+    _paintLines(canvas, c.page.background);
     canvas.restore();
   }
 
-  void _paintBackground(Canvas canvas, PageBackground bg) {
+  void _paintLines(Canvas canvas, PageBackground bg) {
     if (bg == PageBackground.blank) return;
     final p = Paint()
       ..color = const Color(0xFFD5DCE8)
@@ -291,15 +345,60 @@ class _PagePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_PagePainter old) =>
-      old.scale != scale ||
-      old.offset != offset ||
-      old.version != version ||
-      old.pageIndex != pageIndex;
+  bool shouldRepaint(_BackgroundPainter old) =>
+      old.scale != scale || old.offset != offset;
 }
 
-class _LivePainter extends CustomPainter {
-  _LivePainter(this.c, this.scale, this.offset) : super(repaint: c.live);
+class _HighlightPainter extends CustomPainter {
+  _HighlightPainter(this.c, this.scale, this.offset)
+      : super(repaint: Listenable.merge([c.committed, c.liveHighlight]));
+
+  final CanvasController c;
+  final double scale;
+  final Offset offset;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    _beginPage(canvas, offset, scale);
+    canvas.clipRect(Offset.zero & kPageSize);
+    final visible = _visibleRect(size, offset, scale);
+    for (final s in c.page.strokes) {
+      if (s.highlighter && s.bounds.overlaps(visible)) paintStroke(canvas, s);
+    }
+    final live = c.current;
+    if (live != null && live.highlighter) paintStroke(canvas, live);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_HighlightPainter old) =>
+      old.scale != scale || old.offset != offset;
+}
+
+class _InkPainter extends CustomPainter {
+  _InkPainter(this.c, this.scale, this.offset) : super(repaint: c.committed);
+
+  final CanvasController c;
+  final double scale;
+  final Offset offset;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    _beginPage(canvas, offset, scale);
+    canvas.clipRect(Offset.zero & kPageSize);
+    final visible = _visibleRect(size, offset, scale);
+    for (final s in c.page.strokes) {
+      if (!s.highlighter && s.bounds.overlaps(visible)) paintStroke(canvas, s);
+    }
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_InkPainter old) => old.scale != scale || old.offset != offset;
+}
+
+class _LiveInkPainter extends CustomPainter {
+  _LiveInkPainter(this.c, this.scale, this.offset) : super(repaint: c.live);
 
   final CanvasController c;
   final double scale;
@@ -308,15 +407,13 @@ class _LivePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final s = c.current;
-    if (s == null) return;
-    canvas.save();
-    canvas.translate(offset.dx, offset.dy);
-    canvas.scale(scale);
+    if (s == null || s.highlighter) return; // marca-texto ao vivo é pintado atrás
+    _beginPage(canvas, offset, scale);
     canvas.clipRect(Offset.zero & kPageSize);
     paintStroke(canvas, s);
     canvas.restore();
   }
 
   @override
-  bool shouldRepaint(_LivePainter old) => old.scale != scale || old.offset != offset;
+  bool shouldRepaint(_LiveInkPainter old) => old.scale != scale || old.offset != offset;
 }

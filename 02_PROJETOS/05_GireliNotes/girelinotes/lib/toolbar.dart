@@ -1,38 +1,56 @@
 import 'package:flutter/material.dart';
 
 import 'canvas_controller.dart';
+import 'dialogs.dart';
+import 'models.dart';
 
+/// Barra minimalista: voltar, nome do caderno, 4 ferramentas, bolinha de cor,
+/// desfazer/refazer e um menu "mais". Tocar na ferramenta ativa (ou na bolinha)
+/// abre a linha de cor e espessura.
 class NotasToolbar extends StatelessWidget {
-  const NotasToolbar({super.key, required this.controller});
+  const NotasToolbar({
+    super.key,
+    required this.controller,
+    required this.onBack,
+    required this.onRename,
+    required this.onSettings,
+  });
 
   final CanvasController controller;
+  final VoidCallback onBack;
+  final VoidCallback onRename;
+  final VoidCallback onSettings;
 
-  static const _palette = [
-    0xFF1A1A1A,
-    0xFF1565C0,
-    0xFFC62828,
-    0xFF2E7D32,
-    0xFFEF6C00,
-    0xFF6A1B9A,
-  ];
+  static String _bgName(PageBackground b) {
+    switch (b) {
+      case PageBackground.blank:
+        return 'liso';
+      case PageBackground.ruled:
+        return 'pautado';
+      case PageBackground.grid:
+        return 'quadriculado';
+    }
+  }
 
-  Future<void> _confirmDelete(BuildContext context) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Excluir página?'),
-        content: const Text('Essa ação não pode ser desfeita.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancelar')),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Excluir')),
-        ],
-      ),
-    );
-    if (ok == true) controller.deletePage();
+  Future<void> _onMenu(BuildContext context, String v) async {
+    final c = controller;
+    switch (v) {
+      case 'bg':
+        c.cycleBackground();
+      case 'fit':
+        c.requestFit();
+      case 'new':
+        c.addPage();
+      case 'del':
+        final ok = await confirmDialog(
+          context,
+          title: 'Excluir página?',
+          message: 'Essa ação não pode ser desfeita.',
+        );
+        if (ok) c.deletePage();
+      case 'settings':
+        onSettings();
+    }
   }
 
   @override
@@ -40,128 +58,258 @@ class NotasToolbar extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
 
     return Material(
-      elevation: 2,
       color: scheme.surface,
       child: ListenableBuilder(
         listenable: controller,
         builder: (context, _) {
           final c = controller;
 
-          Widget toolBtn(IconData icon, String tip, Tool t) => IconButton(
-                tooltip: tip,
-                icon: Icon(icon),
-                style: IconButton.styleFrom(
-                  backgroundColor: c.tool == t ? scheme.primaryContainer : null,
+          final tools = Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _ToolButton(
+                icon: Icons.edit,
+                tooltip: 'Caneta (P)',
+                selected: c.tool == Tool.pen,
+                onTap: () => c.selectTool(Tool.pen),
+              ),
+              _ToolButton(
+                icon: Icons.border_color,
+                tooltip: 'Marca-texto (H)',
+                selected: c.tool == Tool.highlighter,
+                onTap: () => c.selectTool(Tool.highlighter),
+              ),
+              _ToolButton(
+                icon: Icons.horizontal_rule,
+                tooltip: 'Linha reta (L)',
+                selected: c.tool == Tool.line,
+                onTap: () => c.selectTool(Tool.line),
+              ),
+              _ToolButton(
+                icon: Icons.auto_fix_normal,
+                tooltip: 'Borracha (E)',
+                selected: c.tool == Tool.eraser,
+                onTap: () => c.selectTool(Tool.eraser),
+              ),
+              if (c.hasOptions)
+                Tooltip(
+                  message: 'Cor e espessura',
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: c.toggleOptions,
+                    child: Padding(
+                      padding: const EdgeInsets.all(9),
+                      child: Container(
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          color: Color(c.color),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: c.showOptions ? scheme.primary : scheme.outlineVariant,
+                            width: c.showOptions ? 3 : 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-                onPressed: () => c.setTool(t),
-              );
+              const SizedBox(width: 6),
+              _ToolButton(
+                icon: Icons.undo,
+                tooltip: 'Desfazer (Ctrl+Z)',
+                selected: false,
+                onTap: c.canUndo ? c.undo : null,
+              ),
+              _ToolButton(
+                icon: Icons.redo,
+                tooltip: 'Refazer (Ctrl+Y)',
+                selected: false,
+                onTap: c.canRedo ? c.redo : null,
+              ),
+              PopupMenuButton<String>(
+                tooltip: 'Mais',
+                icon: Icon(Icons.more_horiz, color: scheme.onSurfaceVariant),
+                onSelected: (v) => _onMenu(context, v),
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'bg',
+                    child: Text('Fundo: ${_bgName(c.page.background)}'),
+                  ),
+                  const PopupMenuItem(value: 'fit', child: Text('Ajustar à tela')),
+                  const PopupMenuItem(value: 'new', child: Text('Nova página')),
+                  const PopupMenuItem(value: 'del', child: Text('Excluir página')),
+                  const PopupMenuDivider(),
+                  const PopupMenuItem(value: 'settings', child: Text('Configurações')),
+                ],
+              ),
+            ],
+          );
 
-          Widget toggleBtn(IconData icon, String tip, bool on, VoidCallback f) =>
-              IconButton(
-                tooltip: tip,
-                icon: Icon(icon),
-                style: IconButton.styleFrom(
-                  backgroundColor: on ? scheme.primaryContainer : null,
+          return LayoutBuilder(builder: (context, box) {
+            final wide = box.maxWidth >= 720;
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  height: 52,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          tooltip: 'Biblioteca',
+                          icon: const Icon(Icons.arrow_back),
+                          onPressed: onBack,
+                        ),
+                        if (wide)
+                          Expanded(
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(8),
+                                onTap: onRename,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 6),
+                                  child: Text(
+                                    c.notebook.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context).textTheme.titleSmall,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (wide)
+                          tools
+                        else
+                          Expanded(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerRight,
+                              child: tools,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
-                onPressed: f,
-              );
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 150),
+                  alignment: Alignment.topCenter,
+                  child: (c.showOptions && c.hasOptions)
+                      ? _OptionsRow(controller: c)
+                      : const SizedBox(width: double.infinity),
+                ),
+                Divider(height: 1, thickness: 1, color: scheme.outlineVariant),
+              ],
+            );
+          });
+        },
+      ),
+    );
+  }
+}
 
-          Widget colorDot(int argb) {
-            final sel = c.color == argb;
-            return GestureDetector(
+class _ToolButton extends StatelessWidget {
+  const _ToolButton({
+    required this.icon,
+    required this.tooltip,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final enabled = onTap != null;
+    final color = selected
+        ? scheme.primary
+        : (enabled ? scheme.onSurfaceVariant : scheme.onSurface.withAlpha(70));
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: selected ? scheme.primary.withAlpha(36) : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onTap,
+          child: SizedBox(
+            width: 40,
+            height: 40,
+            child: Icon(icon, size: 22, color: color),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OptionsRow extends StatelessWidget {
+  const _OptionsRow({required this.controller});
+  final CanvasController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final c = controller;
+    final w = c.width.clamp(c.minWidth, c.maxWidth).toDouble();
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: Row(
+        children: [
+          for (final argb in c.palette)
+            GestureDetector(
               onTap: () => c.setColor(argb),
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 4),
-                width: 26,
-                height: 26,
+                width: 28,
+                height: 28,
                 decoration: BoxDecoration(
                   color: Color(argb),
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: sel ? scheme.primary : Colors.black12,
-                    width: sel ? 3 : 1,
+                    color: c.color == argb ? scheme.primary : scheme.outlineVariant,
+                    width: c.color == argb ? 3 : 1,
                   ),
                 ),
               ),
-            );
-          }
-
-          return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            child: Row(
-              children: [
-                toolBtn(Icons.edit, 'Caneta (P)', Tool.pen),
-                toolBtn(Icons.border_color, 'Marca-texto (H)', Tool.highlighter),
-                toolBtn(Icons.horizontal_rule, 'Linha reta (L)', Tool.line),
-                toolBtn(Icons.auto_fix_normal, 'Borracha (E)', Tool.eraser),
-                const SizedBox(width: 8),
-                for (final col in _palette) colorDot(col),
-                SizedBox(
-                  width: 110,
-                  child: Slider(
-                    min: 1,
-                    max: 12,
-                    value: c.penWidth,
-                    onChanged: c.setWidth,
-                  ),
-                ),
-                toggleBtn(Icons.auto_awesome, 'Segurar a caneta encaixa reta/forma',
-                    c.autoShape, c.toggleAutoShape),
-                toggleBtn(Icons.gesture, 'Riscar por cima apaga', c.scribbleErase,
-                    c.toggleScribbleErase),
-                toggleBtn(Icons.touch_app, 'Desenhar com o dedo', c.fingerDraws,
-                    c.toggleFingerDraws),
-                const SizedBox(width: 8),
-                IconButton(
-                  tooltip: 'Desfazer (Ctrl+Z)',
-                  icon: const Icon(Icons.undo),
-                  onPressed: c.canUndo ? c.undo : null,
-                ),
-                IconButton(
-                  tooltip: 'Refazer (Ctrl+Y)',
-                  icon: const Icon(Icons.redo),
-                  onPressed: c.canRedo ? c.redo : null,
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  tooltip: 'Fundo da página',
-                  icon: const Icon(Icons.grid_on),
-                  onPressed: c.cycleBackground,
-                ),
-                IconButton(
-                  tooltip: 'Ajustar à tela',
-                  icon: const Icon(Icons.fit_screen),
-                  onPressed: c.requestFit,
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  tooltip: 'Página anterior',
-                  icon: const Icon(Icons.chevron_left),
-                  onPressed: c.pageIndex > 0 ? () => c.goToPage(c.pageIndex - 1) : null,
-                ),
-                Text('${c.pageIndex + 1}/${c.notebook.pages.length}'),
-                IconButton(
-                  tooltip: 'Próxima página',
-                  icon: const Icon(Icons.chevron_right),
-                  onPressed: c.pageIndex < c.notebook.pages.length - 1
-                      ? () => c.goToPage(c.pageIndex + 1)
-                      : null,
-                ),
-                IconButton(
-                  tooltip: 'Nova página',
-                  icon: const Icon(Icons.note_add),
-                  onPressed: c.addPage,
-                ),
-                IconButton(
-                  tooltip: 'Excluir página',
-                  icon: const Icon(Icons.delete_outline),
-                  onPressed: () => _confirmDelete(context),
-                ),
-              ],
             ),
-          );
-        },
+          const SizedBox(width: 16),
+          SizedBox(
+            width: 180,
+            child: Slider(
+              min: c.minWidth,
+              max: c.maxWidth,
+              value: w,
+              onChanged: c.setWidth,
+            ),
+          ),
+          // Pré-visualização da espessura.
+          SizedBox(
+            width: 36,
+            height: 36,
+            child: Center(
+              child: Container(
+                width: (w * (c.isHighlighter ? 2.0 : 2.4)).clamp(3.0, 34.0).toDouble(),
+                height: (w * (c.isHighlighter ? 2.0 : 2.4)).clamp(3.0, 34.0).toDouble(),
+                decoration: BoxDecoration(
+                  color: Color(c.color).withAlpha(c.isHighlighter ? 140 : 255),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

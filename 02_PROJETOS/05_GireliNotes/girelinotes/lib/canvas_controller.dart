@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'geometry.dart';
 import 'models.dart';
 import 'scribble.dart';
+import 'settings.dart';
 import 'shape_recognizer.dart';
 
 enum Tool { pen, highlighter, line, eraser }
@@ -29,30 +30,59 @@ class _Action {
 /// Estado e regras do caderno. Toda coordenada aqui está no espaço da PÁGINA
 /// (não da tela), então zoom e rolagem não interferem.
 class CanvasController extends ChangeNotifier {
-  CanvasController(this.notebook);
+  CanvasController(this.notebook, [AppSettings? settings])
+      : settings = settings ?? AppSettings() {
+    this.settings.addListener(notifyListeners);
+  }
 
   final Notebook notebook;
+  final AppSettings settings;
 
-  /// Avisa a camada de traços já prontos (repinta só quando algo é confirmado).
+  /// Avisa as camadas de traços já prontos (repinta só quando algo é confirmado).
   final _Ping _committed = _Ping();
   Listenable get committed => _committed;
 
-  /// Avisa a camada do traço que está sendo desenhado agora.
+  /// Avisa a camada do traço de tinta que está sendo desenhado agora.
   final _Ping _live = _Ping();
   Listenable get live => _live;
+
+  /// Avisa a camada do marca-texto (que fica ATRÁS da tinta) quando o traço
+  /// ao vivo é um marca-texto.
+  final _Ping _liveHl = _Ping();
+  Listenable get liveHighlight => _liveHl;
 
   /// Chamado a cada mudança no documento (usado para salvar automático).
   VoidCallback? onDocumentChanged;
 
-  // ---- preferências ----
+  // ---- ferramenta atual ----
+  static const List<int> penColors = [
+    0xFF1A1A1A,
+    0xFF2979FF,
+    0xFFC62828,
+    0xFF2E7D32,
+    0xFFEF6C00,
+    0xFF6A1B9A,
+  ];
+  static const List<int> hlColors = [
+    0xFFFFEB3B, // amarelo
+    0xFF76FF03, // verde
+    0xFFFF80AB, // rosa
+    0xFF40C4FF, // azul
+    0xFFFFAB40, // laranja
+  ];
+
   int pageIndex = 0;
   Tool tool = Tool.pen;
-  int color = 0xFF1A1A1A;
+  int penColor = 0xFF1A1A1A;
+  int hlColor = 0xFFFFEB3B;
   double penWidth = 2.5;
-  bool autoShape = true; // segurar a caneta encaixa reta/forma
-  bool scribbleErase = true; // riscar por cima apaga
-  bool fingerDraws = false; // dedo desenha (senão só rola/zoom)
+  double hlWidth = 6;
+  bool showOptions = false; // linha de cores/espessura aberta
   double eraserRadius = 10;
+
+  /// Tamanho de 1 pixel da tela em unidades da página (a tela de desenho
+  /// atualiza isto conforme o zoom). Usado para filtrar tremido da entrada.
+  double pixelSize = 1.0;
 
   int version = 0;
   int fitTick = 0;
@@ -62,6 +92,7 @@ class CanvasController extends ChangeNotifier {
   String? _snap; // null | 'line' | outra forma (congelada)
   double _pSum = 0;
   int _pN = 0;
+  Offset? _lastRaw; // última posição real da caneta (antes do filtro)
   List<_Removed>? _eraseSession;
   NotePage? _eraseSessionPage;
   final List<_Action> _undo = [];
@@ -72,35 +103,66 @@ class CanvasController extends ChangeNotifier {
   bool get canUndo => _undo.isNotEmpty;
   bool get canRedo => _redo.isNotEmpty;
 
-  // ---------------- configurações ----------------
+  bool get isHighlighter => tool == Tool.highlighter;
+  bool get hasOptions => tool != Tool.eraser;
+  int get color => isHighlighter ? hlColor : penColor;
+  double get width => isHighlighter ? hlWidth : penWidth;
+  double get minWidth => isHighlighter ? 3.0 : 1.0;
+  double get maxWidth => 12.0;
+  List<int> get palette => isHighlighter ? hlColors : penColors;
+
+  bool get autoShape => settings.autoShape;
+  bool get scribbleErase => settings.scribbleErase;
+  bool get fingerDraws => settings.fingerDraws;
+
+  @override
+  void dispose() {
+    settings.removeListener(notifyListeners);
+    super.dispose();
+  }
+
+  // ---------------- configurações da ferramenta ----------------
+  /// Troca a ferramenta (atalhos de teclado).
   void setTool(Tool t) {
     tool = t;
+    if (t == Tool.eraser) showOptions = false;
+    notifyListeners();
+  }
+
+  /// Toque na barra: escolher uma ferramenta; tocar de novo na que já está
+  /// ativa abre/fecha a linha de cor e espessura.
+  void selectTool(Tool t) {
+    if (t == tool) {
+      if (t != Tool.eraser) showOptions = !showOptions;
+    } else {
+      tool = t;
+      if (t == Tool.eraser) showOptions = false;
+    }
+    notifyListeners();
+  }
+
+  void toggleOptions() {
+    if (!hasOptions) return;
+    showOptions = !showOptions;
     notifyListeners();
   }
 
   void setColor(int c) {
-    color = c;
     if (tool == Tool.eraser) tool = Tool.pen;
+    if (isHighlighter) {
+      hlColor = c;
+    } else {
+      penColor = c;
+    }
     notifyListeners();
   }
 
   void setWidth(double w) {
-    penWidth = w;
-    notifyListeners();
-  }
-
-  void toggleAutoShape() {
-    autoShape = !autoShape;
-    notifyListeners();
-  }
-
-  void toggleScribbleErase() {
-    scribbleErase = !scribbleErase;
-    notifyListeners();
-  }
-
-  void toggleFingerDraws() {
-    fingerDraws = !fingerDraws;
+    if (isHighlighter) {
+      hlWidth = w;
+    } else {
+      penWidth = w;
+    }
     notifyListeners();
   }
 
@@ -109,30 +171,46 @@ class CanvasController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void renameNotebook(String name) {
+    final n = name.trim();
+    if (n.isEmpty || n == notebook.name) return;
+    notebook.name = n;
+    _bump();
+  }
+
   // ---------------- desenho ----------------
   String _newId() => '${DateTime.now().microsecondsSinceEpoch}-${_idCounter++}';
+
+  /// Avisa a camada do traço ao vivo. A camada do marca-texto só precisa
+  /// repintar quando o traço ao vivo é um marca-texto (ou [force]).
+  void _pingLive({bool force = false}) {
+    _live.ping();
+    if (force || current?.highlighter == true) _liveHl.ping();
+  }
 
   void beginStroke(Offset p, double pressure, {bool asEraser = false}) {
     _active = asEraser ? Tool.eraser : tool;
     _snap = null;
     _pSum = pressure;
     _pN = 1;
+    _lastRaw = p;
     if (_active == Tool.eraser) {
       _eraseSession = [];
       _eraseSessionPage = page;
       _eraseAt(p);
       return;
     }
+    final hl = _active == Tool.highlighter;
     current = Stroke(
       id: _newId(),
       points: [p],
-      color: color,
-      width: penWidth,
-      highlighter: _active == Tool.highlighter,
+      color: hl ? hlColor : penColor,
+      width: hl ? hlWidth : penWidth,
+      highlighter: hl,
       smooth: _active != Tool.line,
       pressure: pressure,
     );
-    _live.ping();
+    _pingLive();
   }
 
   void extendStroke(Offset p, double pressure) {
@@ -149,17 +227,25 @@ class CanvasController extends ChangeNotifier {
       s.points = [start, _softAngleSnap(start, p)];
       s.smooth = false;
       s.invalidate();
-      _live.ping();
+      _pingLive();
       return;
     }
     if (_snap != null) return; // outra forma: congelada
 
-    if (dist(s.points.last, p) < 0.6) return;
-    s.points.add(p);
+    // Filtro de entrada (tira o serrilhado de mesas que mandam coordenadas
+    // "quebradas" em pixels inteiros e o tremido da mão):
+    // 1) ignora movimento menor que ~1 pixel da tela;
+    // 2) suaviza com média exponencial: devagar suaviza mais, rápido segue a caneta.
+    _lastRaw = p;
+    final last = s.points.last;
+    final d = dist(last, p);
+    if (d < 0.8 * pixelSize) return;
+    final alpha = (0.35 + d / (12 * pixelSize)).clamp(0.35, 1.0).toDouble();
+    s.points.add(Offset.lerp(last, p, alpha)!);
     _pSum += pressure;
     _pN++;
     s.pressure = (_pSum / _pN).clamp(0.0, 1.0).toDouble();
-    _live.ping();
+    _pingLive();
   }
 
   void endStroke() {
@@ -171,15 +257,21 @@ class CanvasController extends ChangeNotifier {
     if (s == null) return;
     current = null;
 
+    // O filtro deixa a ponta um pouco atrás da caneta: fecha o traço no ponto real.
+    final raw = _lastRaw;
+    if (_snap == null && _active != Tool.line && raw != null) {
+      if (dist(s.points.last, raw) > 0.5 * pixelSize) s.points.add(raw);
+    }
+
     // Riscar por cima de algo existente = apagar.
     if (_active == Tool.pen &&
         scribbleErase &&
         _snap == null &&
         looksLikeScribble(s.points)) {
-      final hits = strokesTouchedBy(page.strokes, s.points);
+      final hits = strokesCoveredBy(page.strokes, s.points);
       if (hits.isNotEmpty) {
         _removeStrokes(page, hits);
-        _live.ping();
+        _pingLive(force: true);
         return;
       }
     }
@@ -197,7 +289,7 @@ class CanvasController extends ChangeNotifier {
     ));
     pg.strokes.add(s);
     _bump();
-    _live.ping();
+    _pingLive(force: true);
   }
 
   /// Chamado quando a caneta ficou parada por um instante.
@@ -212,7 +304,7 @@ class CanvasController extends ChangeNotifier {
     s.smooth = false;
     s.invalidate();
     _snap = r.kind;
-    _live.ping();
+    _pingLive();
     return true;
   }
 
@@ -222,7 +314,7 @@ class CanvasController extends ChangeNotifier {
     }
     current = null;
     _snap = null;
-    _live.ping();
+    _pingLive(force: true);
   }
 
   /// Gruda em múltiplos de 15° quando está a menos de 4° de distância.
@@ -348,7 +440,7 @@ class CanvasController extends ChangeNotifier {
     current = null;
     pageIndex = i;
     _bump();
-    _live.ping();
+    _pingLive(force: true);
   }
 
   void addPage() {
@@ -367,7 +459,7 @@ class CanvasController extends ChangeNotifier {
     _undo.clear();
     _redo.clear();
     _bump();
-    _live.ping();
+    _pingLive(force: true);
   }
 
   void cycleBackground() {

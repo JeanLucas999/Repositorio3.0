@@ -94,3 +94,63 @@ List<Offset> resampleBySpacing(List<Offset> pts, double spacing) {
   if (dist(out.last, pts.last) > 0.01) out.add(pts.last);
   return out;
 }
+
+/// Gira os pontos [rad] radianos em torno de [center].
+List<Offset> rotatePoints(List<Offset> pts, double rad,
+    [Offset center = Offset.zero]) {
+  final c = math.cos(rad), s = math.sin(rad);
+  return [
+    for (final p in pts)
+      Offset(
+        center.dx + (p.dx - center.dx) * c - (p.dy - center.dy) * s,
+        center.dy + (p.dx - center.dx) * s + (p.dy - center.dy) * c,
+      ),
+  ];
+}
+
+/// Média móvel (mantém primeiro e último ponto). Tira o tremido antes de achar vértices.
+List<Offset> movingAverage(List<Offset> pts, int radius) {
+  final out = <Offset>[];
+  for (var i = 0; i < pts.length; i++) {
+    final lo = math.max(0, i - radius);
+    final hi = math.min(pts.length, i + radius + 1);
+    var sx = 0.0, sy = 0.0;
+    for (var j = lo; j < hi; j++) {
+      sx += pts[j].dx;
+      sy += pts[j].dy;
+    }
+    final n = hi - lo;
+    out.add(Offset(sx / n, sy / n));
+  }
+  if (out.isNotEmpty) {
+    out[0] = pts.first;
+    out[out.length - 1] = pts.last;
+  }
+  return out;
+}
+
+/// Distância média dos pontos ao contorno do polígono fechado [v].
+double meanDistToPolygon(List<Offset> pts, List<Offset> v) {
+  final poly = [...v, v.first];
+  var sum = 0.0;
+  for (final p in pts) {
+    var m = double.infinity;
+    for (var i = 0; i < poly.length - 1; i++) {
+      final d = distToSegment(p, poly[i], poly[i + 1]);
+      if (d < m) m = d;
+    }
+    sum += m;
+  }
+  return sum / pts.length;
+}
+
+/// Distância de [p] ao contorno de um retângulo de cantos arredondados
+/// (centro [cx],[cy], meias-medidas [hx],[hy], raio [rad]).
+double distToRoundedRect(
+    Offset p, double cx, double cy, double hx, double hy, double rad) {
+  final qx = (p.dx - cx).abs() - (hx - rad);
+  final qy = (p.dy - cy).abs() - (hy - rad);
+  final outside = Offset(math.max(qx, 0.0), math.max(qy, 0.0)).distance;
+  final d = outside + math.min(math.max(qx, qy), 0.0) - rad;
+  return d.abs();
+}
