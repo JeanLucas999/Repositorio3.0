@@ -12,6 +12,8 @@ import 'package:notas/palm_guard.dart';
 import 'package:notas/scribble.dart';
 import 'package:notas/settings.dart';
 import 'package:notas/shape_recognizer.dart';
+import 'package:notas/shapes.dart';
+import 'package:notas/color_utils.dart';
 
 final _rng = math.Random(7);
 
@@ -296,9 +298,10 @@ void main() {
       expect(c.showOptions, isTrue);
       c.selectTool(Tool.pen);
       expect(c.showOptions, isFalse);
+      c.selectTool(Tool.eraser); // trocar de ferramenta mantém a linha fechada
+      expect(c.showOptions, isFalse);
       c.selectTool(Tool.eraser);
-      c.selectTool(Tool.eraser);
-      expect(c.showOptions, isFalse); // borracha não tem opções
+      expect(c.showOptions, isTrue); // a borracha também tem opções (modo e tamanho)
     });
   });
 
@@ -366,7 +369,9 @@ void main() {
         ..holdMs = 700
         ..autoShape = false
         ..scribbleErase = false
-        ..fingerDraws = true;
+        ..fingerDraws = true
+        ..eraserPixel = true
+        ..eraserSize = 22;
       final copy = AppSettings.fromJson(s.toJson());
       expect(copy.theme, ThemePref.dark);
       expect(copy.accent, 0xFFE91E63);
@@ -377,6 +382,8 @@ void main() {
       expect(copy.autoShape, isFalse);
       expect(copy.scribbleErase, isFalse);
       expect(copy.fingerDraws, isTrue);
+      expect(copy.eraserPixel, isTrue);
+      expect(copy.eraserSize, 22);
     });
 
     test('valores absurdos no arquivo são limitados', () {
@@ -431,6 +438,606 @@ void main() {
       await tester.pump();
 
       expect(c.page.strokes, isEmpty);
+    });
+  });
+
+  group('caneta tinteiro', () {
+    CanvasController make() => CanvasController(Notebook.empty('t', 't'));
+
+    test('largura varia com a pressão; começa e termina fina', () {
+      final c = make();
+      c.setTool(Tool.fountain);
+      c.beginStroke(const Offset(10, 10), 0.2, timeMs: 0);
+      for (var i = 1; i <= 30; i++) {
+        c.extendStroke(Offset(10 + i * 6.0, 10), 0.2 + 0.7 * i / 30, timeMs: i * 8);
+      }
+      c.endStroke();
+      final s = c.page.strokes.single;
+      expect(s.fountain, isTrue);
+      expect(s.variable, isTrue);
+      expect(s.widths!.length, s.points.length);
+      final body = s.widths!.sublist(4, s.widths!.length - 3);
+      expect(body.reduce(math.max), greaterThan(body.reduce(math.min) * 1.3));
+      expect(s.widths!.last, lessThan(body.last)); // ponta final afinou
+      expect(s.widths!.first, lessThan(body.first)); // entrada começou fina
+    });
+
+    test('mais rápido fica mais fino (mouse, sem pressão)', () {
+      double midWidth(int msPerStep) {
+        final c = make();
+        c.setTool(Tool.fountain);
+        c.beginStroke(const Offset(10, 10), 0.5, timeMs: 0);
+        for (var i = 1; i <= 30; i++) {
+          c.extendStroke(Offset(10 + i * 6.0, 10), 0.5, timeMs: i * msPerStep);
+        }
+        c.endStroke();
+        final w = c.page.strokes.single.widths!;
+        return w[w.length ~/ 2];
+      }
+
+      expect(midWidth(2), lessThan(midWidth(30)));
+    });
+
+    test('larguras vão e voltam no JSON', () {
+      final c = make();
+      c.setTool(Tool.fountain);
+      c.beginStroke(const Offset(10, 10), 0.5);
+      for (var i = 1; i <= 20; i++) {
+        c.extendStroke(Offset(10 + i * 8.0, 10 + i * 2.0), 0.5);
+      }
+      c.endStroke();
+      final copy = Notebook.fromJson(c.notebook.toJson());
+      final a = c.page.strokes.single, b = copy.pages.first.strokes.single;
+      expect(b.fountain, isTrue);
+      expect(b.variable, isTrue);
+      expect(b.widths!.length, a.widths!.length);
+    });
+
+    test('encaixar numa forma vira largura uniforme', () {
+      final c = make();
+      c.setTool(Tool.fountain);
+      final pts = _circle(200, 200, 100, 100);
+      c.beginStroke(pts.first, 0.5);
+      for (final p in pts.skip(1)) {
+        c.extendStroke(p, 0.5);
+      }
+      expect(c.holdDetected(), isTrue);
+      expect(c.current!.widths, isNull);
+      c.endStroke();
+      expect(c.page.strokes.single.variable, isFalse);
+    });
+
+    test('tem cor e espessura próprias', () {
+      final c = make();
+      c.setTool(Tool.fountain);
+      expect(c.color, 0xFF1A237E);
+      c.setColor(0xFFC62828);
+      c.setWidth(5);
+      c.setTool(Tool.pen);
+      expect(c.color, 0xFF1A1A1A);
+      expect(c.width, 2.5);
+      c.setTool(Tool.fountain);
+      expect(c.color, 0xFFC62828);
+      expect(c.width, 5);
+    });
+  });
+
+  group('borracha', () {
+    CanvasController make() => CanvasController(Notebook.empty('t', 't'));
+
+    void draw(CanvasController c, List<Offset> pts) {
+      c.beginStroke(pts.first, 0.5);
+      for (final p in pts.skip(1)) {
+        c.extendStroke(p, 0.5);
+      }
+      c.endStroke();
+    }
+
+    CanvasController withLine() {
+      final c = make();
+      draw(c, [for (var x = 0.0; x <= 300; x += 4) Offset(x, 50)]);
+      return c;
+    }
+
+    test('modo Traço (padrão) apaga o traço inteiro e desfaz', () {
+      final c = withLine();
+      final original = c.page.strokes.single;
+      expect(c.eraserPixel, isFalse);
+      c.setTool(Tool.eraser);
+      c.beginStroke(const Offset(150, 52), 0.5);
+      c.endStroke();
+      expect(c.page.strokes, isEmpty);
+      c.undo();
+      expect(c.page.strokes.single, same(original));
+    });
+
+    test('modo Normal apaga só o pedaço tocado, e desfaz/refaz', () {
+      final c = withLine();
+      final original = c.page.strokes.single;
+      c.setEraserPixel(true);
+      c.setTool(Tool.eraser);
+      c.beginStroke(const Offset(150, 52), 0.5);
+      c.endStroke();
+      expect(c.page.strokes.length, 2);
+      expect(c.page.strokes[0].bounds.right, lessThan(150));
+      expect(c.page.strokes[1].bounds.left, greaterThan(150));
+      c.undo();
+      expect(c.page.strokes.single, same(original));
+      c.redo();
+      expect(c.page.strokes.length, 2);
+    });
+
+    test('modo Normal não deixa buraco quando a caneta anda rápido', () {
+      final c = withLine();
+      c.setEraserPixel(true);
+      c.setTool(Tool.eraser);
+      c.beginStroke(const Offset(100, 50), 0.5);
+      c.extendStroke(const Offset(200, 50), 0.5); // salto de 100 numa amostra só
+      c.endStroke();
+      expect(c.page.strokes.length, 2);
+      expect(c.page.strokes[0].bounds.right, lessThan(100));
+      expect(c.page.strokes[1].bounds.left, greaterThan(200));
+    });
+
+    test('a varrida inteira é UM passo de desfazer', () {
+      final c = withLine();
+      c.setEraserPixel(true);
+      c.setTool(Tool.eraser);
+      c.beginStroke(const Offset(60, 50), 0.5);
+      for (var x = 70.0; x <= 240; x += 10) {
+        c.extendStroke(Offset(x, 50), 0.5);
+      }
+      c.endStroke();
+      expect(c.page.strokes.length, 2);
+      c.undo();
+      expect(c.page.strokes.length, 1);
+      expect(c.canUndo, isTrue); // ainda há o traço original para desfazer
+    });
+
+    test('pedaços da tinteiro mantêm a largura de cada ponto', () {
+      final c = make();
+      c.setTool(Tool.fountain);
+      draw(c, [for (var x = 0.0; x <= 300; x += 4) Offset(x, 50)]);
+      c.setEraserPixel(true);
+      c.setTool(Tool.eraser);
+      c.beginStroke(const Offset(150, 50), 0.5);
+      c.endStroke();
+      expect(c.page.strokes.length, 2);
+      for (final s in c.page.strokes) {
+        expect(s.fountain, isTrue);
+        expect(s.variable, isTrue);
+        expect(s.widths!.length, s.points.length);
+      }
+    });
+
+    test('círculo-guia aparece enquanto apaga e some no fim', () {
+      final c = withLine();
+      c.setTool(Tool.eraser);
+      c.beginStroke(const Offset(5, 5), 0.5);
+      expect(c.eraserPos, const Offset(5, 5));
+      c.endStroke();
+      expect(c.eraserPos, isNull);
+    });
+
+    test('apagar onde não há nada não cria passo de desfazer', () {
+      final c = make();
+      c.setTool(Tool.eraser);
+      c.beginStroke(const Offset(50, 50), 0.5);
+      c.endStroke();
+      expect(c.canUndo, isFalse);
+    });
+
+    test('tamanho da borracha é uma configuração salva', () {
+      final c = make();
+      c.setEraserSize(25);
+      expect(c.eraserRadius, 25);
+      expect(c.settings.eraserSize, 25);
+    });
+  });
+
+  group('botão único de caneta', () {
+    CanvasController make() => CanvasController(Notebook.empty('t', 't'));
+
+    test('escolher o tipo troca a ferramenta e lembra a última caneta', () {
+      final c = make();
+      expect(c.isPenTool, isTrue);
+      expect(c.lastPen, Tool.pen);
+      c.setPenType(Tool.fountain);
+      expect(c.tool, Tool.fountain);
+      expect(c.lastPen, Tool.fountain);
+      c.setPenType(Tool.pen);
+      expect(c.tool, Tool.pen);
+      expect(c.lastPen, Tool.pen);
+    });
+
+    test('marca-texto, linha e borracha não são canetas nem viram a última caneta', () {
+      final c = make();
+      c.setPenType(Tool.fountain);
+      c.setPenType(Tool.highlighter); // ignorado: o marca-texto fica fora da escolha
+      expect(c.tool, Tool.fountain);
+      c.selectTool(Tool.highlighter);
+      expect(c.isPenTool, isFalse);
+      expect(c.lastPen, Tool.fountain);
+      c.selectTool(Tool.eraser);
+      expect(c.isPenTool, isFalse);
+      expect(c.lastPen, Tool.fountain);
+    });
+
+    test('primeiro toque só volta para a última caneta; a subaba abre no segundo', () {
+      final c = make();
+      c.setPenType(Tool.fountain);
+      c.selectTool(Tool.highlighter);
+      c.showOptions = true; // subaba do marca-texto aberta
+      c.selectPen(); // 1º toque: volta para a tinteiro e fecha a subaba
+      expect(c.tool, Tool.fountain);
+      expect(c.showOptions, isFalse);
+      c.selectPen(); // 2º toque: abre a subaba
+      expect(c.showOptions, isTrue);
+      c.selectPen(); // 3º toque: fecha
+      expect(c.showOptions, isFalse);
+    });
+
+    test('com a caneta já ativa, um toque abre a subaba', () {
+      final c = make();
+      expect(c.isPenTool, isTrue);
+      expect(c.showOptions, isFalse);
+      c.selectPen();
+      expect(c.showOptions, isTrue);
+    });
+
+    test('atalhos P e F também atualizam a última caneta', () {
+      final c = make();
+      c.setTool(Tool.fountain); // atalho F
+      c.setTool(Tool.shape);
+      expect(c.lastPen, Tool.fountain);
+      c.setTool(Tool.pen); // atalho P
+      expect(c.lastPen, Tool.pen);
+    });
+  });
+
+  group('cores, formas e mãozinha', () {
+    CanvasController make() => CanvasController(Notebook.empty('t', 't'));
+
+    test('HSV ida e volta preserva a cor', () {
+      for (final argb in [0xFFFF0000, 0xFF2979FF, 0xFF00897B, 0xFF808080]) {
+        final hsv = argbToHsv(argb);
+        final back = hsvToArgb(hsv[0], hsv[1], hsv[2]);
+        expect(back, argb);
+      }
+    });
+
+    test('pickColor guarda nas recentes sem repetir', () {
+      final c = make();
+      c.pickColor(0xFF112233);
+      c.pickColor(0xFF445566);
+      c.pickColor(0xFF112233);
+      expect(c.settings.recentColors.first, 0xFF112233);
+      expect(c.settings.recentColors.length, 2);
+    });
+
+    test('forma retângulo é fechada e elipse tem muitos pontos', () {
+      final r = shapePoints(ShapeKind.rectangle, const Offset(0, 0), const Offset(100, 50));
+      expect(r.length, 5);
+      expect(r.first, r.last);
+      final e = shapePoints(ShapeKind.ellipse, const Offset(0, 0), const Offset(100, 50));
+      expect(e.length, greaterThan(40));
+    });
+
+    test('desenhar com a ferramenta de formas cria um traço de retângulo', () {
+      final c = make();
+      c.setShape(ShapeKind.rectangle);
+      expect(c.tool, Tool.shape);
+      c.beginStroke(const Offset(100, 100), 0.5);
+      c.extendStroke(const Offset(300, 220), 0.5);
+      c.endStroke();
+      expect(c.page.strokes.length, 1);
+      expect(c.page.strokes.first.points.length, 5);
+    });
+
+    test('mãozinha liga/desliga e volta para a ferramenta anterior', () {
+      final c = make();
+      c.setTool(Tool.fountain);
+      c.selectTool(Tool.pan);
+      expect(c.tool, Tool.pan);
+      expect(c.panActive, isTrue);
+      c.selectTool(Tool.pan);
+      expect(c.tool, Tool.fountain);
+    });
+
+    test('segurar a tecla ativa a mãozinha temporariamente', () {
+      final c = make();
+      expect(c.panActive, isFalse);
+      c.setPanHeld(true);
+      expect(c.panActive, isTrue);
+      c.setPanHeld(false);
+      expect(c.panActive, isFalse);
+    });
+
+    test('tecla da mãozinha é configurável e persiste', () {
+      final s = AppSettings()..panKeyId = 0x61;
+      final back = AppSettings.fromJson(s.toJson());
+      expect(back.panKeyId, 0x61);
+      expect(AppSettings().panKeyId, AppSettings.defaultPanKey);
+    });
+  });
+
+  group('fundo padrão', () {
+    test('trocar o fundo vale para as próximas páginas do caderno', () {
+      final c = CanvasController(Notebook.empty('t', 't'));
+      c.cycleBackground();
+      c.addPage();
+      expect(c.page.background, c.notebook.pages.first.background);
+      expect(c.page.background, isNot(PageBackground.blank));
+      final back = Notebook.fromJson(c.notebook.toJson());
+      expect(back.nextBackground, c.notebook.nextBackground);
+    });
+
+    test('fundo dos cadernos novos é uma configuração separada', () {
+      final c = CanvasController(Notebook.empty('t', 't'));
+      c.cycleBackground();
+      expect(c.settings.newNotebookBackground, 0);
+      final s = AppSettings()..newNotebookBackground = 2;
+      expect(AppSettings.fromJson(s.toJson()).newNotebookBackground, 2);
+    });
+  });
+
+  group('páginas em coluna', () {
+    test('goToPage pede rolagem mesmo para a mesma página', () {
+      final c = CanvasController(Notebook.empty('t', 't'));
+      final t0 = c.scrollTick;
+      c.goToPage(0);
+      expect(c.scrollTick, greaterThan(t0));
+      expect(c.scrollForce, isTrue);
+    });
+
+    test('activatePage troca a página ativa sem pedir rolagem', () {
+      final c = CanvasController(Notebook.empty('t', 't'));
+      c.addPage();
+      c.addPage();
+      final t0 = c.scrollTick;
+      c.activatePage(0);
+      expect(c.pageIndex, 0);
+      expect(c.scrollTick, t0);
+    });
+
+    testWidgets('depois de ir à página 2, a caneta desenha nela', (tester) async {
+      final c = CanvasController(Notebook.empty('t', 't'));
+      c.addPage();
+      c.goToPage(0);
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(body: CanvasView(controller: c)),
+      ));
+      c.goToPage(1);
+      await tester.pump();
+
+      final g = await tester.startGesture(const Offset(300, 200),
+          kind: PointerDeviceKind.stylus);
+      for (var i = 1; i <= 10; i++) {
+        await g.moveBy(const Offset(20, 5));
+      }
+      await g.up();
+      await tester.pump();
+
+      expect(c.pageIndex, 1);
+      expect(c.notebook.pages[1].strokes.length, 1);
+      expect(c.notebook.pages[0].strokes, isEmpty);
+    });
+  });
+
+  group('tinta e cores compartilhadas', () {
+    test('caneta e tinteiro dividem a cor e a paleta', () {
+      final c = CanvasController(Notebook.empty('t', 't'));
+      c.setColor(0xFFC62828);
+      c.setTool(Tool.fountain);
+      expect(c.color, 0xFFC62828);
+      expect(c.palette, CanvasController.penColors);
+      c.beginStroke(const Offset(10, 10), 0.5, timeMs: 0);
+      c.extendStroke(const Offset(40, 10), 0.5, timeMs: 10);
+      c.endStroke();
+      expect(c.page.strokes.single.color, 0xFFC62828);
+    });
+
+    test('estabilização persiste nas configurações', () {
+      final s = AppSettings()..stabilization = 0.8;
+      expect(AppSettings.fromJson(s.toJson()).stabilization, closeTo(0.8, 1e-9));
+    });
+
+    test('canto fechado não é arredondado demais', () {
+      final c = CanvasController(Notebook.empty('t', 't'));
+      c.beginStroke(const Offset(100, 100), 0.5);
+      for (var x = 104.0; x <= 200; x += 4) {
+        c.extendStroke(Offset(x, 100), 0.5);
+      }
+      for (var y = 104.0; y <= 200; y += 4) {
+        c.extendStroke(Offset(200, y), 0.5);
+      }
+      c.endStroke();
+      final pts = c.page.strokes.isEmpty ? <Offset>[] : c.page.strokes.single.points;
+      expect(pts, isNotEmpty);
+    });
+  });
+
+  group('formatos de caderno', () {
+    test('formato persiste e define o tamanho da página', () {
+      for (final f in NotebookFormat.values) {
+        final nb = Notebook.empty('i', 'n', f);
+        final back = Notebook.fromJson(nb.toJson());
+        expect(back.format, f);
+      }
+      final h = Notebook.empty('i', 'n', NotebookFormat.landscape);
+      expect(h.pageSize.width, greaterThan(h.pageSize.height));
+      expect(Notebook.empty('i', 'n').pageSize.height, greaterThan(1000));
+    });
+
+    test('cadernos antigos (sem formato) abrem como vertical', () {
+      final j = Notebook.empty('i', 'n').toJson()..remove('fmt');
+      expect(Notebook.fromJson(j).format, NotebookFormat.portrait);
+    });
+
+    testWidgets('quadro infinito aceita traço fora da área de uma página', (tester) async {
+      final c = CanvasController(Notebook.empty('t', 't', NotebookFormat.board));
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(body: CanvasView(controller: c)),
+      ));
+      final g = await tester.startGesture(const Offset(700, 500),
+          kind: PointerDeviceKind.stylus);
+      for (var i = 1; i <= 10; i++) {
+        await g.moveBy(const Offset(20, 5));
+      }
+      await g.up();
+      await tester.pump();
+      expect(c.notebook.pages.length, 1);
+      expect(c.page.strokes.length, 1);
+    });
+  });
+
+  group('papel e fundos', () {
+    test('espaçamento e preenchimento persistem', () {
+      final s = AppSettings()
+        ..lineSpacing = 56
+        ..shapeFill = true;
+      final back = AppSettings.fromJson(s.toJson());
+      expect(back.lineSpacing, 56);
+      expect(back.shapeFill, isTrue);
+    });
+
+    test('forma fechada sai com fundo claro; reta não', () {
+      final c = CanvasController(Notebook.empty('t', 't'));
+      c.settings.shapeFill = true;
+      c.setShape(ShapeKind.rectangle);
+      c.beginStroke(const Offset(100, 100), 0.5);
+      c.extendStroke(const Offset(300, 220), 0.5);
+      c.endStroke();
+      final f = c.page.strokes.single.fill;
+      expect(f, isNotNull);
+      expect((f! >> 24) & 0xFF, lessThan(80)); // baixa opacidade
+      c.setShape(ShapeKind.line);
+      c.beginStroke(const Offset(100, 400), 0.5);
+      c.extendStroke(const Offset(300, 400), 0.5);
+      c.endStroke();
+      expect(c.page.strokes.last.fill, isNull);
+      final back = Stroke.fromJson(c.page.strokes.first.toJson());
+      expect(back.fill, f);
+    });
+  });
+
+  group('formas inteligentes', () {
+    CanvasController make() => CanvasController(Notebook.empty('t', 't'));
+
+    void drawPoly(CanvasController c, List<Offset> pts) {
+      c.beginStroke(pts.first, 0.5);
+      for (final p in pts.skip(1)) {
+        c.extendStroke(p, 0.5);
+      }
+      c.endStroke();
+    }
+
+    test('é uma caneta da subaba e não vem ligada', () {
+      final c = make();
+      expect(c.tool, Tool.pen);
+      expect(c.smartActive, isFalse);
+      c.setPenType(Tool.smart);
+      expect(c.smartActive, isTrue);
+      expect(c.isPenTool, isTrue);
+      expect(c.lastPen, Tool.smart);
+      c.setShape(ShapeKind.line);
+      expect(c.smartActive, isFalse);
+    });
+
+    test('ao soltar, um quadrado desenhado à mão vira retângulo limpo', () {
+      final c = make();
+      c.setPenType(Tool.smart);
+      drawPoly(c, _polyPath(const [
+        Offset(100, 100), Offset(300, 100), Offset(300, 300), Offset(100, 300), Offset(100, 100),
+      ]));
+      final s = c.page.strokes.single;
+      expect(s.points.length, 5);
+      expect(s.smooth, isFalse);
+      expect(c.editing, same(s));
+    });
+
+    test('desenho que não é forma continua traço livre', () {
+      final c = make();
+      c.setPenType(Tool.smart);
+      drawPoly(c, [for (var i = 0; i < 60; i++) Offset(100 + i * 4.0, 100 + 30 * math.sin(i / 4))]);
+      final s = c.page.strokes.single;
+      expect(s.points.length, greaterThan(10));
+      expect(c.editing, isNull);
+    });
+
+    test('alça de canto redimensiona a forma', () {
+      final c = make();
+      c.setShape(ShapeKind.rectangle);
+      c.beginStroke(const Offset(100, 100), 0.5);
+      c.extendStroke(const Offset(200, 200), 0.5);
+      c.endStroke();
+      final s = c.page.strokes.single;
+      expect(c.editing, same(s));
+      final h = c.hitHandle(const Offset(200, 200), 10);
+      expect(h, 4); // canto inferior direito
+      c.beginResize(h!);
+      c.resizeTo(const Offset(300, 250));
+      c.endResize();
+      final b = boundsOf(s.points);
+      expect(b.right, closeTo(300, 1e-6));
+      expect(b.bottom, closeTo(250, 1e-6));
+      expect(b.left, closeTo(100, 1e-6));
+    });
+
+    test('reta: arrastar a ponta muda o comprimento', () {
+      final c = make();
+      c.setShape(ShapeKind.line);
+      c.beginStroke(const Offset(100, 100), 0.5);
+      c.extendStroke(const Offset(200, 100), 0.5);
+      c.endStroke();
+      c.beginResize(1);
+      c.resizeTo(const Offset(400, 100));
+      c.endResize();
+      expect(c.page.strokes.single.points.last.dx, closeTo(400, 1e-6));
+    });
+
+    test('começar outro traço tira as alças', () {
+      final c = make();
+      c.setShape(ShapeKind.rectangle);
+      c.beginStroke(const Offset(100, 100), 0.5);
+      c.extendStroke(const Offset(200, 200), 0.5);
+      c.endStroke();
+      expect(c.editing, isNotNull);
+      c.beginStroke(const Offset(500, 500), 0.5);
+      expect(c.editing, isNull);
+    });
+  });
+
+  group('cores arrastadas e dica do Shift', () {
+    test('substituir uma cor da barra principal e persistir', () {
+      final c = CanvasController(Notebook.empty('t', 't'));
+      c.replacePaletteColor(2, 0xFF123456);
+      expect(c.palette[2], 0xFF123456);
+      expect(c.color, 0xFF123456);
+      final back = AppSettings.fromJson(c.settings.toJson());
+      expect(back.penPalette[2], 0xFF123456);
+      expect(back.penPalette.length, AppSettings.defaultPenPalette.length);
+    });
+
+    test('marca-texto tem paleta própria', () {
+      final c = CanvasController(Notebook.empty('t', 't'));
+      c.setTool(Tool.highlighter);
+      c.replacePaletteColor(0, 0xFF00FF00);
+      expect(c.settings.hlPalette[0], 0xFF00FF00);
+      expect(c.settings.penPalette[0], AppSettings.defaultPenPalette[0]);
+    });
+
+    test('índice inválido é ignorado', () {
+      final c = CanvasController(Notebook.empty('t', 't'));
+      c.replacePaletteColor(99, 0xFF123456);
+      expect(c.palette, AppSettings.defaultPenPalette);
+    });
+
+    test('dica do Shift some depois de usar', () {
+      final c = CanvasController(Notebook.empty('t', 't'));
+      expect(c.settings.shiftHintSeen, isFalse);
+      c.markShiftUsed();
+      expect(AppSettings.fromJson(c.settings.toJson()).shiftHintSeen, isTrue);
     });
   });
 }

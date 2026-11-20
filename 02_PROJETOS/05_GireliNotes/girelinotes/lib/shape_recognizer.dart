@@ -86,7 +86,7 @@ RecognizedShape? recognizeShape(List<Offset> pts) {
   if (length < 40 || diag < 25) return null;
 
   final chord = dist(pts.first, pts.last);
-  final closed = chord < 0.22 * length;
+  final closed = chord < 0.25 * length;
 
   // ---- Linha reta (traço aberto e quase reto) ----
   if (!closed) {
@@ -128,7 +128,8 @@ RecognizedShape? recognizeShape(List<Offset> pts) {
       ? meanDistToPolygon(pts, v)
       : double.infinity;
 
-  if (v.length == 3 && pd < math.min(ell, rr) && pd < 0.05 * diag) {
+  // Triângulo: tolerante (mão livre), mas ainda precisa ajustar melhor que elipse/retângulo.
+  if (v.length == 3 && pd < 1.25 * math.min(ell, rr) && pd < 0.075 * diag) {
     return RecognizedShape('triangle', [...v, v.first]);
   }
 
@@ -149,10 +150,14 @@ RecognizedShape? recognizeShape(List<Offset> pts) {
 
   // Círculo / elipse (inclusive inclinada)
   final ef = fits.ellipse;
-  if (ef != null && ell < 0.045 * diag) {
-    final f = _axisSnapped(ef, pts);
+  final fe = ef == null ? null : _axisSnapped(ef, pts);
+  // Elipse (achatada) é mais exigente que círculo: só sai se o ajuste for bem bom.
+  final roundish =
+      fe != null && (fe.a - fe.b).abs() / math.max(fe.a, fe.b) < 0.15;
+  if (fe != null && ell < 0.045 * diag && (roundish || ell < 0.032 * diag)) {
+    final f = fe;
     final th = f.deg * math.pi / 180;
-    final circle = (f.a - f.b).abs() / math.max(f.a, f.b) < 0.12;
+    final circle = roundish;
     final ra = circle ? (f.a + f.b) / 2 : f.a;
     final rb = circle ? (f.a + f.b) / 2 : f.b;
     const n = 240; // bastante pontos para não aparecer facetas no zoom

@@ -1,4 +1,8 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:window_manager/window_manager.dart';
 
 import 'library_page.dart';
 import 'settings.dart';
@@ -6,6 +10,18 @@ import 'storage.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (!kIsWeb && Platform.isWindows) {
+    // abre a janela maximizada
+    await windowManager.ensureInitialized();
+    await windowManager.waitUntilReadyToShow(
+      const WindowOptions(title: 'Notas'),
+      () async {
+        await windowManager.maximize();
+        await windowManager.show();
+        await windowManager.focus();
+      },
+    );
+  }
   final settings = await SettingsStorage().load();
   runApp(NotasApp(settings: settings, storage: NotebookStorage()));
 }

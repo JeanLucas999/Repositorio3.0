@@ -59,17 +59,16 @@ class _LibraryPageState extends State<LibraryPage> {
   }
 
   Future<void> _create() async {
-    final name = await promptText(
-      context,
-      title: 'Novo caderno',
-      initial: 'Novo caderno',
-      confirm: 'Criar',
-    );
-    if (name == null || !mounted) return;
+    final res = await newNotebookDialog(context);
+    if (res == null || !mounted) return;
+    final name = res.name;
     final nb = Notebook.empty(
       widget.storage.newId(),
       name.trim().isEmpty ? 'Novo caderno' : name.trim(),
+      res.format,
     );
+    nb.pages.first.background =
+        PageBackground.values[widget.settings.newNotebookBackground];
     await widget.storage.save(nb);
     if (!mounted) return;
     setState(() => _books = [nb, ...?_books]);
@@ -199,14 +198,14 @@ class _NotebookCard extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
                 child: Center(
                   child: AspectRatio(
-                    aspectRatio: kPageSize.width / kPageSize.height,
+                    aspectRatio: notebook.pageSize.width / notebook.pageSize.height,
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         border: Border.all(color: scheme.outlineVariant),
                       ),
                       child: RepaintBoundary(
                         child: CustomPaint(
-                          painter: _ThumbPainter(notebook.pages.first),
+                          painter: _ThumbPainter(notebook.pages.first, notebook.pageSize),
                         ),
                       ),
                     ),
@@ -261,16 +260,17 @@ class _NotebookCard extends StatelessWidget {
 
 /// Miniatura da primeira página (marca-texto atrás da tinta, como no editor).
 class _ThumbPainter extends CustomPainter {
-  _ThumbPainter(this.page);
+  _ThumbPainter(this.page, this.pageSize);
 
   final NotePage page;
+  final Size pageSize;
 
   @override
   void paint(Canvas canvas, Size size) {
     canvas.drawRect(Offset.zero & size, Paint()..color = Colors.white);
     canvas.save();
-    canvas.scale(size.width / kPageSize.width);
-    canvas.clipRect(Offset.zero & kPageSize);
+    canvas.scale(size.width / pageSize.width);
+    canvas.clipRect(Offset.zero & pageSize);
     for (final s in page.strokes) {
       if (s.highlighter) paintStroke(canvas, s);
     }
