@@ -34,6 +34,9 @@ class AppSettings extends ChangeNotifier {
   /// Contato maior que isto (raio, em pixels lógicos) é tratado como palma.
   double palmRadius = 30;
 
+  /// Barra de ferramentas embaixo (em vez de em cima).
+  bool toolbarBottom = false;
+
   // ---- papel ----
   /// Distância entre as linhas do pautado/quadriculado (unidades da página).
   double lineSpacing = 40;
@@ -110,6 +113,7 @@ class AppSettings extends ChangeNotifier {
         'palmRadius': palmRadius,
         'stabilization': stabilization,
         'lineSpacing': lineSpacing,
+        'toolbarBottom': toolbarBottom,
         'shapeFill': shapeFill,
         'autoShape': autoShape,
         'holdMs': holdMs,
@@ -138,6 +142,7 @@ class AppSettings extends ChangeNotifier {
     if (g is num) s.palmGuardMs = g.toInt().clamp(100, 3000).toInt();
     final r = j['palmRadius'];
     if (r is num) s.palmRadius = r.toDouble().clamp(10.0, 80.0).toDouble();
+    if (j['toolbarBottom'] is bool) s.toolbarBottom = j['toolbarBottom'] as bool;
     final ls = j['lineSpacing'];
     if (ls is num) s.lineSpacing = ls.toDouble().clamp(20.0, 80.0).toDouble();
     if (j['shapeFill'] is bool) s.shapeFill = j['shapeFill'] as bool;

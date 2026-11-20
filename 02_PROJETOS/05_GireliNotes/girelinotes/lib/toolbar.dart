@@ -18,6 +18,8 @@ class NotasToolbar extends StatelessWidget {
     required this.onSettings,
     required this.onPages,
     required this.pagesOpen,
+    required this.atBottom,
+    required this.onMove,
   });
 
   final CanvasController controller;
@@ -26,6 +28,8 @@ class NotasToolbar extends StatelessWidget {
   final VoidCallback onSettings;
   final VoidCallback onPages;
   final bool pagesOpen;
+  final bool atBottom;
+  final ValueChanged<bool> onMove; // true: mover a barra para baixo
 
   static IconData _penIcon(Tool t) => switch (t) {
         Tool.fountain => Icons.draw,
@@ -66,6 +70,8 @@ class NotasToolbar extends StatelessWidget {
           message: 'Essa ação não pode ser desfeita.',
         );
         if (ok) c.deletePage();
+      case 'dock':
+        onMove(!atBottom);
       case 'settings':
         onSettings();
     }
@@ -173,20 +179,21 @@ class NotasToolbar extends StatelessWidget {
                     PopupMenuItem(value: 'new', child: Text('Nova página')),
                     PopupMenuItem(value: 'del', child: Text('Excluir página')),
                   ],
+                  PopupMenuItem(
+                    value: 'dock',
+                    child: Text(atBottom ? 'Mover barra para cima' : 'Mover barra para baixo'),
+                  ),
                   const PopupMenuDivider(),
                   const PopupMenuItem(value: 'settings', child: Text('Configurações')),
                 ],
               ),
+              _DockGrip(atBottom: atBottom, onMove: onMove),
             ],
           );
 
           return LayoutBuilder(builder: (context, box) {
             final wide = box.maxWidth >= 720;
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(
+            final header = SizedBox(
                   height: 52,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -239,8 +246,8 @@ class NotasToolbar extends StatelessWidget {
                       ],
                     ),
                   ),
-                ),
-                AnimatedSize(
+                );
+            final options = AnimatedSize(
                   duration: const Duration(milliseconds: 150),
                   alignment: Alignment.topCenter,
                   child: c.showOptions
@@ -248,9 +255,14 @@ class NotasToolbar extends StatelessWidget {
                           ? _EraserOptions(controller: c)
                           : _OptionsRow(controller: c))
                       : const SizedBox(width: double.infinity),
-                ),
-                Divider(height: 1, thickness: 1, color: scheme.outlineVariant),
-              ],
+                );
+            final divider = Divider(height: 1, thickness: 1, color: scheme.outlineVariant);
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: atBottom
+                  ? [divider, options, header]
+                  : [header, options, divider],
             );
           });
         },
@@ -625,6 +637,48 @@ class _PaletteDotState extends State<_PaletteDot> {
           ),
         );
       },
+    );
+  }
+}
+
+
+/// Alça para mover a barra: arraste para o outro lado da tela (ou toque).
+class _DockGrip extends StatefulWidget {
+  const _DockGrip({required this.atBottom, required this.onMove});
+
+  final bool atBottom;
+  final ValueChanged<bool> onMove;
+
+  @override
+  State<_DockGrip> createState() => _DockGripState();
+}
+
+class _DockGripState extends State<_DockGrip> {
+  double _dy = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: 'Arraste para mover a barra',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onVerticalDragStart: (_) => _dy = 0,
+        onVerticalDragUpdate: (d) {
+          _dy += d.delta.dy;
+          if (!widget.atBottom && _dy > 36) {
+            _dy = 0;
+            widget.onMove(true);
+          } else if (widget.atBottom && _dy < -36) {
+            _dy = 0;
+            widget.onMove(false);
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+          child: Icon(Icons.drag_indicator, size: 20, color: scheme.outline),
+        ),
+      ),
     );
   }
 }

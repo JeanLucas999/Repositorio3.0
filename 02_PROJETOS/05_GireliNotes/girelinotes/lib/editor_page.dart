@@ -45,6 +45,11 @@ class _EditorPageState extends State<EditorPage> with WidgetsBindingObserver {
     c = CanvasController(widget.notebook, widget.settings)
       ..onDocumentChanged = _scheduleSave;
     HardwareKeyboard.instance.addHandler(_onKey);
+    widget.settings.addListener(_onSettings);
+  }
+
+  void _onSettings() {
+    if (mounted) setState(() {});
   }
 
   /// Segurar a tecla da mãozinha (Espaço por padrão) move a página com a caneta.
@@ -82,6 +87,7 @@ class _EditorPageState extends State<EditorPage> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     HardwareKeyboard.instance.removeHandler(_onKey);
+    widget.settings.removeListener(_onSettings);
     _saveTimer?.cancel();
     _flush();
     c.dispose();
@@ -114,6 +120,19 @@ class _EditorPageState extends State<EditorPage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final bottom = widget.settings.toolbarBottom;
+    final bar = ExcludeFocus(
+      child: NotasToolbar(
+        controller: c,
+        onBack: _close,
+        onRename: _rename,
+        onSettings: _openSettings,
+        pagesOpen: _pagesOpen,
+        onPages: () => setState(() => _pagesOpen = !_pagesOpen),
+        atBottom: bottom,
+        onMove: (b) => c.settings.update(() => c.settings.toolbarBottom = b),
+      ),
+    );
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -149,16 +168,7 @@ class _EditorPageState extends State<EditorPage> with WidgetsBindingObserver {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  ExcludeFocus(
-                    child: NotasToolbar(
-                      controller: c,
-                      onBack: _close,
-                      onRename: _rename,
-                      onSettings: _openSettings,
-                      pagesOpen: _pagesOpen,
-                      onPages: () => setState(() => _pagesOpen = !_pagesOpen),
-                    ),
-                  ),
+                  if (!bottom) bar,
                   Expanded(
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -203,7 +213,8 @@ class _EditorPageState extends State<EditorPage> with WidgetsBindingObserver {
                             Positioned(
                               left: 0,
                               right: 0,
-                              top: 8,
+                              top: bottom ? null : 8,
+                              bottom: bottom ? 8 : null,
                               child: ListenableBuilder(
                                 listenable: c,
                                 builder: (context, _) => Column(
@@ -229,6 +240,7 @@ class _EditorPageState extends State<EditorPage> with WidgetsBindingObserver {
                       ],
                     ),
                   ),
+                  if (bottom) bar,
                 ],
               ),
             ),

@@ -1040,4 +1040,13 @@ void main() {
       expect(AppSettings.fromJson(c.settings.toJson()).shiftHintSeen, isTrue);
     });
   });
+
+  group('barra reposicionável', () {
+    test('posição da barra persiste', () {
+      final s = AppSettings();
+      expect(s.toolbarBottom, isFalse);
+      s.toolbarBottom = true;
+      expect(AppSettings.fromJson(s.toJson()).toolbarBottom, isTrue);
+    });
+  });
 }
