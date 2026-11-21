@@ -121,6 +121,24 @@ class SettingsPage extends StatelessWidget {
                 value: s.fingerDraws,
                 onChanged: (v) => s.update(() => s.fingerDraws = v),
               ),
+              ListTile(
+                title: const Text('Posição da barra'),
+                subtitle: Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: SegmentedButton<ToolbarPos>(
+                    showSelectedIcon: false,
+                    style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                    segments: const [
+                      ButtonSegment(value: ToolbarPos.top, label: Text('Cima')),
+                      ButtonSegment(value: ToolbarPos.bottom, label: Text('Baixo')),
+                      ButtonSegment(value: ToolbarPos.left, label: Text('Esquerda')),
+                      ButtonSegment(value: ToolbarPos.right, label: Text('Direita')),
+                    ],
+                    selected: {s.toolbarPos},
+                    onSelectionChanged: (v) => s.update(() => s.toolbarPos = v.first),
+                  ),
+                ),
+              ),
               const _Section('Cadernos'),
               _SliderTile(
                 title: 'Espaçamento de linhas e quadriculado',
@@ -148,15 +166,6 @@ class SettingsPage extends StatelessWidget {
                         s.update(() => s.newNotebookBackground = v.first),
                   ),
                 ),
-              ),
-              _SliderTile(
-                title: 'Estabilização do traço',
-                valueText: '${(s.stabilization * 100).round()}%',
-                min: 0,
-                max: 1,
-                divisions: 10,
-                value: s.stabilization,
-                onChanged: (v) => s.update(() => s.stabilization = v),
               ),
               const _Section('Formas e gestos'),
               SwitchListTile(

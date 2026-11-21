@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 
 import 'geometry.dart';
 import 'models.dart';
+import 'pen_tune.dart';
+import 'page_image.dart';
 import 'scribble.dart';
 import 'settings.dart';
 import 'shape_recognizer.dart';
@@ -12,7 +14,7 @@ import 'shapes.dart';
 
 /// pen/fountain = canetas; shape = formas básicas (reta, seta, retângulo...);
 /// pan = mãozinha (a caneta arrasta a página em vez de desenhar).
-enum Tool { pen, fountain, smart, highlighter, shape, eraser, pan }
+enum Tool { pen, fountain, brush, smart, select, highlighter, shape, eraser, pan }
 
 class _Ping extends ChangeNotifier {
   void ping() => notifyListeners();
@@ -84,8 +86,10 @@ class CanvasController extends ChangeNotifier {
   int hlColor = 0xFFFFEB3B;
   double penWidth = 2.5;
   double fountainWidth = 3.0;
+  double brushWidth = 4.0;
   double hlWidth = 6;
   bool showOptions = false; // linha de opções (cor/espessura ou borracha) aberta
+  bool showTune = false; // painel de ajustes da caneta aberto
   bool showColors = false; // painel de cores (paleta extra + círculo cromático) aberto
 
   /// Forma escolhida na mini barra (usada quando a ferramenta é [Tool.shape]).
@@ -145,6 +149,12 @@ class CanvasController extends ChangeNotifier {
   Offset _lastDir = Offset.zero; // direção do último passo (detecta cantos)
   Offset? _lastRaw; // última posição real da caneta (antes do filtro)
 
+  // Forma recém-reconhecida "presa" à caneta: mexer a caneta redimensiona a forma.
+  List<Offset> _snapOrig = const [];
+  Offset _snapAnchor = Offset.zero; // canto fixo (o mais longe da caneta)
+  Offset _snapPen = Offset.zero; // onde a caneta estava quando a forma encaixou
+  bool _snapRound = false; // círculo/quadrado: mantém a proporção
+
   // caneta tinteiro: estado da largura enquanto escreve
   Offset? _lastAcc; // última posição real aceita
   int? _lastT; // e o instante dela (ms)
@@ -168,7 +178,7 @@ class CanvasController extends ChangeNotifier {
   bool get isHighlighter => tool == Tool.highlighter;
 
   /// A ferramenta tem cor? (a borracha não tem)
-  bool get usesColor => tool != Tool.eraser && tool != Tool.pan;
+  bool get usesColor => tool != Tool.eraser && tool != Tool.pan && tool != Tool.select;
 
   /// A caneta/mouse deve arrastar a página (mãozinha) em vez de desenhar?
   bool get panActive => tool == Tool.pan || panHeld;
@@ -180,11 +190,13 @@ class CanvasController extends ChangeNotifier {
   double get width => switch (tool) {
         Tool.highlighter => hlWidth,
         Tool.fountain => fountainWidth,
+        Tool.brush => brushWidth,
         _ => penWidth,
       };
   double get minWidth => switch (tool) {
         Tool.highlighter => 3.0,
         Tool.fountain => 1.5,
+        Tool.brush => 2.0,
         _ => 1.0,
       };
   double get maxWidth => 12.0;
@@ -236,13 +248,13 @@ class CanvasController extends ChangeNotifier {
   Tool lastPen = Tool.pen;
 
   /// A ferramenta atual é uma caneta (comum ou tinteiro)? O marca-texto não conta.
-  bool get isPenTool => tool == Tool.pen || tool == Tool.fountain || tool == Tool.smart;
+  bool get isPenTool => tool == Tool.pen || tool == Tool.fountain || tool == Tool.brush || tool == Tool.smart;
 
   /// Troca a ferramenta (atalhos de teclado).
   void setTool(Tool t) {
     editing = null;
     tool = t;
-    if (t == Tool.pen || t == Tool.fountain || t == Tool.smart) lastPen = t;
+    if (t == Tool.pen || t == Tool.fountain || t == Tool.brush || t == Tool.smart) lastPen = t;
     notifyListeners();
   }
 
@@ -260,10 +272,10 @@ class CanvasController extends ChangeNotifier {
         _setOptions(false);
       }
     } else if (t == tool) {
-      _setOptions(!showOptions);
+      if (t != Tool.select) _setOptions(!showOptions);
     } else {
       tool = t;
-      if (t == Tool.pen || t == Tool.fountain || t == Tool.smart) lastPen = t;
+      if (t == Tool.pen || t == Tool.fountain || t == Tool.brush || t == Tool.smart) lastPen = t;
     }
     notifyListeners();
   }
@@ -271,7 +283,10 @@ class CanvasController extends ChangeNotifier {
   /// Abre/fecha a linha de opções; fechar leva junto o painel de cores.
   void _setOptions(bool open) {
     showOptions = open;
-    if (!open) showColors = false;
+    if (!open) {
+      showColors = false;
+      showTune = false;
+    }
   }
 
   /// Escolhe uma forma da mini barra e passa para a ferramenta de formas.
@@ -289,8 +304,22 @@ class CanvasController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Estabilização da caneta [t] (a de formas usa a da caneta comum).
+  double stabOf(Tool t) => switch (t) {
+        Tool.fountain => settings.stabFountain,
+        Tool.brush => settings.stabBrush,
+        _ => settings.stabPen,
+      };
+
+  void toggleTune() {
+    showTune = !showTune;
+    if (showTune) showColors = false;
+    notifyListeners();
+  }
+
   void toggleColors() {
     showColors = !showColors;
+    if (showColors) showTune = false;
     notifyListeners();
   }
 
@@ -321,11 +350,13 @@ class CanvasController extends ChangeNotifier {
 
   /// Escolhe o tipo de caneta na subaba (comum, tinteiro ou inteligente).
   void setPenType(Tool t) {
-    if (t != Tool.pen && t != Tool.fountain && t != Tool.smart) return;
+    if (t != Tool.pen && t != Tool.fountain && t != Tool.brush && t != Tool.smart) return;
     tool = t;
     lastPen = t;
     notifyListeners();
   }
+
+  void setStrokeStyle(StrokeStyle st) => settings.update(() => settings.strokeStyle = st);
 
   void toggleOptions() {
     _setOptions(!showOptions);
@@ -349,6 +380,8 @@ class CanvasController extends ChangeNotifier {
         hlWidth = w;
       case Tool.fountain:
         fountainWidth = w;
+      case Tool.brush:
+        brushWidth = w;
       default:
         penWidth = w;
     }
@@ -384,9 +417,10 @@ class CanvasController extends ChangeNotifier {
   void beginStroke(Offset p, double pressure, {bool asEraser = false, int? timeMs}) {
     _active = asEraser ? Tool.eraser : tool;
     editing = null;
-    if (showColors) {
-      // desenhar fecha o painel de cores (ele flutua sobre a página)
+    if (showColors || showTune) {
+      // desenhar fecha os painéis flutuantes (cores e ajustes da caneta)
       showColors = false;
+      showTune = false;
       notifyListeners();
     }
     _snap = null;
@@ -407,19 +441,22 @@ class CanvasController extends ChangeNotifier {
       return;
     }
     final hl = _active == Tool.highlighter;
-    final ft = _active == Tool.fountain;
+    final br = _active == Tool.brush;
+    final ft = _active == Tool.fountain || br;
     _pSm = pressure;
     _lastDir = Offset.zero;
-    _wPrev = fountainWidth * (0.28 + 1.55 * pressure);
+    _wPrev = (br ? brushWidth : fountainWidth) *
+        pressureFactor(_active, pressure, br ? settings.pressBrush : settings.pressFountain);
     current = Stroke(
       id: _newId(),
       points: [p],
       color: hl ? hlColor : penColor, // caneta e tinteiro dividem a cor
-      width: hl ? hlWidth : (ft ? fountainWidth : penWidth),
+      width: hl ? hlWidth : (br ? brushWidth : (ft ? fountainWidth : penWidth)),
       highlighter: hl,
       smooth: !_fixed,
       pressure: _fixed ? 0.5 : pressure, // formas fixas: espessura uniforme
       fountain: ft,
+      style: (_active == Tool.pen || ft || _smart) ? settings.strokeStyle : StrokeStyle.solid,
       widths: ft ? [_wPrev * 0.5] : null, // começa fino
       fill: (_fixed && settings.shapeFill && _closedShape(shapeKind))
           ? ((penColor & 0x00FFFFFF) | (kShapeFillAlpha << 24))
@@ -465,7 +502,10 @@ class CanvasController extends ChangeNotifier {
       _pingLive();
       return;
     }
-    if (_snap != null) return; // outra forma: congelada
+    if (_snap != null) {
+      _resizeWithPen(s, p); // a forma continua presa à caneta
+      return;
+    }
 
     // Filtro de entrada (tira o serrilhado de mesas que mandam coordenadas
     // "quebradas" em pixels inteiros e o tremido da mão):
@@ -477,7 +517,7 @@ class CanvasController extends ChangeNotifier {
     if (d < 0.8 * pixelSize) return;
     // Estabilização (config.): devagar suaviza mais o tremor; rápido segue a caneta.
     // Mudança brusca de direção (canto) não é suavizada, para não arredondar letras.
-    final minA = 0.6 - 0.4 * settings.stabilization; // 0.6 (leve) .. 0.2 (forte)
+    final minA = 0.6 - 0.4 * stabOf(_active); // 0.6 (leve) .. 0.2 (forte)
     var alpha = (minA + d / (12 * pixelSize)).clamp(minA, 1.0).toDouble();
     final dir = (p - last) / d;
     if (_lastDir != Offset.zero && d > 2.5 * pixelSize) {
@@ -512,17 +552,25 @@ class CanvasController extends ChangeNotifier {
       sp = ((stepDist / pixelSize) / 16.0).clamp(0.0, 1.0).toDouble();
     }
 
-    var w = s.width * (0.28 + 1.55 * _pSm) * (1.15 - 0.55 * sp);
-    w = _wPrev * 0.7 + w * 0.3;
+    final br = _active == Tool.brush;
+    // Pincel: largura bem mais sensível à pressão, entrada e saída longas.
+    var w = s.width *
+        pressureFactor(_active, _pSm, br ? settings.pressBrush : settings.pressFountain) *
+        (br ? 1.1 - 0.5 * sp : 1.15 - 0.55 * sp);
+    w = _wPrev * (br ? 0.8 : 0.7) + w * (br ? 0.2 : 0.3);
     // variação limitada por ponto: nada de degraus nem "pulsos" na largura
-    final slew = 0.05 * s.width;
+    final slew = (br ? 0.09 : 0.05) * s.width;
     w = w.clamp(_wPrev - slew, _wPrev + slew).toDouble();
     _wPrev = w;
 
     final n = s.widths!.length;
-    final ramp = n < 4 ? 0.5 + 0.125 * n : 1.0;
+    final ramp = br
+        ? (n < 8 ? 0.2 + 0.1 * n : 1.0)
+        : (n < 4 ? _tip + (1 - _tip) * n / 4 : 1.0);
     return w * ramp;
   }
+
+  double get _tip => tipMin(settings.sharpFountain);
 
   void endStroke() {
     if (_active == Tool.eraser) {
@@ -558,14 +606,21 @@ class CanvasController extends ChangeNotifier {
     final ws = s.widths;
     if (s.fountain && ws != null && ws.length >= 2) {
       final n = ws.length;
-      for (var k = 0; k < 3 && k < n; k++) {
-        ws[n - 1 - k] *= 0.4 + 0.2 * k; // 0,4 / 0,6 / 0,8
+      if (_active == Tool.brush) {
+        // saída longa e fina, como a ponta de um pincel
+        for (var k = 0; k < 8 && k < n; k++) {
+          ws[n - 1 - k] *= 0.12 + 0.11 * k; // 0,12 ... 0,89
+        }
+      } else {
+        for (var k = 0; k < 3 && k < n; k++) {
+          ws[n - 1 - k] *= _tip + (1 - _tip) * k / 3; // ponta fina (config.)
+        }
       }
       s.invalidate();
     }
 
     // Riscar por cima de algo existente = apagar.
-    if ((_active == Tool.pen || _active == Tool.fountain) &&
+    if ((_active == Tool.pen || _active == Tool.fountain || _active == Tool.brush) &&
         scribbleErase &&
         _snap == null &&
         looksLikeScribble(s.points)) {
@@ -607,6 +662,228 @@ class CanvasController extends ChangeNotifier {
     }
     s.invalidate();
     _snap = r.kind;
+    _captureSnap(s);
+  }
+
+  void _captureSnap(Stroke s) {
+    final pen = _lastRaw ?? s.points.last;
+    final b = boundsOf(s.points);
+    final corners = [b.topLeft, b.topRight, b.bottomLeft, b.bottomRight];
+    corners.sort((a, z) => dist(z, pen).compareTo(dist(a, pen)));
+    _snapOrig = List<Offset>.of(s.points);
+    _snapAnchor = corners.first;
+    _snapPen = pen;
+    final w = b.width, h = b.height;
+    _snapRound = math.max(w, h) > 0 && (w - h).abs() / math.max(w, h) < 0.1;
+  }
+
+  /// Depois de encaixar, o movimento da caneta escala a forma a partir do canto oposto.
+  void _resizeWithPen(Stroke s, Offset p) {
+    if (_snapOrig.isEmpty) return;
+    final a = _snapAnchor;
+    if (dist(p, _snapPen) < 6 * pixelSize) return; // tremor da mão: ignora
+    final dx0 = _snapPen.dx - a.dx, dy0 = _snapPen.dy - a.dy;
+    var sx = dx0.abs() < 8 ? 1.0 : (p.dx - a.dx) / dx0;
+    var sy = dy0.abs() < 8 ? 1.0 : (p.dy - a.dy) / dy0;
+    sx = sx.clamp(0.1, 30.0).toDouble();
+    sy = sy.clamp(0.1, 30.0).toDouble();
+    if (_snapRound && dx0.abs() >= 8 && dy0.abs() >= 8) {
+      final u = (sx + sy) / 2;
+      sx = u;
+      sy = u;
+    }
+    s.points = [
+      for (final q in _snapOrig) Offset(a.dx + (q.dx - a.dx) * sx, a.dy + (q.dy - a.dy) * sy),
+    ];
+    s.invalidate();
+    _pingLive();
+  }
+
+
+  // ---------------- imagens ----------------
+  PageImage? selImage; // imagem selecionada (página ativa)
+  PageImage? get activeSel => tool == Tool.select ? selImage : null;
+  Offset Function()? centerOnPage; // centro da área visível, na página ativa (a tela define)
+  Rect _imgOrig = Rect.zero;
+  Offset _imgGrab = Offset.zero;
+  int _imgHandle = -2; // -2 nada, -1 mover, 0..3 cantos (TL, TR, BR, BL)
+
+  /// Chamado quando uma imagem terminou de decodificar: repinta as páginas.
+  void imageReady() {
+    _committed.ping();
+    _live.ping();
+  }
+
+  /// Insere uma imagem (PNG, JPEG, WebP...) na página ativa, centrada em [at]
+  /// (ou no centro da área visível). Passa para a ferramenta de seleção.
+  /// Retorna false se os bytes não forem uma imagem.
+  Future<bool> insertImageBytes(Uint8List raw, {Offset? at, int? pageNo}) async {
+    final prep = await prepareImage(raw);
+    if (prep == null) return false;
+    if (pageNo != null) activatePage(pageNo);
+    final ps = notebook.pageSize;
+    var w = prep.$2.width, h = prep.$2.height;
+    final maxW = notebook.infinite ? 600.0 : ps.width * 0.6;
+    final maxH = notebook.infinite ? 600.0 : ps.height * 0.5;
+    final k = math.min(1.0, math.min(maxW / w, maxH / h));
+    w *= k;
+    h *= k;
+    final center = at ?? centerOnPage?.call() ?? Offset(ps.width / 2, ps.height / 2);
+    var left = center.dx - w / 2, top = center.dy - h / 2;
+    if (!notebook.infinite) {
+      left = left.clamp(0.0, math.max(0.0, ps.width - w)).toDouble();
+      top = top.clamp(0.0, math.max(0.0, ps.height - h)).toDouble();
+    }
+    final img = PageImage(id: _newId(), bytes: prep.$1, rect: Rect.fromLTWH(left, top, w, h));
+    final pg = page;
+    pg.images.add(img);
+    _push(_Action(
+      () {
+        pg.images.remove(img);
+        _show(pg);
+      },
+      () {
+        pg.images.add(img);
+        _show(pg);
+      },
+    ));
+    editing = null;
+    tool = Tool.select;
+    _setOptions(false);
+    _bump();
+    selImage = img; // _bump limpa a seleção; seleciona a nova
+    _live.ping();
+    notifyListeners();
+    return true;
+  }
+
+  /// Seleciona a imagem mais acima em [p] (coordenadas da página ativa).
+  bool selectImageAt(Offset p) {
+    for (var i = page.images.length - 1; i >= 0; i--) {
+      final im = page.images[i];
+      if (im.rect.inflate(2).contains(p)) {
+        selImage = im;
+        _live.ping();
+        notifyListeners();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  void clearImageSelection() {
+    if (selImage == null) return;
+    selImage = null;
+    _live.ping();
+    notifyListeners();
+  }
+
+  /// Cantos da imagem selecionada: TL, TR, BR, BL.
+  List<Offset> imageHandles() {
+    final r = activeSel?.rect;
+    if (r == null) return const [];
+    return [r.topLeft, r.topRight, r.bottomRight, r.bottomLeft];
+  }
+
+  int? hitImageHandle(Offset p, double tol) {
+    final hs = imageHandles();
+    int? best;
+    var bestD = tol;
+    for (var i = 0; i < hs.length; i++) {
+      final d = dist(hs[i], p);
+      if (d <= bestD) {
+        bestD = d;
+        best = i;
+      }
+    }
+    return best;
+  }
+
+  void beginImageMove(Offset p) {
+    final im = selImage;
+    if (im == null) return;
+    _imgHandle = -1;
+    _imgOrig = im.rect;
+    _imgGrab = p;
+  }
+
+  void beginImageResize(int handle) {
+    final im = selImage;
+    if (im == null) return;
+    _imgHandle = handle;
+    _imgOrig = im.rect;
+  }
+
+  /// Move ou redimensiona (mantendo a proporção) conforme o gesto começado.
+  void imageDragTo(Offset p) {
+    final im = selImage;
+    if (im == null || _imgHandle == -2) return;
+    final o = _imgOrig;
+    if (_imgHandle == -1) {
+      im.rect = o.shift(p - _imgGrab);
+    } else {
+      final anchor = switch (_imgHandle) {
+        0 => o.bottomRight,
+        1 => o.bottomLeft,
+        2 => o.topLeft,
+        _ => o.topRight,
+      };
+      final sx = (_imgHandle == 1 || _imgHandle == 2) ? 1.0 : -1.0;
+      final sy = (_imgHandle == 2 || _imgHandle == 3) ? 1.0 : -1.0;
+      final asp = o.height < 1e-6 ? 1.0 : o.width / o.height;
+      final dx = (p.dx - anchor.dx) * sx, dy = (p.dy - anchor.dy) * sy;
+      final w = math.max(math.max(dx, dy * asp), 24.0);
+      final h = w / asp;
+      final far = anchor + Offset(sx * w, sy * h);
+      im.rect = Rect.fromPoints(anchor, far);
+    }
+    _committed.ping();
+    _live.ping();
+  }
+
+  void endImageDrag() {
+    final im = selImage;
+    if (im == null || _imgHandle == -2) return;
+    _imgHandle = -2;
+    final before = _imgOrig, after = im.rect;
+    if (before == after) return;
+    final pg = page;
+    _push(_Action(
+      () {
+        im.rect = before;
+        _show(pg);
+      },
+      () {
+        im.rect = after;
+        _show(pg);
+      },
+    ));
+    notebook.modified = DateTime.now();
+    onDocumentChanged?.call();
+    version++;
+    _committed.ping();
+    notifyListeners();
+  }
+
+  void deleteSelectedImage() {
+    final im = activeSel;
+    if (im == null) return;
+    final pg = page;
+    final idx = pg.images.indexOf(im);
+    if (idx < 0) return;
+    pg.images.removeAt(idx);
+    _push(_Action(
+      () {
+        pg.images.insert(math.min(idx, pg.images.length), im);
+        _show(pg);
+      },
+      () {
+        pg.images.remove(im);
+        _show(pg);
+      },
+    ));
+    _bump();
+    _live.ping();
   }
 
   // ---------------- redimensionar a forma recém-criada ----------------
@@ -871,6 +1148,7 @@ class CanvasController extends ChangeNotifier {
           smooth: s.smooth,
           pressure: s.pressure,
           fountain: s.fountain,
+          style: s.style,
           widths: ws?.sublist(i, j),
         ));
       }
@@ -962,6 +1240,7 @@ class CanvasController extends ChangeNotifier {
 
   void _bump() {
     editing = null;
+    selImage = null;
     version++;
     notebook.modified = DateTime.now();
     _committed.ping();

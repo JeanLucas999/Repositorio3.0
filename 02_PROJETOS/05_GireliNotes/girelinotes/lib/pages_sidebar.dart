@@ -6,6 +6,7 @@ import 'canvas_controller.dart';
 import 'canvas_view.dart';
 import 'dialogs.dart';
 import 'models.dart';
+import 'page_image.dart';
 
 /// Aba lateral com miniaturas de todas as páginas. Tocar numa miniatura leva
 /// até a página; a página ativa fica com borda azul.
@@ -262,6 +263,7 @@ class _ThumbPainter extends CustomPainter {
     canvas.scale(k);
     canvas.clipRect(Offset.zero & pageSize);
     paintPageLines(canvas, page.background, pageSize, strokeWidth: 2.5, step: spacing);
+    paintImages(canvas, page.images, () {});
     for (final s in page.strokes) {
       if (s.fill != null) paintFill(canvas, s);
     }

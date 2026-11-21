@@ -2,11 +2,13 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'canvas_controller.dart';
 import 'models.dart';
+import 'page_image.dart';
 import 'palm_guard.dart';
 
 /// Tamanho lógico da página (proporção A4).
@@ -14,6 +16,34 @@ const Size kPageSize = Size(1000, 1414);
 
 /// Espaço entre páginas na coluna e distância de topo a topo.
 const double kPageGap = 24;
+
+/// Margem entre a coluna de páginas e a borda da área visível.
+const double kPanMargin = 16;
+
+/// Limites da mãozinha (como no Xournal++): a página nunca sai da área visível.
+/// - Horizontal: se a página cabe na largura, fica centralizada e não anda;
+///   senão anda só até as bordas (esquerda/direita) encostarem na margem.
+/// - Vertical: se a coluna cabe na altura, fica no topo; senão anda só até o topo
+///   da primeira e o fim da última página encostarem na margem.
+/// Vale para qualquer tamanho de janela e zoom; o movimento para na borda.
+Offset clampPanOffset({
+  required Offset offset,
+  required double scale,
+  required Size view,
+  required Size page,
+  required int pages,
+}) {
+  const m = kPanMargin;
+  final pw = page.width * scale;
+  final docH = (pages * (page.height + kPageGap) - kPageGap) * scale;
+  final double dx = (pw + 2 * m <= view.width)
+      ? (view.width - pw) / 2
+      : offset.dx.clamp(view.width - pw - m, m).toDouble();
+  final double dy = (docH + 2 * m <= view.height)
+      ? m
+      : offset.dy.clamp(view.height - docH - m, m).toDouble();
+  return Offset(dx, dy);
+}
 
 /// Opacidade do realce (0..255): fixa, para o amarelo ficar igual em todo lugar.
 const int kHighlightAlpha = 120;
@@ -67,7 +97,7 @@ void paintStroke(Canvas canvas, Stroke s, {bool opaque = false}) {
     ..color = s.highlighter && !opaque
         ? Color(s.color).withAlpha(kHighlightAlpha)
         : Color(s.color).withAlpha(255);
-  canvas.drawPath(s.path, paint);
+  canvas.drawPath(s.style == StrokeStyle.solid ? s.path : s.dashedPath, paint);
 }
 
 bool _isPen(PointerDeviceKind k) =>
@@ -100,6 +130,7 @@ class _CanvasViewState extends State<CanvasView> {
   Offset _panLast = Offset.zero;
   int? _drawPointer;
   int? _resizePointer; // arrastando uma alça de redimensionar
+  int? _imgPointer; // arrastando/redimensionando uma imagem
   bool _drawIsTouch = false;
   Timer? _holdTimer;
   Offset _holdAnchor = Offset.zero;
@@ -118,11 +149,13 @@ class _CanvasViewState extends State<CanvasView> {
     _lastScrollTick = c.scrollTick;
     _lastViewTick = c.viewTick;
     c.addListener(_onController);
+    c.centerOnPage = _centerOnActivePage;
   }
 
   @override
   void dispose() {
     c.removeListener(_onController);
+    c.centerOnPage = null;
     _holdTimer?.cancel();
     super.dispose();
   }
@@ -231,18 +264,15 @@ class _CanvasViewState extends State<CanvasView> {
     _limit();
   }
 
-  /// Mantém a coluna de páginas dentro de limites razoáveis.
+  /// Mantém a coluna de páginas dentro dos limites (ver [clampPanOffset]).
   void _limit() {
     if (_inf) return;
-    final n = c.notebook.pages.length;
-    final docH = (n * _stride - kPageGap) * _scale;
-    final minDy = math.min(16.0, _viewSize.height - docH - 16);
-    final pw = _ps.width * _scale;
-    final loX = math.min(80 - pw, _viewSize.width - 80);
-    final hiX = math.max(80 - pw, _viewSize.width - 80);
-    _offset = Offset(
-      _offset.dx.clamp(loX, hiX).toDouble(),
-      _offset.dy.clamp(minDy, 16.0).toDouble(),
+    _offset = clampPanOffset(
+      offset: _offset,
+      scale: _scale,
+      view: _viewSize,
+      page: _ps,
+      pages: c.notebook.pages.length,
     );
   }
 
@@ -322,6 +352,7 @@ class _CanvasViewState extends State<CanvasView> {
     }
 
     if (_tryStartResize(e)) return;
+    if (_imageDown(e)) return;
 
     if (e.kind == PointerDeviceKind.touch) {
       if (_guard.rejectTouchDown(e.pointer, now, e.radiusMajor)) return;
@@ -360,6 +391,47 @@ class _CanvasViewState extends State<CanvasView> {
     return true;
   }
 
+  Offset _centerOnActivePage() =>
+      _toDoc(_viewSize.center(Offset.zero)) - Offset(0, c.pageIndex * _stride);
+
+  /// Ferramenta Selecionar: alça -> redimensiona; imagem -> seleciona e move;
+  /// vazio -> limpa a seleção. Nunca desenha.
+  bool _imageDown(PointerDownEvent e) {
+    if (c.tool != Tool.select || c.panActive) return false;
+    if (e.kind == PointerDeviceKind.touch && !c.fingerDraws) return false;
+    if (_imgPointer != null) return true;
+    final h = c.hitImageHandle(_toActivePage(e.localPosition), 18 / _scale);
+    if (h != null) {
+      _imgPointer = e.pointer;
+      c.beginImageResize(h);
+      return true;
+    }
+    final pageNo = _pageAt(_toDoc(e.localPosition).dy);
+    c.activatePage(pageNo);
+    final p = _toActivePage(e.localPosition);
+    if (c.selectImageAt(p)) {
+      _imgPointer = e.pointer;
+      c.beginImageMove(p);
+    } else {
+      c.clearImageSelection();
+    }
+    return true;
+  }
+
+  /// Arquivos soltos sobre o caderno: cada imagem entra onde foi solta.
+  Future<void> _onDrop(Iterable files, Offset pos) async {
+    final pageNo = _pageAt(_toDoc(pos).dy);
+    var at = _toDoc(pos) - Offset(0, pageNo * _stride);
+    for (final f in files) {
+      final name = (f.name as String).toLowerCase();
+      const ok = ['.png', '.jpg', '.jpeg', '.webp', '.bmp', '.gif'];
+      if (!ok.any(name.endsWith)) continue;
+      final bytes = await f.readAsBytes();
+      await c.insertImageBytes(bytes, at: at, pageNo: pageNo);
+      at += const Offset(24, 24);
+    }
+  }
+
   Offset _toActivePage(Offset screen) => _toDoc(screen) - Offset(0, c.pageIndex * _stride);
 
   void _startDraw(PointerDownEvent e, {required bool touch}) {
@@ -393,6 +465,10 @@ class _CanvasViewState extends State<CanvasView> {
 
     if (e.pointer == _resizePointer) {
       c.resizeTo(_toActivePage(e.localPosition));
+      return;
+    }
+    if (e.pointer == _imgPointer) {
+      c.imageDragTo(_toActivePage(e.localPosition));
       return;
     }
 
@@ -488,6 +564,11 @@ class _CanvasViewState extends State<CanvasView> {
       c.endResize();
       return;
     }
+    if (e.pointer == _imgPointer) {
+      _imgPointer = null;
+      c.endImageDrag();
+      return;
+    }
     if (e.pointer == _panPointer) {
       setState(() => _panPointer = null);
       return;
@@ -538,7 +619,9 @@ class _CanvasViewState extends State<CanvasView> {
         _onResize(prev, _viewSize);
       }
       c.pixelSize = 1 / _scale;
-      return MouseRegion(
+      return DropTarget(
+        onDragDone: (d) => _onDrop(d.files, d.localPosition),
+        child: MouseRegion(
         cursor: c.panActive
             ? (_panPointer != null ? SystemMouseCursors.grabbing : SystemMouseCursors.grab)
             : MouseCursor.defer,
@@ -581,6 +664,7 @@ class _CanvasViewState extends State<CanvasView> {
               ),
             ],
           ),
+        ),
         ),
         ),
       );
@@ -679,7 +763,9 @@ class _BackgroundPainter extends CustomPainter {
       canvas.drawRect(Offset.zero & size, Paint()..color = Colors.white);
       final o = offset;
       _beginPage(canvas, o, scale);
-      paintInfiniteLines(canvas, pages[0].background, _visibleRect(size, o, scale), c.settings.lineSpacing);
+      final vis = _visibleRect(size, o, scale);
+      paintInfiniteLines(canvas, pages[0].background, vis, c.settings.lineSpacing);
+      paintImages(canvas, pages[0].images, c.imageReady, visible: vis);
       canvas.restore();
       return;
     }
@@ -688,6 +774,10 @@ class _BackgroundPainter extends CustomPainter {
       canvas.drawShadow(Path()..addRect(pageRect), Colors.black, 3, false);
       canvas.drawRect(pageRect, Paint()..color = Colors.white);
       paintPageLines(canvas, pages[i].background, ps, step: c.settings.lineSpacing);
+      canvas.save();
+      canvas.clipRect(pageRect);
+      paintImages(canvas, pages[i].images, c.imageReady, visible: visible);
+      canvas.restore();
     });
   }
 
@@ -755,8 +845,10 @@ class _InkPainter extends CustomPainter {
 class _LiveInkPainter extends CustomPainter {
   _LiveInkPainter(this.c, this.scale, this.offset)
       : edit = c.editing,
+        sel = c.activeSel,
         super(repaint: c.live);
 
+  final Object? sel; // imagem selecionada
   final Object? edit; // forma em edição (para repintar as alças quando muda)
 
   final CanvasController c;
@@ -770,7 +862,7 @@ class _LiveInkPainter extends CustomPainter {
     // ao soltar ele passa para trás, na camada do realce.
     final ink = s;
     final eraser = c.eraserPos;
-    if (ink == null && eraser == null && c.editing == null) return;
+    if (ink == null && eraser == null && c.editing == null && c.activeSel == null) return;
     // O traço ao vivo pertence à página ativa.
     final ps = c.notebook.pageSize;
     final inf = c.notebook.infinite;
@@ -782,6 +874,7 @@ class _LiveInkPainter extends CustomPainter {
     }
     final edit = c.editing;
     if (edit != null && s == null) _paintHandles(canvas, scale);
+    if (c.activeSel != null) _paintImageSelection(canvas, scale);
     if (eraser != null) {
       // círculo-guia da borracha, com o tamanho real da área apagada
       canvas.drawCircle(
@@ -794,6 +887,31 @@ class _LiveInkPainter extends CustomPainter {
       );
     }
     canvas.restore();
+  }
+
+  /// Moldura e 4 alças nos cantos da imagem selecionada.
+  void _paintImageSelection(Canvas canvas, double scale) {
+    final r = c.activeSel?.rect;
+    if (r == null) return;
+    const accent = Color(0xFF2979FF);
+    canvas.drawRect(
+      r,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5 / scale
+        ..color = accent,
+    );
+    for (final p in c.imageHandles()) {
+      canvas.drawCircle(p, 8 / scale, Paint()..color = Colors.white);
+      canvas.drawCircle(
+        p,
+        8 / scale,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2 / scale
+          ..color = accent,
+      );
+    }
   }
 
   /// Caixa tracejada leve e alças para redimensionar a forma recém-criada.
@@ -826,5 +944,5 @@ class _LiveInkPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_LiveInkPainter old) =>
-      old.scale != scale || old.offset != offset || old.edit != edit;
+      old.scale != scale || old.offset != offset || old.edit != edit || old.sel != sel;
 }

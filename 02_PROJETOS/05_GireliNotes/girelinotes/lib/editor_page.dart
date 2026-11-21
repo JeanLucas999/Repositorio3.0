@@ -1,14 +1,18 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
+import 'package:pasteboard/pasteboard.dart';
 
 import 'canvas_controller.dart';
 import 'canvas_view.dart';
 import 'color_panel.dart';
 import 'dialogs.dart';
 import 'models.dart';
+import 'export_ui.dart';
 import 'pages_sidebar.dart';
+import 'pen_tune.dart';
 import 'settings.dart';
 import 'settings_page.dart';
 import 'shape_bar.dart';
@@ -48,8 +52,12 @@ class _EditorPageState extends State<EditorPage> with WidgetsBindingObserver {
     widget.settings.addListener(_onSettings);
   }
 
+  late ToolbarPos _pos = widget.settings.toolbarPos;
+
   void _onSettings() {
-    if (mounted) setState(() {});
+    if (mounted && _pos != widget.settings.toolbarPos) {
+      setState(() => _pos = widget.settings.toolbarPos);
+    }
   }
 
   /// Segurar a tecla da mãozinha (Espaço por padrão) move a página com a caneta.
@@ -94,6 +102,32 @@ class _EditorPageState extends State<EditorPage> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  /// Botão: escolhe uma ou mais imagens do computador.
+  Future<void> _pickImage() async {
+    try {
+      final r = await FilePicker.platform
+          .pickFiles(type: FileType.image, allowMultiple: true, withData: true);
+      if (r == null) return;
+      for (final f in r.files) {
+        final b = f.bytes;
+        if (b != null) await c.insertImageBytes(b);
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Não consegui abrir a imagem.')));
+      }
+    }
+  }
+
+  /// Ctrl+V: cola a imagem que está na área de transferência.
+  Future<void> _paste() async {
+    try {
+      final b = await Pasteboard.image;
+      if (b != null && b.isNotEmpty) await c.insertImageBytes(b);
+    } catch (_) {}
+  }
+
   void _openShapes() => c.setShape(c.shapeKind);
 
   Future<void> _close() async {
@@ -120,7 +154,8 @@ class _EditorPageState extends State<EditorPage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final bottom = widget.settings.toolbarBottom;
+    final pos = _pos;
+    final bottom = pos == ToolbarPos.bottom;
     final bar = ExcludeFocus(
       child: NotasToolbar(
         controller: c,
@@ -129,47 +164,12 @@ class _EditorPageState extends State<EditorPage> with WidgetsBindingObserver {
         onSettings: _openSettings,
         pagesOpen: _pagesOpen,
         onPages: () => setState(() => _pagesOpen = !_pagesOpen),
-        atBottom: bottom,
-        onMove: (b) => c.settings.update(() => c.settings.toolbarBottom = b),
+        onExport: () => showExportDialog(context, c.notebook, spacing: widget.settings.lineSpacing),
+        pos: pos,
+        onImage: _pickImage,
       ),
     );
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _close();
-      },
-      child: CallbackShortcuts(
-        bindings: <ShortcutActivator, VoidCallback>{
-          const SingleActivator(LogicalKeyboardKey.keyZ, control: true): c.undo,
-          const SingleActivator(LogicalKeyboardKey.keyY, control: true): c.redo,
-          const SingleActivator(LogicalKeyboardKey.keyZ, control: true, shift: true):
-              c.redo,
-          const SingleActivator(LogicalKeyboardKey.keyP): () => c.setTool(Tool.pen),
-          const SingleActivator(LogicalKeyboardKey.keyF): () => c.setTool(Tool.fountain),
-          const SingleActivator(LogicalKeyboardKey.keyH): () =>
-              c.setTool(Tool.highlighter),
-          const SingleActivator(LogicalKeyboardKey.keyL): () => _openShapes(),
-          const SingleActivator(LogicalKeyboardKey.equal, control: true): () => c.zoomBy(1.2),
-          const SingleActivator(LogicalKeyboardKey.equal, control: true, shift: true):
-              () => c.zoomBy(1.2),
-          const SingleActivator(LogicalKeyboardKey.numpadAdd, control: true): () =>
-              c.zoomBy(1.2),
-          const SingleActivator(LogicalKeyboardKey.minus, control: true): () => c.zoomBy(1 / 1.2),
-          const SingleActivator(LogicalKeyboardKey.numpadSubtract, control: true): () =>
-              c.zoomBy(1 / 1.2),
-          const SingleActivator(LogicalKeyboardKey.arrowDown): () => c.scrollByPx(-120),
-          const SingleActivator(LogicalKeyboardKey.arrowUp): () => c.scrollByPx(120),
-          const SingleActivator(LogicalKeyboardKey.keyE): () => c.setTool(Tool.eraser),
-        },
-        child: Focus(
-          autofocus: true,
-          child: Scaffold(
-            body: SafeArea(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (!bottom) bar,
-                  Expanded(
+    final body = Expanded(
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -220,6 +220,10 @@ class _EditorPageState extends State<EditorPage> with WidgetsBindingObserver {
                                 builder: (context, _) => Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
+                                    if (c.showOptions && c.showTune && c.isPenTool)
+                                      Center(
+                                        child: ExcludeFocus(child: PenTunePanel(controller: c)),
+                                      ),
                                     if (c.showOptions && c.showColors && c.usesColor)
                                       Center(
                                         child: ExcludeFocus(child: ColorPanel(controller: c)),
@@ -239,10 +243,56 @@ class _EditorPageState extends State<EditorPage> with WidgetsBindingObserver {
                         ),
                       ],
                     ),
-                  ),
-                  if (bottom) bar,
-                ],
-              ),
+                  );
+    final Widget layout;
+    switch (pos) {
+      case ToolbarPos.top:
+        layout = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [bar, body]);
+      case ToolbarPos.bottom:
+        layout = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [body, bar]);
+      case ToolbarPos.left:
+        layout = Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [bar, Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [NotasOptions(controller: c), body]))]);
+      case ToolbarPos.right:
+        layout = Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [NotasOptions(controller: c), body])), bar]);
+    }
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _close();
+      },
+      child: CallbackShortcuts(
+        bindings: <ShortcutActivator, VoidCallback>{
+          const SingleActivator(LogicalKeyboardKey.keyZ, control: true): c.undo,
+          const SingleActivator(LogicalKeyboardKey.keyY, control: true): c.redo,
+          const SingleActivator(LogicalKeyboardKey.keyZ, control: true, shift: true):
+              c.redo,
+          const SingleActivator(LogicalKeyboardKey.keyP): () => c.setTool(Tool.pen),
+          const SingleActivator(LogicalKeyboardKey.keyF): () => c.setTool(Tool.fountain),
+          const SingleActivator(LogicalKeyboardKey.keyV, control: true): _paste,
+          const SingleActivator(LogicalKeyboardKey.keyV): () => c.selectTool(Tool.select),
+          const SingleActivator(LogicalKeyboardKey.delete): c.deleteSelectedImage,
+          const SingleActivator(LogicalKeyboardKey.backspace): c.deleteSelectedImage,
+          const SingleActivator(LogicalKeyboardKey.keyB): () => c.setTool(Tool.brush),
+          const SingleActivator(LogicalKeyboardKey.keyH): () =>
+              c.setTool(Tool.highlighter),
+          const SingleActivator(LogicalKeyboardKey.keyL): () => _openShapes(),
+          const SingleActivator(LogicalKeyboardKey.equal, control: true): () => c.zoomBy(1.2),
+          const SingleActivator(LogicalKeyboardKey.equal, control: true, shift: true):
+              () => c.zoomBy(1.2),
+          const SingleActivator(LogicalKeyboardKey.numpadAdd, control: true): () =>
+              c.zoomBy(1.2),
+          const SingleActivator(LogicalKeyboardKey.minus, control: true): () => c.zoomBy(1 / 1.2),
+          const SingleActivator(LogicalKeyboardKey.numpadSubtract, control: true): () =>
+              c.zoomBy(1 / 1.2),
+          const SingleActivator(LogicalKeyboardKey.arrowDown): () => c.scrollByPx(-120),
+          const SingleActivator(LogicalKeyboardKey.arrowUp): () => c.scrollByPx(120),
+          const SingleActivator(LogicalKeyboardKey.keyE): () => c.setTool(Tool.eraser),
+        },
+        child: Focus(
+          autofocus: true,
+          child: Scaffold(
+            body: SafeArea(
+              child: layout,
             ),
           ),
         ),

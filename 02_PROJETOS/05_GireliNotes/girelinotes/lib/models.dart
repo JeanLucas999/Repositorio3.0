@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'page_image.dart';
+
 enum PageBackground { blank, ruled, grid }
 
 /// Um traço é sempre vetorial: lista de pontos + estilo.
@@ -9,6 +11,9 @@ enum PageBackground { blank, ruled, grid }
 ///
 /// A caneta tinteiro ([fountain]) guarda também a largura em cada ponto
 /// ([widths]), calculada na hora de escrever (pressão e velocidade).
+/// Estilo do traço da caneta: contínuo, tracejado ou pontilhado.
+enum StrokeStyle { solid, dashed, dotted }
+
 class Stroke {
   Stroke({
     required this.id,
@@ -21,6 +26,7 @@ class Stroke {
     this.fountain = false,
     this.widths,
     this.fill,
+    this.style = StrokeStyle.solid,
   });
 
   final String id;
@@ -29,6 +35,7 @@ class Stroke {
   final double width;
   final bool highlighter;
   final bool fountain;
+  final StrokeStyle style;
   bool smooth;
 
   /// Preenchimento claro e translúcido (ARGB com alpha) de formas fechadas, ou null.
@@ -43,6 +50,8 @@ class Stroke {
 
   Path? _path;
   int _pathLen = -1;
+  Path? _dashed;
+  int _dashedLen = -1;
   Path? _ribbon;
   Path? _caps;
   int _ribbonLen = -1;
@@ -52,6 +61,7 @@ class Stroke {
   /// Chame depois de trocar [points] ou [widths] (ex.: encaixar forma, afinar a ponta).
   void invalidate() {
     _path = null;
+    _dashed = null;
     _ribbon = null;
     _caps = null;
     _bounds = null;
@@ -62,6 +72,7 @@ class Stroke {
 
   /// Tem largura variável para desenhar?
   bool get variable =>
+      style == StrokeStyle.solid &&
       fountain &&
       widths != null &&
       widths!.length == points.length &&
@@ -82,6 +93,31 @@ class Stroke {
       _pathLen = points.length;
     }
     return _path!;
+  }
+
+  /// Traço picotado (tracejado ou pontilhado) a partir do caminho contínuo.
+  /// Pontilhado: segmentos de comprimento ~0 com ponta redonda viram bolinhas.
+  Path get dashedPath {
+    if (_dashed == null || _dashedLen != points.length) {
+      _dashed = _buildDashed(path, style, paintWidth);
+      _dashedLen = points.length;
+    }
+    return _dashed!;
+  }
+
+  static Path _buildDashed(Path src, StrokeStyle style, double w) {
+    final on = style == StrokeStyle.dotted ? 0.01 : math.max(8.0, w * 4);
+    final off = style == StrokeStyle.dotted ? math.max(5.0, w * 2.2) : math.max(6.0, w * 3);
+    final out = Path();
+    for (final metric in src.computeMetrics()) {
+      var d = 0.0;
+      while (d < metric.length) {
+        final end = math.min(d + on, metric.length);
+        out.addPath(metric.extractPath(d, end), Offset.zero);
+        d += on + off;
+      }
+    }
+    return out;
   }
 
   /// Contorno preenchido do traço de largura variável.
@@ -187,17 +223,28 @@ class Stroke {
     ribbon.lineTo(left[0].dx, left[0].dy);
     ribbon.close();
 
-    caps.addOval(Rect.fromCircle(center: pts.first, radius: math.max(ws.first, 0.2) / 2));
-    caps.addOval(Rect.fromCircle(center: pts.last, radius: math.max(ws.last, 0.2) / 2));
+    // Pontas sempre redondas: círculos nos 3 últimos/primeiros pontos, cada um
+    // com o maior raio já visto até ali (evita ponta "cortada" quando a
+    // largura despenca no fim) e nas curvas mais fechadas.
+    double rad(int i) => math.max(ws[i], 0.2) / 2;
+    var r = 0.0;
+    for (var i = 0; i < n && i < 3; i++) {
+      r = math.max(r, rad(i));
+      caps.addOval(Rect.fromCircle(center: pts[i], radius: i == 0 ? rad(0) : r));
+    }
+    r = 0.0;
+    for (var i = n - 1; i >= 0 && i >= n - 3; i--) {
+      r = math.max(r, rad(i));
+      caps.addOval(Rect.fromCircle(center: pts[i], radius: i == n - 1 ? rad(i) : r));
+    }
     for (var i = 1; i < n - 1; i++) {
       final v1 = pts[i] - pts[i - 1];
       final v2 = pts[i + 1] - pts[i];
       final l = v1.distance * v2.distance;
       if (l < 1e-9) continue;
       final cos = (v1.dx * v2.dx + v1.dy * v2.dy) / l;
-      if (cos < 0.866) {
-        // virada de mais de ~30°
-        caps.addOval(Rect.fromCircle(center: pts[i], radius: math.max(ws[i], 0.2) / 2));
+      if (cos < 0.94) {
+        caps.addOval(Rect.fromCircle(center: pts[i], radius: rad(i)));
       }
     }
     return (ribbon, caps);
@@ -214,6 +261,7 @@ class Stroke {
         'p': _r(pressure),
         if (fountain) 'f': true,
         if (fill != null) 'fl': fill,
+        if (style != StrokeStyle.solid) 'ds': style.index,
         if (fountain && widths != null) 'ws': [for (final w in widths!) _r(w)],
         'pts': [
           for (final p in points) ...[_r(p.dx), _r(p.dy)],
@@ -244,20 +292,29 @@ class Stroke {
       widths: ws,
       points: pts,
       fill: j['fl'] is int ? j['fl'] as int : null,
+      style: (j['ds'] is int && (j['ds'] as int) > 0 && (j['ds'] as int) < StrokeStyle.values.length)
+          ? StrokeStyle.values[j['ds'] as int]
+          : StrokeStyle.solid,
     );
   }
 }
 
 class NotePage {
-  NotePage({List<Stroke>? strokes, this.background = PageBackground.blank})
-      : strokes = strokes ?? [];
+  NotePage({
+    List<Stroke>? strokes,
+    List<PageImage>? images,
+    this.background = PageBackground.blank,
+  })  : strokes = strokes ?? [],
+        images = images ?? [];
 
   final List<Stroke> strokes;
+  final List<PageImage> images;
   PageBackground background;
 
   Map<String, dynamic> toJson() => {
         'bg': background.index,
         'strokes': [for (final s in strokes) s.toJson()],
+        if (images.isNotEmpty) 'imgs': [for (final i in images) i.toJson()],
       };
 
   factory NotePage.fromJson(Map<String, dynamic> j) {
@@ -268,6 +325,10 @@ class NotePage {
       strokes: [
         for (final s in (j['strokes'] as List? ?? const []))
           Stroke.fromJson(s as Map<String, dynamic>),
+      ],
+      images: [
+        for (final i in (j['imgs'] as List? ?? const []))
+          if (PageImage.fromJson(i as Map<String, dynamic>) case final im?) im,
       ],
     );
   }

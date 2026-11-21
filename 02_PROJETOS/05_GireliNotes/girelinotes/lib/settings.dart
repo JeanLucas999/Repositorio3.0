@@ -1,7 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 
+import 'models.dart' show StrokeStyle;
+
 enum ThemePref { system, light, dark }
+
+/// Onde fica a barra de ferramentas.
+enum ToolbarPos { top, bottom, left, right }
 
 /// Preferências do app. Qualquer mudança passa por [update], que avisa a
 /// interface e dispara o salvamento (configurado em [onChanged]).
@@ -34,8 +39,10 @@ class AppSettings extends ChangeNotifier {
   /// Contato maior que isto (raio, em pixels lógicos) é tratado como palma.
   double palmRadius = 30;
 
-  /// Barra de ferramentas embaixo (em vez de em cima).
-  bool toolbarBottom = false;
+  ToolbarPos toolbarPos = ToolbarPos.top;
+
+  /// Estilo do traço das canetas (contínuo, tracejado, pontilhado).
+  StrokeStyle strokeStyle = StrokeStyle.solid;
 
   // ---- papel ----
   /// Distância entre as linhas do pautado/quadriculado (unidades da página).
@@ -44,8 +51,10 @@ class AppSettings extends ChangeNotifier {
   // ---- formas e gestos ----
   /// Formas fechadas (retângulo, elipse, triângulo) saem com fundo claro e translúcido.
   bool shapeFill = false;
-  /// Estabilização do traço (0 = segue a caneta, 1 = bem suave).
-  double stabilization = 0.4;
+  /// Estabilização do traço por caneta (0 = segue a caneta, 1 = bem suave).
+  double stabPen = 0.4, stabFountain = 0.4, stabBrush = 0.4;
+  /// Sensibilidade à pressão (0.5 = padrão) e ponta fina do tinteiro.
+  double pressFountain = 0.5, pressBrush = 0.5, sharpFountain = 0.5;
   bool autoShape = true;
   int holdMs = 500;
   bool scribbleErase = true;
@@ -111,9 +120,15 @@ class AppSettings extends ChangeNotifier {
         'palmRejection': palmRejection,
         'palmGuardMs': palmGuardMs,
         'palmRadius': palmRadius,
-        'stabilization': stabilization,
+        'stabPen': stabPen,
+        'stabFountain': stabFountain,
+        'stabBrush': stabBrush,
+        'pressFountain': pressFountain,
+        'pressBrush': pressBrush,
+        'sharpFountain': sharpFountain,
         'lineSpacing': lineSpacing,
-        'toolbarBottom': toolbarBottom,
+        'strokeStyle': strokeStyle.index,
+        'toolbarPos': toolbarPos.index,
         'shapeFill': shapeFill,
         'autoShape': autoShape,
         'holdMs': holdMs,
@@ -142,12 +157,27 @@ class AppSettings extends ChangeNotifier {
     if (g is num) s.palmGuardMs = g.toInt().clamp(100, 3000).toInt();
     final r = j['palmRadius'];
     if (r is num) s.palmRadius = r.toDouble().clamp(10.0, 80.0).toDouble();
-    if (j['toolbarBottom'] is bool) s.toolbarBottom = j['toolbarBottom'] as bool;
+    final tp = j['toolbarPos'];
+    if (tp is int && tp >= 0 && tp < ToolbarPos.values.length) {
+      s.toolbarPos = ToolbarPos.values[tp];
+    } else if (j['toolbarBottom'] == true) {
+      s.toolbarPos = ToolbarPos.bottom; // versão anterior
+    }
+    final ss = j['strokeStyle'];
+    if (ss is int && ss >= 0 && ss < StrokeStyle.values.length) {
+      s.strokeStyle = StrokeStyle.values[ss];
+    }
     final ls = j['lineSpacing'];
     if (ls is num) s.lineSpacing = ls.toDouble().clamp(20.0, 80.0).toDouble();
     if (j['shapeFill'] is bool) s.shapeFill = j['shapeFill'] as bool;
-    final st = j['stabilization'];
-    if (st is num) s.stabilization = st.toDouble().clamp(0.0, 1.0).toDouble();
+    double unit(Object? v, double d) => v is num ? v.toDouble().clamp(0.0, 1.0).toDouble() : d;
+    final legacy = unit(j['stabilization'], 0.4); // versão antiga: uma só para todas
+    s.stabPen = unit(j['stabPen'], legacy);
+    s.stabFountain = unit(j['stabFountain'], legacy);
+    s.stabBrush = unit(j['stabBrush'], legacy);
+    s.pressFountain = unit(j['pressFountain'], 0.5);
+    s.pressBrush = unit(j['pressBrush'], 0.5);
+    s.sharpFountain = unit(j['sharpFountain'], 0.5);
     if (j['autoShape'] is bool) s.autoShape = j['autoShape'] as bool;
     final h = j['holdMs'];
     if (h is num) s.holdMs = h.toInt().clamp(200, 1500).toInt();

@@ -4,8 +4,10 @@ import 'canvas_view.dart';
 import 'dialogs.dart';
 import 'editor_page.dart';
 import 'models.dart';
+import 'page_image.dart';
 import 'settings.dart';
 import 'settings_page.dart';
+import 'export_ui.dart';
 import 'storage.dart';
 
 /// Tela inicial: seus cadernos.
@@ -100,6 +102,16 @@ class _LibraryPageState extends State<LibraryPage> {
     if (mounted) setState(() => _books?.remove(nb));
   }
 
+  Future<void> _import() async {
+    final nb = await pickNotasFile(context, widget.storage.newId());
+    if (nb == null || !mounted) return;
+    await widget.storage.save(nb);
+    setState(() {
+      _books?.add(nb);
+      _sort();
+    });
+  }
+
   void _openSettings() {
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => SettingsPage(settings: widget.settings),
@@ -113,6 +125,11 @@ class _LibraryPageState extends State<LibraryPage> {
       appBar: AppBar(
         title: const Text('Notas'),
         actions: [
+          IconButton(
+            tooltip: 'Importar caderno (.notas)',
+            icon: const Icon(Icons.file_open_outlined),
+            onPressed: _import,
+          ),
           IconButton(
             tooltip: 'Configurações',
             icon: const Icon(Icons.settings_outlined),
@@ -145,6 +162,8 @@ class _LibraryPageState extends State<LibraryPage> {
                     onOpen: () => _open(books[i]),
                     onRename: () => _rename(books[i]),
                     onDelete: () => _delete(books[i]),
+                    onExport: () => showExportDialog(context, books[i],
+                        spacing: widget.settings.lineSpacing),
                   ),
                 ),
     );
@@ -168,12 +187,14 @@ class _NotebookCard extends StatelessWidget {
     required this.onOpen,
     required this.onRename,
     required this.onDelete,
+    required this.onExport,
   });
 
   final Notebook notebook;
   final VoidCallback onOpen;
   final VoidCallback onRename;
   final VoidCallback onDelete;
+  final VoidCallback onExport;
 
   @override
   Widget build(BuildContext context) {
@@ -242,9 +263,18 @@ class _NotebookCard extends StatelessWidget {
                   PopupMenuButton<String>(
                     tooltip: 'Opções',
                     icon: const Icon(Icons.more_vert, size: 20),
-                    onSelected: (v) => v == 'rename' ? onRename() : onDelete(),
+                    onSelected: (v) {
+                      if (v == 'rename') {
+                        onRename();
+                      } else if (v == 'export') {
+                        onExport();
+                      } else {
+                        onDelete();
+                      }
+                    },
                     itemBuilder: (_) => const [
                       PopupMenuItem(value: 'rename', child: Text('Renomear')),
+                      PopupMenuItem(value: 'export', child: Text('Exportar…')),
                       PopupMenuItem(value: 'delete', child: Text('Excluir')),
                     ],
                   ),
@@ -271,6 +301,7 @@ class _ThumbPainter extends CustomPainter {
     canvas.save();
     canvas.scale(size.width / pageSize.width);
     canvas.clipRect(Offset.zero & pageSize);
+    paintImages(canvas, page.images, () {});
     for (final s in page.strokes) {
       if (s.highlighter) paintStroke(canvas, s);
     }

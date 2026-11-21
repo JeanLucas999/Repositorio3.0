@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'dart:math' as math;
 import 'dart:ui';
 
@@ -8,12 +10,15 @@ import 'package:notas/canvas_controller.dart';
 import 'package:notas/canvas_view.dart';
 import 'package:notas/geometry.dart';
 import 'package:notas/models.dart';
+import 'package:notas/pen_tune.dart';
+import 'package:notas/page_image.dart';
 import 'package:notas/palm_guard.dart';
 import 'package:notas/scribble.dart';
 import 'package:notas/settings.dart';
 import 'package:notas/shape_recognizer.dart';
 import 'package:notas/shapes.dart';
 import 'package:notas/color_utils.dart';
+import 'package:notas/export_service.dart';
 
 final _rng = math.Random(7);
 
@@ -838,8 +843,18 @@ void main() {
     });
 
     test('estabilização persiste nas configurações', () {
-      final s = AppSettings()..stabilization = 0.8;
-      expect(AppSettings.fromJson(s.toJson()).stabilization, closeTo(0.8, 1e-9));
+      final s = AppSettings()
+        ..stabBrush = 0.8
+        ..pressFountain = 0.7
+        ..sharpFountain = 0.2;
+      final b = AppSettings.fromJson(s.toJson());
+      expect(b.stabBrush, closeTo(0.8, 1e-9));
+      expect(b.pressFountain, closeTo(0.7, 1e-9));
+      expect(b.sharpFountain, closeTo(0.2, 1e-9));
+      // arquivo antigo: uma estabilização valia para todas
+      final old = AppSettings.fromJson({'stabilization': 0.9});
+      expect(old.stabPen, closeTo(0.9, 1e-9));
+      expect(old.stabFountain, closeTo(0.9, 1e-9));
     });
 
     test('canto fechado não é arredondado demais', () {
@@ -1044,9 +1059,311 @@ void main() {
   group('barra reposicionável', () {
     test('posição da barra persiste', () {
       final s = AppSettings();
-      expect(s.toolbarBottom, isFalse);
-      s.toolbarBottom = true;
-      expect(AppSettings.fromJson(s.toJson()).toolbarBottom, isTrue);
+      expect(s.toolbarPos, ToolbarPos.top);
+      for (final p in ToolbarPos.values) {
+        s.toolbarPos = p;
+        expect(AppSettings.fromJson(s.toJson()).toolbarPos, p);
+      }
+    });
+  });
+
+  group('forma presa à caneta', () {
+    test('depois de encaixar, mover a caneta redimensiona a forma', () {
+      final c = CanvasController(Notebook.empty('t', 't'));
+      c.beginStroke(const Offset(100, 100), 0.5);
+      final pts = _polyPath(const [
+        Offset(100, 100), Offset(300, 100), Offset(300, 300), Offset(100, 300), Offset(100, 100),
+      ]);
+      for (final q in pts.skip(1)) {
+        c.extendStroke(q, 0.5);
+      }
+      expect(c.holdDetected(), isTrue);
+      final before = boundsOf(c.current!.points);
+      c.extendStroke(Offset(before.right + 100, before.bottom + 100), 0.5);
+      final after = boundsOf(c.current!.points);
+      expect(after.width, greaterThan(before.width * 1.3));
+      expect(after.height, greaterThan(before.height * 1.3));
+      c.endStroke();
+      expect(c.page.strokes.length, 1);
+    });
+
+    test('tremor pequeno depois de encaixar não mexe na forma', () {
+      final c = CanvasController(Notebook.empty('t', 't'));
+      c.beginStroke(const Offset(100, 100), 0.5);
+      for (final q in _polyPath(const [
+        Offset(100, 100), Offset(300, 100), Offset(300, 300), Offset(100, 300), Offset(100, 100),
+      ]).skip(1)) {
+        c.extendStroke(q, 0.5);
+      }
+      expect(c.holdDetected(), isTrue);
+      final before = boundsOf(c.current!.points);
+      c.extendStroke(const Offset(103, 101), 0.5);
+      expect(boundsOf(c.current!.points), before);
+    });
+  });
+
+  group('estilos de traço', () {
+    test('estilo vai para o traço, persiste e o tinteiro vira largura uniforme', () {
+      final c = CanvasController(Notebook.empty('t', 't'));
+      c.setStrokeStyle(StrokeStyle.dashed);
+      c.setTool(Tool.fountain);
+      c.beginStroke(const Offset(10, 10), 0.5, timeMs: 0);
+      for (var i = 1; i <= 20; i++) {
+        c.extendStroke(Offset(10.0 + i * 6, 10), 0.5, timeMs: i * 8);
+      }
+      c.endStroke();
+      final s = c.page.strokes.single;
+      expect(s.style, StrokeStyle.dashed);
+      expect(s.variable, isFalse);
+      final back = Stroke.fromJson(s.toJson());
+      expect(back.style, StrokeStyle.dashed);
+      expect(AppSettings.fromJson(c.settings.toJson()).strokeStyle, StrokeStyle.dashed);
+    });
+
+    test('tracejado e pontilhado geram menos traço que o contínuo', () {
+      Stroke mk(StrokeStyle st) => Stroke(
+            id: 'x',
+            points: [for (var i = 0; i <= 100; i++) Offset(i * 3.0, 0)],
+            color: 0xFF000000,
+            width: 3,
+            highlighter: false,
+            smooth: false,
+            pressure: 0.5,
+            fountain: false,
+            style: st,
+          );
+      double len(Path p) =>
+          p.computeMetrics().fold(0.0, (a, m) => a + m.length);
+      final solid = len(mk(StrokeStyle.solid).path);
+      final dash = len(mk(StrokeStyle.dashed).dashedPath);
+      final dot = len(mk(StrokeStyle.dotted).dashedPath);
+      expect(dash, lessThan(solid * 0.8));
+      expect(dot, lessThan(dash));
+    });
+
+    test('caneta comum e marca-texto: só a caneta recebe o estilo', () {
+      final c = CanvasController(Notebook.empty('t', 't'));
+      c.setStrokeStyle(StrokeStyle.dotted);
+      c.setTool(Tool.highlighter);
+      c.beginStroke(const Offset(10, 10), 0.5);
+      c.extendStroke(const Offset(100, 10), 0.5);
+      c.endStroke();
+      expect(c.page.strokes.single.style, StrokeStyle.solid);
+    });
+  });
+
+  group('exportação', () {
+    Notebook sample(NotebookFormat f) {
+      final c = CanvasController(Notebook.empty('t', 'Aula', f));
+      c.settings.shapeFill = true;
+      c.setStrokeStyle(StrokeStyle.dotted);
+      c.beginStroke(const Offset(100, 100), 0.5);
+      for (var i = 1; i <= 30; i++) {
+        c.extendStroke(Offset(100 + i * 5.0, 100 + i * 2.0), 0.5);
+      }
+      c.endStroke();
+      c.setStrokeStyle(StrokeStyle.solid);
+      c.setTool(Tool.fountain);
+      c.beginStroke(const Offset(100, 300), 0.5, timeMs: 0);
+      for (var i = 1; i <= 30; i++) {
+        c.extendStroke(Offset(100 + i * 5.0, 300 + 20 * math.sin(i / 3)), 0.6, timeMs: i * 8);
+      }
+      c.endStroke();
+      c.setShape(ShapeKind.rectangle);
+      c.beginStroke(const Offset(300, 400), 0.5);
+      c.extendStroke(const Offset(500, 560), 0.5);
+      c.endStroke();
+      c.setTool(Tool.highlighter);
+      c.beginStroke(const Offset(100, 600), 0.5);
+      c.extendStroke(const Offset(400, 600), 0.5);
+      c.endStroke();
+      if (f != NotebookFormat.board) c.addPage();
+      return c.notebook;
+    }
+
+    test('.notas: ida e volta preserva traços, estilos, preenchimento e formato', () {
+      final nb = sample(NotebookFormat.landscape);
+      final bytes = encodeNotas(nb);
+      expect(bytes[0], 0x1f); // gzip
+      final back = decodeNotas(bytes, 'novo-id');
+      expect(back.id, 'novo-id');
+      expect(back.format, NotebookFormat.landscape);
+      expect(back.pages.length, nb.pages.length);
+      expect(back.pages.first.strokes.length, nb.pages.first.strokes.length);
+      final a = nb.pages.first.strokes, b = back.pages.first.strokes;
+      for (var i = 0; i < a.length; i++) {
+        expect(b[i].points.length, a[i].points.length);
+        expect(b[i].style, a[i].style);
+        expect(b[i].fill, a[i].fill);
+        expect(b[i].fountain, a[i].fountain);
+        expect(b[i].highlighter, a[i].highlighter);
+      }
+    });
+
+    test('.notas rejeita arquivo que não é do app', () {
+      expect(() => decodeNotas(Uint8List.fromList(utf8.encode('{"a":1}')), 'x'),
+          throwsFormatException);
+      expect(() => decodeNotas(Uint8List.fromList(utf8.encode('lixo')), 'x'),
+          throwsFormatException);
+    });
+
+    test('.notas é bem menor que o JSON puro', () {
+      final nb = sample(NotebookFormat.portrait);
+      expect(encodeNotas(nb).length, lessThan(jsonEncode(nb.toJson()).length));
+    });
+
+    test('PDF: uma página por página do caderno', () async {
+      final nb = sample(NotebookFormat.portrait);
+      final pdf = await buildPdf(nb);
+      expect(utf8.decode(pdf.sublist(0, 5)), '%PDF-');
+      expect(pdf.length, greaterThan(500));
+    });
+
+    test('PDF do quadro infinito também é gerado', () async {
+      final pdf = await buildPdf(sample(NotebookFormat.board));
+      expect(utf8.decode(pdf.sublist(0, 5)), '%PDF-');
+      final empty = await buildPdf(Notebook.empty('e', 'vazio', NotebookFormat.board));
+      expect(utf8.decode(empty.sublist(0, 5)), '%PDF-');
+    });
+  });
+
+  group('limites da mãozinha', () {
+    const page = Size(1000, 1414);
+    final views = [
+      const Size(800, 600),
+      const Size(1600, 900),
+      const Size(360, 780),
+      const Size(1280, 400),
+    ];
+
+    test('página que cabe na largura fica centralizada e não anda na horizontal', () {
+      for (final v in views) {
+        const scale = 0.3; // 300 px de largura
+        if (v.width < 332) continue;
+        final r = clampPanOffset(
+            offset: const Offset(999, 0), scale: scale, view: v, page: page, pages: 3);
+        expect(r.dx, closeTo((v.width - page.width * scale) / 2, 1e-9));
+        final l = clampPanOffset(
+            offset: const Offset(-999, 0), scale: scale, view: v, page: page, pages: 3);
+        expect(l.dx, r.dx);
+      }
+    });
+
+    test('com zoom maior que a janela, anda só até as bordas encostarem na margem', () {
+      for (final v in views) {
+        final scale = (v.width * 1.6) / page.width;
+        final pw = page.width * scale;
+        final right = clampPanOffset(
+            offset: const Offset(5000, 0), scale: scale, view: v, page: page, pages: 2);
+        final left = clampPanOffset(
+            offset: const Offset(-5000, 0), scale: scale, view: v, page: page, pages: 2);
+        expect(right.dx, kPanMargin);
+        expect(left.dx, closeTo(v.width - pw - kPanMargin, 1e-9));
+      }
+    });
+
+    test('vertical: para no topo da primeira e no fim da última página', () {
+      for (final v in views) {
+        final scale = (v.width * 0.9) / page.width;
+        final docH = (3 * (page.height + kPageGap) - kPageGap) * scale;
+        if (docH + 2 * kPanMargin <= v.height) continue;
+        final top = clampPanOffset(
+            offset: const Offset(0, 9999), scale: scale, view: v, page: page, pages: 3);
+        final bottom = clampPanOffset(
+            offset: const Offset(0, -99999), scale: scale, view: v, page: page, pages: 3);
+        expect(top.dy, kPanMargin);
+        expect(bottom.dy, closeTo(v.height - docH - kPanMargin, 1e-9));
+      }
+    });
+
+    test('coluna menor que a janela fica fixa no topo (sem balançar)', () {
+      final r1 = clampPanOffset(
+          offset: const Offset(0, 300), scale: 0.2, view: const Size(800, 900), page: page, pages: 1);
+      final r2 = clampPanOffset(
+          offset: const Offset(0, -300), scale: 0.2, view: const Size(800, 900), page: page, pages: 1);
+      expect(r1.dy, kPanMargin);
+      expect(r2.dy, kPanMargin);
+    });
+
+    test('é idempotente: aplicar de novo não muda nada', () {
+      for (final v in views) {
+        for (final scale in [0.2, 0.6, 1.0, 2.5]) {
+          final a = clampPanOffset(
+              offset: const Offset(123, -456), scale: scale, view: v, page: page, pages: 4);
+          final b = clampPanOffset(offset: a, scale: scale, view: v, page: page, pages: 4);
+          expect(b, a);
+        }
+      }
+    });
+  });
+
+  group('imagens', () {
+    PageImage mk() => PageImage(
+          id: 'i1',
+          bytes: Uint8List.fromList([0x89, 0x50, 0x4E, 0x47, 1, 2, 3]),
+          rect: const Rect.fromLTWH(100, 200, 300, 150),
+        );
+
+    test('salva e reabre com a imagem', () {
+      final nb = Notebook.empty('a', 'A');
+      nb.pages.first.images.add(mk());
+      final back = Notebook.fromJson(jsonDecode(jsonEncode(nb.toJson())) as Map<String, dynamic>);
+      final im = back.pages.first.images.single;
+      expect(im.rect, const Rect.fromLTWH(100, 200, 300, 150));
+      expect(im.bytes.length, 7);
+    });
+
+    test('seleciona, move com desfazer e apaga', () {
+      final c = CanvasController(Notebook.empty('a', 'A'));
+      final im = mk();
+      c.page.images.add(im);
+      c.tool = Tool.select;
+      expect(c.selectImageAt(const Offset(150, 250)), isTrue);
+      c.beginImageMove(const Offset(150, 250));
+      c.imageDragTo(const Offset(170, 260));
+      c.endImageDrag();
+      expect(im.rect.topLeft, const Offset(120, 210));
+      c.undo();
+      expect(im.rect.topLeft, const Offset(100, 200));
+      c.redo();
+      expect(im.rect.topLeft, const Offset(120, 210));
+      c.selectImageAt(const Offset(150, 250));
+      c.deleteSelectedImage();
+      expect(c.page.images, isEmpty);
+      c.undo();
+      expect(c.page.images.length, 1);
+    });
+
+    test('redimensiona pelo canto mantendo a proporção', () {
+      final c = CanvasController(Notebook.empty('a', 'A'));
+      final im = mk();
+      c.page.images.add(im);
+      c.tool = Tool.select;
+      c.selectImageAt(const Offset(150, 250));
+      c.beginImageResize(2); // canto inferior direito
+      c.imageDragTo(const Offset(700, 400));
+      c.endImageDrag();
+      expect(im.rect.topLeft, const Offset(100, 200));
+      expect(im.rect.width / im.rect.height, closeTo(2.0, 1e-6));
+      expect(im.rect.width, closeTo(600, 1e-6));
+    });
+  });
+
+  group('ajustes por caneta', () {
+    test('pressão: 0 = constante, 0.5 = padrão, 1 = mais sensível', () {
+      expect(pressureFactor(Tool.fountain, 0.0, 0), closeTo(1, 1e-9));
+      expect(pressureFactor(Tool.fountain, 1.0, 0), closeTo(1, 1e-9));
+      expect(pressureFactor(Tool.fountain, 1.0, 0.5), closeTo(0.28 + 1.55, 1e-9));
+      expect(pressureFactor(Tool.brush, 0.5, 0.5), closeTo(0.12 + 1.0, 1e-9));
+      final lo = pressureFactor(Tool.fountain, 0.1, 1);
+      final hi = pressureFactor(Tool.fountain, 0.9, 1);
+      expect(hi, greaterThan(lo));
+      expect(hi, lessThanOrEqualTo(2.3));
+    });
+
+    test('ponta mais aguda afina mais', () {
+      expect(tipMin(1.0), lessThan(tipMin(0.5)));
+      expect(tipMin(0.5), closeTo(0.45, 1e-9));
     });
   });
 }

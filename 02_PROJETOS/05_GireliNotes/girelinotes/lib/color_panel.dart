@@ -90,13 +90,8 @@ class ColorPanel extends StatelessWidget {
   }
 }
 
-
 class _Dot extends StatelessWidget {
-  const _Dot({
-    required this.argb,
-    required this.selected,
-    required this.onTap,
-  });
+  const _Dot({required this.argb, required this.selected, required this.onTap});
 
   final int argb;
   final bool selected;
@@ -105,26 +100,18 @@ class _Dot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-
-    Widget dot({double size = 26, bool? sel}) {
-      final isSelected = sel ?? selected;
-
-      return Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: Color(argb),
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: isSelected
-                ? scheme.primary
-                : scheme.outlineVariant,
-            width: isSelected ? 3 : 1,
+    Widget dot() => Container(
+          width: 26,
+          height: 26,
+          decoration: BoxDecoration(
+            color: Color(argb),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: selected ? scheme.primary : scheme.outlineVariant,
+              width: selected ? 3 : 1,
+            ),
           ),
-        ),
-      );
-    }
-
+        );
     // Arraste para a barra principal para trocar uma das cores dela.
     return Draggable<int>(
       data: argb,
@@ -139,32 +126,17 @@ class _Dot extends StatelessWidget {
             decoration: BoxDecoration(
               color: Color(argb),
               shape: BoxShape.circle,
-              border: Border.all(
-                color: Colors.white,
-                width: 3,
-              ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black38,
-                  blurRadius: 10,
-                ),
-              ],
+              border: Border.all(color: Colors.white, width: 3),
+              boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 10)],
             ),
           ),
         ),
       ),
-      childWhenDragging: Opacity(
-        opacity: 0.35,
-        child: dot(),
-      ),
-      child: GestureDetector(
-        onTap: onTap,
-        child: dot(),
-      ),
+      childWhenDragging: Opacity(opacity: 0.35, child: dot()),
+      child: GestureDetector(onTap: onTap, child: dot()),
     );
   }
 }
-
 
 /// Círculo cromático: o ângulo escolhe o matiz, a distância do centro a
 /// saturação; o controle abaixo ajusta o brilho.

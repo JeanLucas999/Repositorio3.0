@@ -18,8 +18,9 @@ class NotasToolbar extends StatelessWidget {
     required this.onSettings,
     required this.onPages,
     required this.pagesOpen,
-    required this.atBottom,
-    required this.onMove,
+    required this.pos,
+    required this.onExport,
+    required this.onImage,
   });
 
   final CanvasController controller;
@@ -28,17 +29,20 @@ class NotasToolbar extends StatelessWidget {
   final VoidCallback onSettings;
   final VoidCallback onPages;
   final bool pagesOpen;
-  final bool atBottom;
-  final ValueChanged<bool> onMove; // true: mover a barra para baixo
+  final ToolbarPos pos;
+  final VoidCallback onExport;
+  final VoidCallback onImage;
 
   static IconData _penIcon(Tool t) => switch (t) {
         Tool.fountain => Icons.draw,
+        Tool.brush => Icons.brush,
         Tool.smart => Icons.auto_fix_high,
         _ => Icons.edit,
       };
 
   static String _penName(Tool t) => switch (t) {
         Tool.fountain => 'Caneta tinteiro',
+        Tool.brush => 'Pincel',
         Tool.smart => 'Caneta de formas',
         _ => 'Caneta',
       };
@@ -70,8 +74,10 @@ class NotasToolbar extends StatelessWidget {
           message: 'Essa ação não pode ser desfeita.',
         );
         if (ok) c.deletePage();
-      case 'dock':
-        onMove(!atBottom);
+      case 'export':
+        onExport();
+      case 'rename':
+        onRename();
       case 'settings':
         onSettings();
     }
@@ -88,9 +94,7 @@ class NotasToolbar extends StatelessWidget {
         builder: (context, _) {
           final c = controller;
 
-          final tools = Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+          final toolItems = <Widget>[
               // Um único botão de caneta: o ícone mostra a caneta em uso e o toque
               // abre a subaba para trocar de tipo (o marca-texto fica de fora).
               _ToolButton(
@@ -114,6 +118,17 @@ class NotasToolbar extends StatelessWidget {
                 selected: c.tool == Tool.shape,
                 badge: true,
                 onTap: () => c.selectTool(Tool.shape),
+              ),
+              _ToolButton(
+                icon: Icons.near_me_outlined,
+                tooltip: 'Selecionar imagem (V)',
+                selected: c.tool == Tool.select,
+                onTap: () => c.selectTool(Tool.select),
+              ),
+              IconButton(
+                tooltip: 'Inserir imagem (Ctrl+V cola; ou arraste um arquivo)',
+                icon: const Icon(Icons.add_photo_alternate_outlined),
+                onPressed: onImage,
               ),
               _ToolButton(
                 icon: Icons.pan_tool_alt_outlined,
@@ -152,7 +167,7 @@ class NotasToolbar extends StatelessWidget {
                     ),
                   ),
                 ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 6, height: 6),
               _ToolButton(
                 icon: Icons.undo,
                 tooltip: 'Desfazer (Ctrl+Z)',
@@ -179,17 +194,59 @@ class NotasToolbar extends StatelessWidget {
                     PopupMenuItem(value: 'new', child: Text('Nova página')),
                     PopupMenuItem(value: 'del', child: Text('Excluir página')),
                   ],
-                  PopupMenuItem(
-                    value: 'dock',
-                    child: Text(atBottom ? 'Mover barra para cima' : 'Mover barra para baixo'),
-                  ),
+                  const PopupMenuItem(value: 'export', child: Text('Exportar…')),
+                  const PopupMenuItem(value: 'rename', child: Text('Renomear caderno')),
                   const PopupMenuDivider(),
                   const PopupMenuItem(value: 'settings', child: Text('Configurações')),
                 ],
               ),
-              _DockGrip(atBottom: atBottom, onMove: onMove),
-            ],
+          ];
+          final tools = Row(mainAxisSize: MainAxisSize.min, children: toolItems);
+
+          final backBtn = IconButton(
+            tooltip: 'Biblioteca',
+            icon: const Icon(Icons.arrow_back),
+            onPressed: onBack,
           );
+          final pagesBtn = c.notebook.infinite
+              ? null
+              : IconButton(
+                  tooltip: 'Páginas',
+                  icon: Icon(
+                    pagesOpen ? Icons.view_sidebar : Icons.view_sidebar_outlined,
+                    color: pagesOpen ? scheme.primary : null,
+                  ),
+                  onPressed: onPages,
+                );
+
+          // Barra vertical (esquerda/direita): faixa estreita só com os botões;
+          // as opções de cor/espessura aparecem em cima da página (NotasOptions).
+          if (pos == ToolbarPos.left || pos == ToolbarPos.right) {
+            final edge = BorderSide(color: scheme.outlineVariant);
+            return DecoratedBox(
+              decoration: BoxDecoration(
+                border: pos == ToolbarPos.left
+                    ? Border(right: edge)
+                    : Border(left: edge),
+              ),
+              child: SizedBox(
+                width: 56,
+                child: Column(
+                  children: [
+                    const SizedBox(height: 4),
+                    backBtn,
+                    if (pagesBtn != null) pagesBtn,
+                    const SizedBox(height: 4),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Column(children: toolItems),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
 
           return LayoutBuilder(builder: (context, box) {
             final wide = box.maxWidth >= 720;
@@ -199,20 +256,8 @@ class NotasToolbar extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: Row(
                       children: [
-                        IconButton(
-                          tooltip: 'Biblioteca',
-                          icon: const Icon(Icons.arrow_back),
-                          onPressed: onBack,
-                        ),
-                        if (!c.notebook.infinite)
-                        IconButton(
-                          tooltip: 'Páginas',
-                          icon: Icon(
-                            pagesOpen ? Icons.view_sidebar : Icons.view_sidebar_outlined,
-                            color: pagesOpen ? scheme.primary : null,
-                          ),
-                          onPressed: onPages,
-                        ),
+                        backBtn,
+                        if (pagesBtn != null) pagesBtn,
                         if (wide)
                           Expanded(
                             child: Align(
@@ -260,7 +305,7 @@ class NotasToolbar extends StatelessWidget {
             return Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: atBottom
+              children: pos == ToolbarPos.bottom
                   ? [divider, options, header]
                   : [header, options, divider],
             );
@@ -368,6 +413,15 @@ class _OptionsRow extends StatelessWidget {
             ),
             const SizedBox(width: 6),
             ChoiceChip(
+              avatar: const Icon(Icons.brush, size: 18),
+              label: const Text('Pincel'),
+              selected: c.tool == Tool.brush,
+              showCheckmark: false,
+              visualDensity: VisualDensity.compact,
+              onSelected: (_) => c.setPenType(Tool.brush),
+            ),
+            const SizedBox(width: 6),
+            ChoiceChip(
               avatar: const Icon(Icons.auto_fix_high, size: 18),
               label: const Text('Formas'),
               selected: c.tool == Tool.smart,
@@ -376,6 +430,33 @@ class _OptionsRow extends StatelessWidget {
               onSelected: (_) => c.setPenType(Tool.smart),
             ),
             const SizedBox(width: 12),
+            SegmentedButton<StrokeStyle>(
+              showSelectedIcon: false,
+              style: const ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 6)),
+              ),
+              segments: [
+                for (final st in StrokeStyle.values)
+                  ButtonSegment(
+                    value: st,
+                    tooltip: switch (st) {
+                      StrokeStyle.solid => 'Contínuo',
+                      StrokeStyle.dashed => 'Tracejado',
+                      StrokeStyle.dotted => 'Pontilhado',
+                    },
+                    label: _StyleIcon(st),
+                  ),
+              ],
+              selected: {c.settings.strokeStyle},
+              onSelectionChanged: (v) => c.setStrokeStyle(v.first),
+            ),
+            IconButton(
+              tooltip: 'Ajustes da caneta',
+              icon: Icon(Icons.tune, color: c.showTune ? scheme.primary : null),
+              onPressed: c.toggleTune,
+            ),
+            const SizedBox(width: 6),
             SizedBox(
               height: 28,
               child: VerticalDivider(width: 1, thickness: 1, color: scheme.outlineVariant),
@@ -590,48 +671,27 @@ class _PaletteDot extends StatefulWidget {
 }
 
 class _PaletteDotState extends State<_PaletteDot> {
-  bool _pulse = false;
-
-  void _drop(int v) {
-    widget.onDrop(v);
-    setState(() => _pulse = true);
-    Future<void>.delayed(const Duration(milliseconds: 200), () {
-      if (mounted) setState(() => _pulse = false);
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return DragTarget<int>(
-      onAcceptWithDetails: (d) => _drop(d.data),
+      onAcceptWithDetails: (d) => widget.onDrop(d.data),
       builder: (context, candidates, _) {
+        // Sem animações: só mostra a cor que chegaria e destaca a borda.
         final hover = candidates.isNotEmpty;
         final incoming = hover ? candidates.first : null;
         return GestureDetector(
           onTap: widget.onTap,
-          child: AnimatedScale(
-            scale: hover ? 1.3 : (_pulse ? 1.18 : 1.0),
-            duration: const Duration(milliseconds: 160),
-            curve: Curves.easeOutBack,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOut,
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: Color(incoming ?? widget.argb),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: hover
-                      ? scheme.primary
-                      : (widget.selected ? scheme.primary : scheme.outlineVariant),
-                  width: (hover || widget.selected) ? 3 : 1,
-                ),
-                boxShadow: hover
-                    ? [BoxShadow(color: scheme.primary.withAlpha(90), blurRadius: 10)]
-                    : const [],
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: Color(incoming ?? widget.argb),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: (hover || widget.selected) ? scheme.primary : scheme.outlineVariant,
+                width: (hover || widget.selected) ? 3 : 1,
               ),
             ),
           ),
@@ -641,44 +701,83 @@ class _PaletteDotState extends State<_PaletteDot> {
   }
 }
 
-
-/// Alça para mover a barra: arraste para o outro lado da tela (ou toque).
-class _DockGrip extends StatefulWidget {
-  const _DockGrip({required this.atBottom, required this.onMove});
-
-  final bool atBottom;
-  final ValueChanged<bool> onMove;
+/// Mini amostra do estilo de traço (contínuo, tracejado, pontilhado).
+class _StyleIcon extends StatelessWidget {
+  const _StyleIcon(this.style);
+  final StrokeStyle style;
 
   @override
-  State<_DockGrip> createState() => _DockGripState();
+  Widget build(BuildContext context) {
+    final color = DefaultTextStyle.of(context).style.color ?? Colors.grey;
+    return CustomPaint(size: const Size(30, 14), painter: _StylePainter(style, color));
+  }
 }
 
-class _DockGripState extends State<_DockGrip> {
-  double _dy = 0;
+class _StylePainter extends CustomPainter {
+  _StylePainter(this.style, this.color);
+  final StrokeStyle style;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Paint()
+      ..color = color
+      ..strokeWidth = 2.4
+      ..strokeCap = StrokeCap.round;
+    final y = size.height / 2;
+    switch (style) {
+      case StrokeStyle.solid:
+        canvas.drawLine(Offset(2, y), Offset(size.width - 2, y), p);
+      case StrokeStyle.dashed:
+        for (var x = 2.0; x < size.width - 4; x += 10) {
+          canvas.drawLine(Offset(x, y), Offset(x + 6, y), p);
+        }
+      case StrokeStyle.dotted:
+        for (var x = 3.0; x < size.width - 1; x += 6) {
+          canvas.drawCircle(Offset(x, y), 1.4, p..style = PaintingStyle.fill);
+        }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_StylePainter old) => old.style != style || old.color != color;
+}
+
+
+/// Opções de cor/espessura da ferramenta, em faixa horizontal (usada acima da
+/// página quando a barra de ferramentas está à esquerda ou à direita).
+class NotasOptions extends StatelessWidget {
+  const NotasOptions({super.key, required this.controller});
+  final CanvasController controller;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Tooltip(
-      message: 'Arraste para mover a barra',
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onVerticalDragStart: (_) => _dy = 0,
-        onVerticalDragUpdate: (d) {
-          _dy += d.delta.dy;
-          if (!widget.atBottom && _dy > 36) {
-            _dy = 0;
-            widget.onMove(true);
-          } else if (widget.atBottom && _dy < -36) {
-            _dy = 0;
-            widget.onMove(false);
-          }
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-          child: Icon(Icons.drag_indicator, size: 20, color: scheme.outline),
-        ),
-      ),
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        final c = controller;
+        return Material(
+          color: scheme.surface,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AnimatedSize(
+                duration: const Duration(milliseconds: 150),
+                alignment: Alignment.topCenter,
+                child: c.showOptions
+                    ? (c.tool == Tool.eraser
+                        ? _EraserOptions(controller: c)
+                        : _OptionsRow(controller: c))
+                    : const SizedBox(width: double.infinity),
+              ),
+              if (c.showOptions)
+                Divider(height: 1, thickness: 1, color: scheme.outlineVariant),
+            ],
+          ),
+        );
+      },
     );
   }
 }
