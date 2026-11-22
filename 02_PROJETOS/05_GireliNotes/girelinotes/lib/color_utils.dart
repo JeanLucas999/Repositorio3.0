@@ -1,5 +1,5 @@
-/// Conversões entre ARGB (0xAARRGGBB) e HSV, sem depender da API de Color
-/// (que mudou entre versões do Flutter). h em graus 0..360, s e v em 0..1.
+// Conversões entre ARGB (0xAARRGGBB) e HSV, sem depender da API de Color
+// (que mudou entre versões do Flutter). h em graus 0..360, s e v em 0..1.
 
 int hsvToArgb(double h, double s, double v) {
   final hh = (h % 360 + 360) % 360;

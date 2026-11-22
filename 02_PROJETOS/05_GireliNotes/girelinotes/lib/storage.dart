@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
 
+import 'folders.dart';
 import 'models.dart';
 import 'settings.dart';
 
@@ -49,6 +50,46 @@ class NotebookStorage {
     final target = _file(dir, nb.id);
     final tmp = File('${target.path}.tmp');
     await tmp.writeAsString(jsonEncode(nb.toJson()), flush: true);
+    await tmp.rename(target.path);
+  }
+
+  /// Pastas da biblioteca (um arquivo só; fora do filtro `.json` dos cadernos).
+  Future<List<Folder>> loadFolders() async {
+    try {
+      final f = File('${(await _dir()).path}${Platform.pathSeparator}pastas.dat');
+      if (!await f.exists()) return [];
+      final raw = jsonDecode(await f.readAsString());
+      final list = raw is Map ? raw['folders'] : null;
+      if (list is! List) return [];
+      return [for (final j in list) if (Folder.fromJson(j) case final fd?) fd];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> saveFolders(List<Folder> folders) async {
+    final target = File('${(await _dir()).path}${Platform.pathSeparator}pastas.dat');
+    final tmp = File('${target.path}.tmp');
+    await tmp.writeAsString(jsonEncode({'folders': [for (final f in folders) f.toJson()]}), flush: true);
+    await tmp.rename(target.path);
+  }
+
+  /// Estado da sincronização com o Drive (id do caderno -> arquivo e versão).
+  Future<Map<String, dynamic>> loadSyncState() async {
+    try {
+      final f = File('${(await _dir()).path}${Platform.pathSeparator}sync.dat');
+      if (!await f.exists()) return {};
+      final raw = jsonDecode(await f.readAsString());
+      return raw is Map<String, dynamic> ? raw : {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<void> saveSyncState(Map<String, dynamic> state) async {
+    final target = File('${(await _dir()).path}${Platform.pathSeparator}sync.dat');
+    final tmp = File('${target.path}.tmp');
+    await tmp.writeAsString(jsonEncode(state), flush: true);
     await tmp.rename(target.path);
   }
 

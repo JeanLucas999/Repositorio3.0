@@ -89,6 +89,7 @@ class CanvasController extends ChangeNotifier {
   double brushWidth = 4.0;
   double hlWidth = 6;
   bool showOptions = false; // linha de opções (cor/espessura ou borracha) aberta
+  bool showShapeLib = false; // biblioteca de formas aberta
   bool showTune = false; // painel de ajustes da caneta aberto
   bool showColors = false; // painel de cores (paleta extra + círculo cromático) aberto
 
@@ -98,6 +99,10 @@ class CanvasController extends ChangeNotifier {
 
   /// Forma recém-criada que ainda pode ser redimensionada pelas alças.
   Stroke? editing;
+  Offset _fixedEnd = Offset.zero; // fim da forma fixa que está sendo desenhada
+  ShapeKind _editShape = ShapeKind.arrow; // forma de seta em edição
+  List<Offset> _editEnds = const []; // pontas (a, b) da seta em edição
+  List<Offset> _rsEnds = const [];
   String _editKind = ''; // 'line' | 'arrow' | 'box'
   int _rsHandle = -1;
   List<Offset> _rsOrig = const [];
@@ -253,6 +258,7 @@ class CanvasController extends ChangeNotifier {
   /// Troca a ferramenta (atalhos de teclado).
   void setTool(Tool t) {
     editing = null;
+    if (t != Tool.select) _dropSel();
     tool = t;
     if (t == Tool.pen || t == Tool.fountain || t == Tool.brush || t == Tool.smart) lastPen = t;
     notifyListeners();
@@ -262,6 +268,7 @@ class CanvasController extends ChangeNotifier {
   /// abre/fecha a linha de opções (cor e espessura, ou a borracha).
   void selectTool(Tool t) {
     editing = null;
+    if (t != Tool.select) _dropSel();
     if (t == Tool.pan) {
       // mãozinha: liga e desliga, voltando para a ferramenta anterior
       if (tool == Tool.pan) {
@@ -290,8 +297,25 @@ class CanvasController extends ChangeNotifier {
   }
 
   /// Escolhe uma forma da mini barra e passa para a ferramenta de formas.
+  /// Atalho L: ativa as formas; com elas já ativas, abre/fecha a biblioteca.
+  void openShapes() {
+    if (tool == Tool.shape) {
+      showShapeLib = !showShapeLib;
+      notifyListeners();
+    } else {
+      setShape(shapeKind);
+    }
+  }
+
+  void toggleShapeLib() {
+    showShapeLib = !showShapeLib;
+    notifyListeners();
+  }
+
   void setShape(ShapeKind k) {
+    showShapeLib = false;
     editing = null;
+    _dropSel();
     shapeKind = k;
     tool = Tool.shape;
     notifyListeners();
@@ -339,6 +363,7 @@ class CanvasController extends ChangeNotifier {
   /// toque só volta para a última usada (e fecha qualquer subaba aberta);
   /// a subaba para escolher o tipo abre no segundo toque, e o terceiro fecha.
   void selectPen() {
+    _dropSel();
     if (isPenTool) {
       _setOptions(!showOptions);
     } else {
@@ -351,6 +376,7 @@ class CanvasController extends ChangeNotifier {
   /// Escolhe o tipo de caneta na subaba (comum, tinteiro ou inteligente).
   void setPenType(Tool t) {
     if (t != Tool.pen && t != Tool.fountain && t != Tool.brush && t != Tool.smart) return;
+    _dropSel();
     tool = t;
     lastPen = t;
     notifyListeners();
@@ -417,10 +443,11 @@ class CanvasController extends ChangeNotifier {
   void beginStroke(Offset p, double pressure, {bool asEraser = false, int? timeMs}) {
     _active = asEraser ? Tool.eraser : tool;
     editing = null;
-    if (showColors || showTune) {
-      // desenhar fecha os painéis flutuantes (cores e ajustes da caneta)
+    if (showColors || showTune || showShapeLib) {
+      // desenhar fecha os painéis flutuantes (cores, ajustes e formas)
       showColors = false;
       showTune = false;
+      showShapeLib = false;
       notifyListeners();
     }
     _snap = null;
@@ -467,8 +494,7 @@ class CanvasController extends ChangeNotifier {
 
   static const int kShapeFillAlpha = 46; // ~18%: claro, sem esconder o que está atrás
 
-  static bool _closedShape(ShapeKind k) =>
-      k == ShapeKind.rectangle || k == ShapeKind.ellipse || k == ShapeKind.triangle;
+  static bool _closedShape(ShapeKind k) => isClosedShape(k);
 
   void extendStroke(Offset p, double pressure, {int? timeMs}) {
     if (_active == Tool.eraser) {
@@ -484,9 +510,18 @@ class CanvasController extends ChangeNotifier {
     // Formas fixas: a forma acompanha a caneta, do ponto onde encostou até aqui.
     if (_fixed) {
       final start = _shapeStart ?? s.points.first;
-      final straight = shapeKind == ShapeKind.line || shapeKind == ShapeKind.arrow;
+      final straight = shapeKind == ShapeKind.line ||
+          shapeKind == ShapeKind.arrow ||
+          shapeKind == ShapeKind.doubleArrow;
       final end = straight ? _softAngleSnap(start, p) : p;
+      _fixedEnd = end;
       s.points = shapePoints(shapeKind, start, end, headLen: math.max(14.0, s.width * 5));
+      final outline = shapeFillOutline(shapeKind, start, end);
+      if (outline != null) {
+        final bb = boundsOf(s.points);
+        final w = math.max(bb.width, 1e-9), h = math.max(bb.height, 1e-9);
+        s.fillNorm = [for (final q in outline) Offset((q.dx - bb.left) / w, (q.dy - bb.top) / h)];
+      }
       s.smooth = false;
       s.invalidate();
       _pingLive();
@@ -596,8 +631,23 @@ class CanvasController extends ChangeNotifier {
       }
     }
 
+    // Toque sem arrastar: vira um ponto de tamanho normal (sem a rampa de
+    // entrada/saída que deixaria a bolinha minúscula).
+    final isDot = !_fixed && _snap == null && diagonalOf(boundsOf(s.points)) < 3 * pixelSize;
+    if (isDot) {
+      s.points = [s.points.first];
+      if (s.fountain && s.widths != null) {
+        final br = _active == Tool.brush;
+        final avg = _pN > 0 ? _pSum / _pN : 0.5;
+        final w = s.width *
+            pressureFactor(_active, avg, br ? settings.pressBrush : settings.pressFountain);
+        s.widths = [math.max(w, s.width * 0.8)];
+      }
+      s.invalidate();
+    }
+
     // Formas inteligentes: ao soltar, o traço vira a forma reconhecida.
-    if (_smart && _snap == null) {
+    if (_smart && _snap == null && !isDot) {
       final r = recognizeShape(s.points);
       if (r != null) _applyRecognized(s, r);
     }
@@ -700,18 +750,51 @@ class CanvasController extends ChangeNotifier {
   }
 
 
-  // ---------------- imagens ----------------
-  PageImage? selImage; // imagem selecionada (página ativa)
-  PageImage? get activeSel => tool == Tool.select ? selImage : null;
+  // ---------------- imagens e seleção (laço) ----------------
+  final List<Stroke> selStrokes = [];
+  final List<PageImage> selImages = [];
+  List<Offset>? lasso; // laço sendo desenhado (página ativa)
   Offset Function()? centerOnPage; // centro da área visível, na página ativa (a tela define)
-  Rect _imgOrig = Rect.zero;
-  Offset _imgGrab = Offset.zero;
-  int _imgHandle = -2; // -2 nada, -1 mover, 0..3 cantos (TL, TR, BR, BL)
+
+  List<Stroke> _clipS = [];
+  List<PageImage> _clipI = [];
+  bool get canPaste => _clipS.isNotEmpty || _clipI.isNotEmpty;
+
+  bool get hasSel => tool == Tool.select && (selStrokes.isNotEmpty || selImages.isNotEmpty);
+
+  /// Caixa que envolve tudo que está selecionado.
+  Rect? get selBounds {
+    Rect? r;
+    for (final s in selStrokes) {
+      r = r == null ? s.bounds : r.expandToInclude(s.bounds);
+    }
+    for (final im in selImages) {
+      r = r == null ? im.rect : r.expandToInclude(im.rect);
+    }
+    return r;
+  }
+
+  Rect? get activeSelBounds => hasSel ? selBounds : null;
 
   /// Chamado quando uma imagem terminou de decodificar: repinta as páginas.
   void imageReady() {
     _committed.ping();
     _live.ping();
+  }
+
+  void _dropSel() {
+    showSelColors = false;
+    _rcBase = null;
+    selStrokes.clear();
+    selImages.clear();
+    lasso = null;
+  }
+
+  void clearSelection() {
+    if (selStrokes.isEmpty && selImages.isEmpty && lasso == null) return;
+    _dropSel();
+    _live.ping();
+    notifyListeners();
   }
 
   /// Insere uma imagem (PNG, JPEG, WebP...) na página ativa, centrada em [at]
@@ -734,7 +817,12 @@ class CanvasController extends ChangeNotifier {
       left = left.clamp(0.0, math.max(0.0, ps.width - w)).toDouble();
       top = top.clamp(0.0, math.max(0.0, ps.height - h)).toDouble();
     }
-    final img = PageImage(id: _newId(), bytes: prep.$1, rect: Rect.fromLTWH(left, top, w, h));
+    _adoptNew(PageImage(id: _newId(), bytes: prep.$1, rect: Rect.fromLTWH(left, top, w, h)));
+    return true;
+  }
+
+  /// Põe um item novo na página ativa (desfazível), seleciona e passa para Selecionar.
+  void _adoptNew(PageImage img) {
     final pg = page;
     pg.images.add(img);
     _push(_Action(
@@ -751,42 +839,159 @@ class CanvasController extends ChangeNotifier {
     tool = Tool.select;
     _setOptions(false);
     _bump();
-    selImage = img; // _bump limpa a seleção; seleciona a nova
+    selImages.add(img); // _bump limpa a seleção; seleciona o novo
     _live.ping();
     notifyListeners();
-    return true;
   }
 
-  /// Seleciona a imagem mais acima em [p] (coordenadas da página ativa).
-  bool selectImageAt(Offset p) {
-    for (var i = page.images.length - 1; i >= 0; i--) {
-      final im = page.images[i];
-      if (im.rect.inflate(2).contains(p)) {
-        selImage = im;
-        _live.ping();
-        notifyListeners();
-        return true;
-      }
+  /// Cria um post-it no centro da área visível (ou em [at]).
+  void insertNote(String text, int color, double fontSize, {Offset? at}) {
+    const w = 240.0, h = 190.0;
+    final ps = notebook.pageSize;
+    final center = at ?? centerOnPage?.call() ?? Offset(ps.width / 2, ps.height / 2);
+    var left = center.dx - w / 2, top = center.dy - h / 2;
+    if (!notebook.infinite) {
+      left = left.clamp(0.0, math.max(0.0, ps.width - w)).toDouble();
+      top = top.clamp(0.0, math.max(0.0, ps.height - h)).toDouble();
+    }
+    _adoptNew(PageImage(
+      id: _newId(),
+      bytes: Uint8List(0),
+      rect: Rect.fromLTWH(left, top, w, h),
+      text: text,
+      noteColor: color,
+      fontSize: fontSize,
+    ));
+  }
+
+  /// Muda texto, cor e/ou tamanho da letra de um post-it (desfazível).
+  void updateNote(PageImage n, {String? text, int? color, double? fontSize}) {
+    if (!n.isNote) return;
+    final before = (n.text, n.noteColor, n.fontSize);
+    final after = (text ?? n.text, color ?? n.noteColor, fontSize ?? n.fontSize);
+    if (before == after) return;
+    void set((String?, int, double) v) {
+      n.text = v.$1;
+      n.noteColor = v.$2;
+      n.fontSize = v.$3;
+    }
+
+    final pg = page;
+    set(after);
+    _push(_Action(
+      () {
+        set(before);
+        _show(pg);
+      },
+      () {
+        set(after);
+        _show(pg);
+      },
+    ));
+    notebook.modified = DateTime.now();
+    onDocumentChanged?.call();
+    version++;
+    _committed.ping();
+    _live.ping();
+    notifyListeners();
+  }
+
+  // --- laço ---
+  void beginLasso(Offset p) {
+    _dropSel();
+    lasso = [p];
+    _live.ping();
+    notifyListeners();
+  }
+
+  void extendLasso(Offset p) {
+    final l = lasso;
+    if (l == null) return;
+    if (dist(l.last, p) < 1.5) return;
+    l.add(p);
+    _live.ping();
+  }
+
+  /// Solta o laço. Laço minúsculo = toque: seleciona o item sob o dedo/caneta.
+  void endLasso(double tol) {
+    final l = lasso;
+    lasso = null;
+    if (l == null) return;
+    if (l.length < 3 || diagonalOf(boundsOf(l)) < tol) {
+      _pickAt(l.first, tol);
+    } else {
+      _selectInside(l);
+    }
+    _live.ping();
+    notifyListeners();
+  }
+
+  bool _hitStroke(Stroke s, Offset p, double tol) {
+    final reach = tol + s.width;
+    if (!s.bounds.inflate(reach).contains(p)) return false;
+    if (s.fill != null && s.points.length >= 3 && pointInPolygon(p, s.fillPolygon)) return true;
+    if (s.points.length == 1) return dist(s.points.first, p) <= reach;
+    for (var i = 1; i < s.points.length; i++) {
+      if (distToSegment(p, s.points[i - 1], s.points[i]) <= reach) return true;
     }
     return false;
   }
 
-  void clearImageSelection() {
-    if (selImage == null) return;
-    selImage = null;
-    _live.ping();
-    notifyListeners();
+  void _pickAt(Offset p, double tol) {
+    final pg = page;
+    for (var i = pg.strokes.length - 1; i >= 0; i--) {
+      if (_hitStroke(pg.strokes[i], p, tol)) {
+        selStrokes.add(pg.strokes[i]);
+        return;
+      }
+    }
+    for (var i = pg.images.length - 1; i >= 0; i--) {
+      if (pg.images[i].rect.inflate(2).contains(p)) {
+        selImages.add(pg.images[i]);
+        return;
+      }
+    }
   }
 
-  /// Cantos da imagem selecionada: TL, TR, BR, BL.
-  List<Offset> imageHandles() {
-    final r = activeSel?.rect;
+  void _selectInside(List<Offset> poly) {
+    final pg = page;
+    final box = boundsOf(poly);
+    for (final s in pg.strokes) {
+      if (s.points.isEmpty || !s.bounds.overlaps(box.inflate(1))) continue;
+      var n = 0;
+      for (final q in s.points) {
+        if (pointInPolygon(q, poly)) n++;
+      }
+      if (n * 2 >= s.points.length) selStrokes.add(s);
+    }
+    for (final im in pg.images) {
+      if (pointInPolygon(im.rect.center, poly)) selImages.add(im);
+    }
+  }
+
+  // --- mover / redimensionar a seleção ---
+  Map<Stroke, List<Offset>> _origPts = {};
+  Map<PageImage, Rect> _origRects = {};
+  Rect _selBox = Rect.zero;
+  Offset _selGrab = Offset.zero;
+  int _selHandle = -2; // -2 nada, -1 mover, 0..3 cantos (TL, TR, BR, BL), 4..7 lados (T, R, B, L)
+  bool _selMoved = false;
+
+  List<Offset> selHandles() {
+    final r = selBounds;
     if (r == null) return const [];
-    return [r.topLeft, r.topRight, r.bottomRight, r.bottomLeft];
+    return [
+      r.topLeft, r.topRight, r.bottomRight, r.bottomLeft,
+      // lados: só quando a seleção é de imagens/post-its (esticam sem manter a proporção)
+      if (stretchable) ...[r.topCenter, r.centerRight, r.bottomCenter, r.centerLeft],
+    ];
   }
 
-  int? hitImageHandle(Offset p, double tol) {
-    final hs = imageHandles();
+  /// Seleção só de imagens e post-its: aceita esticar por um lado.
+  bool get stretchable => selStrokes.isEmpty && selImages.isNotEmpty;
+
+  int? hitSelHandle(Offset p, double tol) {
+    final hs = selHandles();
     int? best;
     var bestD = tol;
     for (var i = 0; i < hs.length; i++) {
@@ -799,62 +1004,109 @@ class CanvasController extends ChangeNotifier {
     return best;
   }
 
-  void beginImageMove(Offset p) {
-    final im = selImage;
-    if (im == null) return;
-    _imgHandle = -1;
-    _imgOrig = im.rect;
-    _imgGrab = p;
+  bool selContains(Offset p) => selBounds?.inflate(6).contains(p) ?? false;
+
+  void _snapSel() {
+    _selBox = selBounds ?? Rect.zero;
+    _origPts = {for (final s in selStrokes) s: List<Offset>.of(s.points)};
+    _origRects = {for (final im in selImages) im: im.rect};
+    _selMoved = false;
   }
 
-  void beginImageResize(int handle) {
-    final im = selImage;
-    if (im == null) return;
-    _imgHandle = handle;
-    _imgOrig = im.rect;
+  void beginSelMove(Offset p) {
+    if (!hasSel) return;
+    _snapSel();
+    _selHandle = -1;
+    _selGrab = p;
   }
 
-  /// Move ou redimensiona (mantendo a proporção) conforme o gesto começado.
-  void imageDragTo(Offset p) {
-    final im = selImage;
-    if (im == null || _imgHandle == -2) return;
-    final o = _imgOrig;
-    if (_imgHandle == -1) {
-      im.rect = o.shift(p - _imgGrab);
-    } else {
-      final anchor = switch (_imgHandle) {
-        0 => o.bottomRight,
-        1 => o.bottomLeft,
-        2 => o.topLeft,
-        _ => o.topRight,
-      };
-      final sx = (_imgHandle == 1 || _imgHandle == 2) ? 1.0 : -1.0;
-      final sy = (_imgHandle == 2 || _imgHandle == 3) ? 1.0 : -1.0;
-      final asp = o.height < 1e-6 ? 1.0 : o.width / o.height;
-      final dx = (p.dx - anchor.dx) * sx, dy = (p.dy - anchor.dy) * sy;
-      final w = math.max(math.max(dx, dy * asp), 24.0);
-      final h = w / asp;
-      final far = anchor + Offset(sx * w, sy * h);
-      im.rect = Rect.fromPoints(anchor, far);
+  void beginSelResize(int handle) {
+    if (!hasSel) return;
+    _snapSel();
+    _selHandle = handle;
+  }
+
+  void _applySel(Offset Function(Offset) f) {
+    for (final s in selStrokes) {
+      final o = _origPts[s];
+      if (o == null) continue;
+      s.points = [for (final q in o) f(q)];
+      s.invalidate();
     }
+    for (final im in selImages) {
+      final o = _origRects[im];
+      if (o == null) continue;
+      im.rect = Rect.fromPoints(f(o.topLeft), f(o.bottomRight));
+    }
+    _selMoved = true;
     _committed.ping();
     _live.ping();
   }
 
-  void endImageDrag() {
-    final im = selImage;
-    if (im == null || _imgHandle == -2) return;
-    _imgHandle = -2;
-    final before = _imgOrig, after = im.rect;
-    if (before == after) return;
+  /// Move ou redimensiona (proporcional, a partir do canto oposto) a seleção.
+  void selDragTo(Offset p) {
+    if (_selHandle == -2) return;
+    if (_selHandle == -1) {
+      final d = p - _selGrab;
+      _applySel((q) => q + d);
+      return;
+    }
+    final o = _selBox;
+    if (_selHandle >= 4) {
+      const minK = 0.05;
+      final w = math.max(o.width, 1.0), h = math.max(o.height, 1.0);
+      switch (_selHandle) {
+        case 4: // topo: ancora na base
+          final k = math.max((o.bottom - p.dy) / h, minK);
+          _applySel((q) => Offset(q.dx, o.bottom + (q.dy - o.bottom) * k));
+        case 5: // direita: ancora na esquerda
+          final k = math.max((p.dx - o.left) / w, minK);
+          _applySel((q) => Offset(o.left + (q.dx - o.left) * k, q.dy));
+        case 6: // base: ancora no topo
+          final k = math.max((p.dy - o.top) / h, minK);
+          _applySel((q) => Offset(q.dx, o.top + (q.dy - o.top) * k));
+        default: // esquerda: ancora na direita
+          final k = math.max((o.right - p.dx) / w, minK);
+          _applySel((q) => Offset(o.right + (q.dx - o.right) * k, q.dy));
+      }
+      return;
+    }
+    final anchor = switch (_selHandle) {
+      0 => o.bottomRight,
+      1 => o.bottomLeft,
+      2 => o.topLeft,
+      _ => o.topRight,
+    };
+    final sx = (_selHandle == 1 || _selHandle == 2) ? 1.0 : -1.0;
+    final sy = (_selHandle == 2 || _selHandle == 3) ? 1.0 : -1.0;
+    final w = math.max(o.width, 1.0), h = math.max(o.height, 1.0);
+    final k = math.max(math.max((p.dx - anchor.dx) * sx / w, (p.dy - anchor.dy) * sy / h), 0.05);
+    _applySel((q) => anchor + (q - anchor) * k);
+  }
+
+  void _restoreSel(Map<Stroke, List<Offset>> pts, Map<PageImage, Rect> rects) {
+    pts.forEach((s, o) {
+      s.points = List<Offset>.of(o);
+      s.invalidate();
+    });
+    rects.forEach((im, r) => im.rect = r);
+  }
+
+  void endSelDrag() {
+    if (_selHandle == -2) return;
+    _selHandle = -2;
+    if (!_selMoved) return;
+    final bp = _origPts, br = _origRects;
+    final ap = {for (final s in selStrokes) s: List<Offset>.of(s.points)};
+    final ar = {for (final im in selImages) im: im.rect};
     final pg = page;
     _push(_Action(
       () {
-        im.rect = before;
+        _restoreSel(bp, br);
         _show(pg);
       },
       () {
-        im.rect = after;
+        _restoreSel(ap, ar);
         _show(pg);
       },
     ));
@@ -865,20 +1117,91 @@ class CanvasController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void deleteSelectedImage() {
-    final im = activeSel;
-    if (im == null) return;
+  // --- camada das imagens (frente/atrás) ---
+  /// Posição do botãozinho de camada (perto do canto superior direito), ou null
+  /// quando não há imagem selecionada.
+  Offset? layerButtonPos(double scale) {
+    if (!hasSel || selImages.isEmpty) return null;
+    final r = selBounds;
+    if (r == null) return null;
+    return r.topRight + Offset(24 / scale, -24 / scale);
+  }
+
+  bool hitLayerButton(Offset p, double scale) {
+    final b = layerButtonPos(scale);
+    return b != null && dist(b, p) <= 16 / scale;
+  }
+
+  /// Manda as imagens selecionadas para trás da tinta, ou de volta para a frente.
+  void toggleImageLayer() {
+    if (!hasSel || selImages.isEmpty) return;
+    final ims = List<PageImage>.of(selImages);
+    final target = !ims.first.front;
+    final before = {for (final im in ims) im: (im.front, im.z)};
     final pg = page;
-    final idx = pg.images.indexOf(im);
-    if (idx < 0) return;
-    pg.images.removeAt(idx);
+    final now = DateTime.now().microsecondsSinceEpoch;
+    for (final im in ims) {
+      im.front = target;
+      if (target) im.z = now; // vai para a frente do que já existe
+    }
     _push(_Action(
       () {
-        pg.images.insert(math.min(idx, pg.images.length), im);
+        before.forEach((im, v) {
+          im.front = v.$1;
+          im.z = v.$2;
+        });
         _show(pg);
       },
       () {
-        pg.images.remove(im);
+        for (final im in ims) {
+          im.front = target;
+          if (target) im.z = now;
+        }
+        _show(pg);
+      },
+    ));
+    notebook.modified = DateTime.now();
+    onDocumentChanged?.call();
+    version++;
+    _committed.ping();
+    _live.ping();
+    notifyListeners();
+  }
+
+  // --- ações sobre a seleção ---
+  void deleteSelection() {
+    if (!hasSel) return;
+    final pg = page;
+    final sPairs = <(int, Stroke)>[
+      for (final s in selStrokes)
+        if (pg.strokes.indexOf(s) case final i when i >= 0) (i, s),
+    ]..sort((a, b) => a.$1.compareTo(b.$1));
+    final iPairs = <(int, PageImage)>[
+      for (final im in selImages)
+        if (pg.images.indexOf(im) case final i when i >= 0) (i, im),
+    ]..sort((a, b) => a.$1.compareTo(b.$1));
+    void remove() {
+      for (final e in sPairs) {
+        pg.strokes.remove(e.$2);
+      }
+      for (final e in iPairs) {
+        pg.images.remove(e.$2);
+      }
+    }
+
+    remove();
+    _push(_Action(
+      () {
+        for (final e in sPairs) {
+          pg.strokes.insert(math.min(e.$1, pg.strokes.length), e.$2);
+        }
+        for (final e in iPairs) {
+          pg.images.insert(math.min(e.$1, pg.images.length), e.$2);
+        }
+        _show(pg);
+      },
+      () {
+        remove();
         _show(pg);
       },
     ));
@@ -886,11 +1209,169 @@ class CanvasController extends ChangeNotifier {
     _live.ping();
   }
 
+  PageImage _cloneImage(PageImage im, Offset shift) =>
+      PageImage(id: _newId(), bytes: im.bytes, rect: im.rect.shift(shift),
+          front: im.front, text: im.text, noteColor: im.noteColor, fontSize: im.fontSize)
+        ..image = im.image;
+
+  /// Adiciona cópias à página ativa (desfazível) e as seleciona.
+  void _addCopies(List<Stroke> ss, List<PageImage> ims) {
+    final pg = page;
+    pg.strokes.addAll(ss);
+    pg.images.addAll(ims);
+    _push(_Action(
+      () {
+        for (final s in ss) {
+          pg.strokes.remove(s);
+        }
+        for (final im in ims) {
+          pg.images.remove(im);
+        }
+        _show(pg);
+      },
+      () {
+        pg.strokes.addAll(ss);
+        pg.images.addAll(ims);
+        _show(pg);
+      },
+    ));
+    tool = Tool.select;
+    _setOptions(false);
+    _bump();
+    selStrokes.addAll(ss);
+    selImages.addAll(ims);
+    _live.ping();
+    notifyListeners();
+  }
+
+  void duplicateSelection() {
+    if (!hasSel) return;
+    const d = Offset(24, 24);
+    _addCopies(
+      [for (final s in selStrokes) s.clone(id: _newId(), shift: d)],
+      [for (final im in selImages) _cloneImage(im, d)],
+    );
+  }
+
+  void copySelection() {
+    if (!hasSel) return;
+    _clipS = [for (final s in selStrokes) s.clone()];
+    _clipI = [for (final im in selImages) _cloneImage(im, Offset.zero)];
+    notifyListeners();
+  }
+
+  void cutSelection() {
+    copySelection();
+    deleteSelection();
+  }
+
+  /// Cola o que foi copiado, centrado na área visível.
+  void pasteSelection() {
+    if (!canPaste) return;
+    var box = Rect.zero;
+    var first = true;
+    for (final s in _clipS) {
+      box = first ? s.bounds : box.expandToInclude(s.bounds);
+      first = false;
+    }
+    for (final im in _clipI) {
+      box = first ? im.rect : box.expandToInclude(im.rect);
+      first = false;
+    }
+    final ps = notebook.pageSize;
+    final target = centerOnPage?.call() ?? Offset(ps.width / 2, ps.height / 2);
+    final d = target - box.center;
+    _addCopies(
+      [for (final s in _clipS) s.clone(id: _newId(), shift: d)],
+      [for (final im in _clipI) _cloneImage(im, d)],
+    );
+  }
+
+  bool showSelColors = false; // painel de cores da seleção aberto
+  List<(int, Stroke)>? _rcBase; // traços originais (índice, objeto) durante o ajuste
+
+  /// Cor do primeiro traço selecionado (para marcar no painel).
+  int? get selectionColor => selStrokes.isEmpty ? null : selStrokes.first.color;
+
+  void toggleSelColors() {
+    showSelColors = !showSelColors;
+    notifyListeners();
+  }
+
+  /// Guarda a cor entre as recentes do painel de cores.
+  void rememberColor(int argb) {
+    settings.update(() {
+      final list = settings.recentColors;
+      list.remove(argb);
+      list.insert(0, argb);
+      if (list.length > 10) list.removeRange(10, list.length);
+    });
+  }
+
+  /// Mostra a cor [argb] nos traços selecionados sem registrar no desfazer
+  /// (usado enquanto se arrasta o círculo cromático). Termine com [endRecolor].
+  void previewRecolor(int argb) {
+    if (!hasSel || selStrokes.isEmpty) return;
+    final pg = page;
+    _rcBase ??= [
+      for (final s in selStrokes)
+        if (pg.strokes.indexOf(s) case final i when i >= 0) (i, s),
+    ];
+    final newSel = <Stroke>[];
+    for (final e in _rcBase!) {
+      final n = e.$2.clone(color: (e.$2.color & 0xFF000000) | (argb & 0x00FFFFFF));
+      pg.strokes[e.$1] = n;
+      newSel.add(n);
+    }
+    selStrokes
+      ..clear()
+      ..addAll(newSel);
+    _committed.ping();
+    _live.ping();
+    notifyListeners();
+  }
+
+  /// Fecha o ajuste de cor: um único passo no desfazer, mantendo a seleção.
+  void endRecolor() {
+    final base = _rcBase;
+    _rcBase = null;
+    if (base == null) return;
+    final pg = page;
+    final after = <(int, Stroke)>[for (final e in base) (e.$1, pg.strokes[e.$1])];
+    _push(_Action(
+      () {
+        for (final e in base) {
+          pg.strokes[e.$1] = e.$2;
+        }
+        _show(pg);
+      },
+      () {
+        for (final e in after) {
+          pg.strokes[e.$1] = e.$2;
+        }
+        _show(pg);
+      },
+    ));
+    notebook.modified = DateTime.now();
+    onDocumentChanged?.call();
+    version++;
+    _committed.ping();
+    notifyListeners();
+  }
+
+  /// Troca a cor dos traços selecionados (mantém a transparência do marca-texto).
+  void recolorSelection(int argb) {
+    previewRecolor(argb);
+    endRecolor();
+  }
+
   // ---------------- redimensionar a forma recém-criada ----------------
   void _startEditing(Stroke s) {
     editing = s;
-    if (_fixed && shapeKind == ShapeKind.arrow) {
+    if (_fixed && isArrowLike(shapeKind)) {
       _editKind = 'arrow';
+      _editShape = shapeKind;
+      _editEnds = [_shapeStart ?? s.points.first, _fixedEnd];
     } else if (s.points.length == 2 || (_fixed && shapeKind == ShapeKind.line)) {
       _editKind = 'line';
     } else {
@@ -904,7 +1385,8 @@ class CanvasController extends ChangeNotifier {
   List<Offset> editHandles() {
     final s = editing;
     if (s == null || s.points.isEmpty) return const [];
-    if (_editKind == 'line' || _editKind == 'arrow') {
+    if (_editKind == 'arrow') return List<Offset>.of(_editEnds);
+    if (_editKind == 'line') {
       return [s.points.first, s.points[1 < s.points.length ? 1 : 0]];
     }
     final b = boundsOf(s.points);
@@ -934,20 +1416,26 @@ class CanvasController extends ChangeNotifier {
     if (s == null) return;
     _rsHandle = handle;
     _rsOrig = List<Offset>.of(s.points);
+    _rsEnds = List<Offset>.of(_editEnds);
     _rsBox = boundsOf(s.points);
   }
 
   void resizeTo(Offset p) {
     final s = editing;
     if (s == null || _rsHandle < 0) return;
-    if (_editKind == 'line' || _editKind == 'arrow') {
+    if (_editKind == 'arrow') {
+      final fixedEnd = _rsHandle == 0 ? _rsEnds[1] : _rsEnds[0];
+      final moved = _editShape == ShapeKind.curvedArrow ? p : _softAngleSnap(fixedEnd, p);
+      final a = _rsHandle == 0 ? moved : fixedEnd;
+      final b = _rsHandle == 0 ? fixedEnd : moved;
+      _editEnds = [a, b];
+      s.points = shapePoints(_editShape, a, b, headLen: math.max(14.0, s.width * 5));
+    } else if (_editKind == 'line') {
       final fixedEnd = _rsHandle == 0 ? _rsOrig[1] : _rsOrig.first;
       final moved = _softAngleSnap(fixedEnd, p);
       final a = _rsHandle == 0 ? moved : fixedEnd;
       final b = _rsHandle == 0 ? fixedEnd : moved;
-      s.points = _editKind == 'arrow'
-          ? shapePoints(ShapeKind.arrow, a, b, headLen: math.max(14.0, s.width * 5))
-          : [a, b];
+      s.points = [a, b];
     } else {
       final o = _rsBox;
       var l = o.left, t = o.top, r = o.right, bt = o.bottom;
@@ -1008,6 +1496,7 @@ class CanvasController extends ChangeNotifier {
     if (!_smart && !autoShape) return false;
     if (_active != Tool.pen &&
         _active != Tool.fountain &&
+        _active != Tool.brush &&
         _active != Tool.highlighter &&
         !_smart) {
       return false;
@@ -1140,7 +1629,7 @@ class CanvasController extends ChangeNotifier {
       if (j - i >= 2) {
         // sobras de 1 ponto virariam uma "pintinha": descarta
         pieces.add(Stroke(
-          id: _newId(),
+          id: '${s.t}-${_idCounter++}', // mantém a ordem em relação às imagens
           points: pts.sublist(i, j),
           color: s.color,
           width: s.width,
@@ -1240,7 +1729,7 @@ class CanvasController extends ChangeNotifier {
 
   void _bump() {
     editing = null;
-    selImage = null;
+    _dropSel();
     version++;
     notebook.modified = DateTime.now();
     _committed.ping();

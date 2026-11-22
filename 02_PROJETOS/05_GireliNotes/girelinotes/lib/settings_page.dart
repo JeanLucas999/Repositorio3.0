@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'drive_auth.dart';
+import 'drive_tile.dart';
 import 'settings.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -200,6 +202,8 @@ class SettingsPage extends StatelessWidget {
                 ),
                 onTap: () => _captureKey(context),
               ),
+              const _Section('Google Drive'),
+              DriveSection(auth: driveAuth),
             ],
           );
         },

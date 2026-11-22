@@ -5,6 +5,7 @@ import 'dialogs.dart';
 import 'models.dart';
 import 'settings.dart';
 import 'shape_bar.dart';
+import 'shapes.dart';
 
 /// Barra minimalista: voltar, nome do caderno, 4 ferramentas, bolinha de cor,
 /// desfazer/refazer e um menu "mais". Tocar na ferramenta ativa (ou na bolinha)
@@ -21,6 +22,7 @@ class NotasToolbar extends StatelessWidget {
     required this.pos,
     required this.onExport,
     required this.onImage,
+    required this.onNote,
   });
 
   final CanvasController controller;
@@ -32,6 +34,7 @@ class NotasToolbar extends StatelessWidget {
   final ToolbarPos pos;
   final VoidCallback onExport;
   final VoidCallback onImage;
+  final VoidCallback onNote;
 
   static IconData _penIcon(Tool t) => switch (t) {
         Tool.fountain => Icons.draw,
@@ -114,14 +117,17 @@ class NotasToolbar extends StatelessWidget {
               ),
               _ToolButton(
                 icon: ShapeBar.iconFor(c.shapeKind),
+                custom: kBasicShapes.contains(c.shapeKind)
+                    ? null
+                    : ShapePreview(kind: c.shapeKind, size: 22),
                 tooltip: 'Formas (L) — ${ShapeBar.nameFor(c.shapeKind)}',
                 selected: c.tool == Tool.shape,
                 badge: true,
                 onTap: () => c.selectTool(Tool.shape),
               ),
               _ToolButton(
-                icon: Icons.near_me_outlined,
-                tooltip: 'Selecionar imagem (V)',
+                icon: Icons.highlight_alt,
+                tooltip: 'Selecionar com laço (V) — mover, copiar, cor, apagar',
                 selected: c.tool == Tool.select,
                 onTap: () => c.selectTool(Tool.select),
               ),
@@ -129,6 +135,11 @@ class NotasToolbar extends StatelessWidget {
                 tooltip: 'Inserir imagem (Ctrl+V cola; ou arraste um arquivo)',
                 icon: const Icon(Icons.add_photo_alternate_outlined),
                 onPressed: onImage,
+              ),
+              IconButton(
+                tooltip: 'Post-it',
+                icon: const Icon(Icons.sticky_note_2_outlined),
+                onPressed: onNote,
               ),
               _ToolButton(
                 icon: Icons.pan_tool_alt_outlined,

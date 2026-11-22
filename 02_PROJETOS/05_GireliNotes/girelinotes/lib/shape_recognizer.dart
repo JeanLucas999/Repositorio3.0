@@ -169,8 +169,6 @@ RecognizedShape? recognizeShape(List<Offset> pts) {
     return RecognizedShape(circle ? 'circle' : 'ellipse', rotatePoints(base, th));
   }
 
-  if (v.length == 4 && pd < 0.05 * diag) {
-    return RecognizedShape('polygon', [...v, v.first]);
-  }
+  // Quadriláteros irregulares não são reconhecidos: só retângulo/quadrado.
   return null;
 }

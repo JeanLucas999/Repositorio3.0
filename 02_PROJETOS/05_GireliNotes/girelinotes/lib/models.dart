@@ -26,10 +26,33 @@ class Stroke {
     this.fountain = false,
     this.widths,
     this.fill,
+    this.fillNorm,
     this.style = StrokeStyle.solid,
   });
 
+  /// Cópia independente (para duplicar/colar/trocar cor), opcionalmente deslocada.
+  Stroke clone({String? id, int? color, Offset shift = Offset.zero}) {
+    final c = color ?? this.color;
+    return Stroke(
+      id: id ?? this.id,
+      points: [for (final q in points) q + shift],
+      color: c,
+      width: width,
+      highlighter: highlighter,
+      smooth: smooth,
+      pressure: pressure,
+      fountain: fountain,
+      widths: widths == null ? null : List<double>.of(widths!),
+      fillNorm: fillNorm == null ? null : List<Offset>.of(fillNorm!),
+      fill: fill == null || color == null ? fill : (fill! & 0xFF000000) | (c & 0x00FFFFFF),
+      style: style,
+    );
+  }
+
   final String id;
+
+  /// Instante de criação (µs), lido do id; define a ordem em relação às imagens.
+  late final int t = int.tryParse(id.split('-').first) ?? 0;
   List<Offset> points;
   final int color; // ARGB
   final double width;
@@ -40,6 +63,27 @@ class Stroke {
 
   /// Preenchimento claro e translúcido (ARGB com alpha) de formas fechadas, ou null.
   int? fill;
+
+  /// Silhueta do preenchimento em coordenadas de 0 a 1 dentro da caixa do traço
+  /// (cubo e cilindro: o contorno externo). Null = preenche os próprios pontos.
+  /// Em unidades da caixa, acompanha sozinha qualquer mover/redimensionar.
+  List<Offset>? fillNorm;
+
+  /// Polígono que recebe o preenchimento, em coordenadas da página.
+  List<Offset> get fillPolygon {
+    final n = fillNorm;
+    if (n == null || points.isEmpty) return points;
+    var minX = double.infinity, minY = double.infinity;
+    var maxX = -double.infinity, maxY = -double.infinity;
+    for (final p in points) {
+      if (p.dx < minX) minX = p.dx;
+      if (p.dy < minY) minY = p.dy;
+      if (p.dx > maxX) maxX = p.dx;
+      if (p.dy > maxY) maxY = p.dy;
+    }
+    final w = maxX - minX, h = maxY - minY;
+    return [for (final q in n) Offset(minX + q.dx * w, minY + q.dy * h)];
+  }
 
   /// Pressão média normalizada (0..1). 0.5 = largura nominal.
   double pressure;
@@ -251,6 +295,7 @@ class Stroke {
   }
 
   static double _r(double v) => (v * 100).roundToDouble() / 100;
+  static double _r4(double v) => (v * 10000).roundToDouble() / 10000;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -261,6 +306,7 @@ class Stroke {
         'p': _r(pressure),
         if (fountain) 'f': true,
         if (fill != null) 'fl': fill,
+        if (fillNorm != null) 'fn': [for (final q in fillNorm!) ...[_r4(q.dx), _r4(q.dy)]],
         if (style != StrokeStyle.solid) 'ds': style.index,
         if (fountain && widths != null) 'ws': [for (final w in widths!) _r(w)],
         'pts': [
@@ -292,6 +338,13 @@ class Stroke {
       widths: ws,
       points: pts,
       fill: j['fl'] is int ? j['fl'] as int : null,
+      fillNorm: j['fn'] is List
+          ? [
+              for (var i = 0; i + 1 < (j['fn'] as List).length; i += 2)
+                Offset(((j['fn'] as List)[i] as num).toDouble(),
+                    ((j['fn'] as List)[i + 1] as num).toDouble()),
+            ]
+          : null,
       style: (j['ds'] is int && (j['ds'] as int) > 0 && (j['ds'] as int) < StrokeStyle.values.length)
           ? StrokeStyle.values[j['ds'] as int]
           : StrokeStyle.solid,
@@ -304,6 +357,7 @@ class NotePage {
     List<Stroke>? strokes,
     List<PageImage>? images,
     this.background = PageBackground.blank,
+    this.pdfBg,
   })  : strokes = strokes ?? [],
         images = images ?? [];
 
@@ -311,8 +365,12 @@ class NotePage {
   final List<PageImage> images;
   PageBackground background;
 
+  /// Página de PDF importado, desenhada como fundo fixo (não seleciona nem apaga).
+  PageImage? pdfBg;
+
   Map<String, dynamic> toJson() => {
         'bg': background.index,
+        if (pdfBg != null) 'pdf': pdfBg!.toJson(),
         'strokes': [for (final s in strokes) s.toJson()],
         if (images.isNotEmpty) 'imgs': [for (final i in images) i.toJson()],
       };
@@ -320,6 +378,9 @@ class NotePage {
   factory NotePage.fromJson(Map<String, dynamic> j) {
     final bg = (j['bg'] as int?) ?? 0;
     return NotePage(
+      pdfBg: j['pdf'] is Map<String, dynamic>
+          ? PageImage.fromJson(j['pdf'] as Map<String, dynamic>)
+          : null,
       background:
           PageBackground.values[bg.clamp(0, PageBackground.values.length - 1).toInt()],
       strokes: [
@@ -362,6 +423,9 @@ class Notebook {
   /// Fundo das próximas páginas deste caderno (null: copia a página atual).
   PageBackground? nextBackground;
 
+  /// Pasta da biblioteca onde o caderno está (null = raiz).
+  String? folderId;
+
   factory Notebook.empty(String id, String name,
           [NotebookFormat format = NotebookFormat.portrait]) =>
       Notebook(id: id, name: name, pages: [NotePage()], format: format);
@@ -374,6 +438,7 @@ class Notebook {
         'fmt': format.index,
         'pages': [for (final p in pages) p.toJson()],
         if (nextBackground != null) 'nbg': nextBackground!.index,
+        if (folderId != null) 'fld': folderId,
       };
 
   factory Notebook.fromJson(Map<String, dynamic> j) {
@@ -396,6 +461,8 @@ class Notebook {
     if (nbg is int && nbg >= 0 && nbg < PageBackground.values.length) {
       nb.nextBackground = PageBackground.values[nbg];
     }
+    final fld = j['fld'];
+    if (fld is String) nb.folderId = fld;
     return nb;
   }
 }

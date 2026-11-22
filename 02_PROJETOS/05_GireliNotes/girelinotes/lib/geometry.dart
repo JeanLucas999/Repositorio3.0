@@ -154,3 +154,16 @@ double distToRoundedRect(
   final d = outside + math.min(math.max(qx, qy), 0.0) - rad;
   return d.abs();
 }
+
+/// Ponto dentro do polígono [poly] (regra par-ímpar).
+bool pointInPolygon(Offset p, List<Offset> poly) {
+  var inside = false;
+  for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    final a = poly[i], b = poly[j];
+    if ((a.dy > p.dy) != (b.dy > p.dy) &&
+        p.dx < (b.dx - a.dx) * (p.dy - a.dy) / (b.dy - a.dy) + a.dx) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}

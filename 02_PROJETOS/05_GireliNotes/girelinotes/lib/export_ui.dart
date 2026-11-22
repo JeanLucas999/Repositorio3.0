@@ -71,8 +71,10 @@ Future<void> showExportDialog(
       final target = path.toLowerCase().endsWith('.$ext') ? path : '$path.$ext';
       await File(target).writeAsBytes(bytes, flush: true);
     }
+    if (!context.mounted) return;
     _toast(context, 'Exportado.');
   } catch (e) {
+    if (!context.mounted) return;
     _toast(context, 'Não foi possível exportar: $e');
   }
 }
@@ -90,9 +92,9 @@ Future<Notebook?> pickNotasFile(BuildContext context, String newId) async {
     final bytes = f.bytes ?? await File(f.path!).readAsBytes();
     return decodeNotas(bytes, newId);
   } on FormatException catch (e) {
-    _toast(context, e.message);
+    if (context.mounted) _toast(context, e.message);
   } catch (e) {
-    _toast(context, 'Não foi possível importar: $e');
+    if (context.mounted) _toast(context, 'Não foi possível importar: $e');
   }
   return null;
 }

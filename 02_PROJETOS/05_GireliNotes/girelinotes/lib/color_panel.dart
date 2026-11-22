@@ -9,9 +9,12 @@ import 'color_utils.dart';
 /// as últimas cores usadas. Flutua sobre a página (não empurra o desenho)
 /// e fecha sozinho quando você começa a desenhar.
 class ColorPanel extends StatelessWidget {
-  const ColorPanel({super.key, required this.controller});
+  const ColorPanel({super.key, required this.controller, this.forSelection = false});
 
   final CanvasController controller;
+
+  /// true: as cores trocam os traços selecionados (laço) em vez da caneta.
+  final bool forSelection;
 
   @override
   Widget build(BuildContext context) {
@@ -21,6 +24,15 @@ class ColorPanel extends StatelessWidget {
       builder: (context, _) {
         final c = controller;
         final recents = c.settings.recentColors;
+        final cur = forSelection ? (c.selectionColor ?? c.color) : c.color;
+        void pick(int argb) {
+          if (forSelection) {
+            c.recolorSelection(argb);
+            c.rememberColor(argb);
+          } else {
+            c.pickColor(argb);
+          }
+        }
         return Material(
           elevation: 8,
           color: scheme.surfaceContainerHigh,
@@ -33,9 +45,16 @@ class ColorPanel extends StatelessWidget {
               children: [
                 ColorWheel(
                   size: 132,
-                  argb: c.color,
-                  onChanged: (v) => c.pickColor(v, remember: false),
-                  onEnd: () => c.pickColor(c.color),
+                  argb: cur,
+                  onChanged: (v) => forSelection ? c.previewRecolor(v) : c.pickColor(v, remember: false),
+                  onEnd: () {
+                    if (forSelection) {
+                      c.endRecolor();
+                      c.rememberColor(c.selectionColor ?? cur);
+                    } else {
+                      c.pickColor(c.color);
+                    }
+                  },
                 ),
                 SizedBox(
                   width: 320,
@@ -49,8 +68,8 @@ class ColorPanel extends StatelessWidget {
                           for (final argb in c.morePalette)
                             _Dot(
                               argb: argb,
-                              selected: c.color == argb,
-                              onTap: () => c.pickColor(argb),
+                              selected: (cur & 0xFFFFFF) == (argb & 0xFFFFFF),
+                              onTap: () => pick(argb),
                             ),
                         ],
                       ),
@@ -72,8 +91,8 @@ class ColorPanel extends StatelessWidget {
                             for (final argb in recents)
                               _Dot(
                                 argb: argb,
-                                selected: c.color == argb,
-                                onTap: () => c.pickColor(argb),
+                                selected: (cur & 0xFFFFFF) == (argb & 0xFFFFFF),
+                                onTap: () => pick(argb),
                               ),
                           ],
                         ),

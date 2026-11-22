@@ -9,10 +9,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:notas/canvas_controller.dart';
 import 'package:notas/canvas_view.dart';
 import 'package:notas/geometry.dart';
+import 'package:notas/drive_sync.dart';
+import 'package:notas/folders.dart';
+import 'package:notas/layers.dart';
 import 'package:notas/models.dart';
 import 'package:notas/pen_tune.dart';
 import 'package:notas/page_image.dart';
 import 'package:notas/palm_guard.dart';
+import 'package:notas/pdf_import.dart';
 import 'package:notas/scribble.dart';
 import 'package:notas/settings.dart';
 import 'package:notas/shape_recognizer.dart';
@@ -496,6 +500,30 @@ void main() {
       expect(b.fountain, isTrue);
       expect(b.variable, isTrue);
       expect(b.widths!.length, a.widths!.length);
+    });
+
+    test('pincel também encaixa em forma ao parar', () {
+      final c = make();
+      c.setTool(Tool.brush);
+      final pts = _circle(200, 200, 100, 100);
+      c.beginStroke(pts.first, 0.5);
+      for (final p in pts.skip(1)) {
+        c.extendStroke(p, 0.5);
+      }
+      expect(c.holdDetected(), isTrue);
+    });
+
+    test('quadrilátero irregular não vira forma', () {
+      final c = make();
+      c.setTool(Tool.pen);
+      final pts = _polyPath(const [
+        Offset(100, 100), Offset(320, 130), Offset(290, 330), Offset(60, 290), Offset(100, 100),
+      ]);
+      c.beginStroke(pts.first, 0.5);
+      for (final p in pts.skip(1)) {
+        c.extendStroke(p, 0.5);
+      }
+      expect(c.holdDetected(), isFalse);
     });
 
     test('encaixar numa forma vira largura uniforme', () {
@@ -1313,22 +1341,52 @@ void main() {
       expect(im.bytes.length, 7);
     });
 
+    test('começa na frente; botão manda para trás e volta; salva a camada', () {
+      final c = CanvasController(Notebook.empty('a', 'A'));
+      final im = mk();
+      expect(im.front, isTrue);
+      c.page.images.add(im);
+      c.tool = Tool.select;
+      c.beginLasso(const Offset(150, 250));
+      c.endLasso(10);
+      final pos = c.layerButtonPos(1)!;
+      expect(c.hitLayerButton(pos, 1), isTrue);
+      c.toggleImageLayer();
+      expect(im.front, isFalse);
+      final back = PageImage.fromJson(jsonDecode(jsonEncode(im.toJson())) as Map<String, dynamic>)!;
+      expect(back.front, isFalse);
+      c.undo();
+      expect(im.front, isTrue);
+    });
+
+    test('o que é escrito depois da imagem fica sobre ela, mesmo com ela na frente', () {
+      final old = Stroke(id: '1000-1', points: const [Offset(0, 0), Offset(5, 5)], color: 1, width: 2);
+      final img = PageImage(id: 'i', bytes: Uint8List(8), rect: const Rect.fromLTWH(0, 0, 10, 10), z: 2000);
+      final fresh = Stroke(id: '3000-2', points: const [Offset(0, 0), Offset(5, 5)], color: 1, width: 2);
+      final fr = [img];
+      expect(strokeLayer(old, fr), 0); // antes: fica sob a imagem
+      expect(strokeLayer(fresh, fr), 1); // depois: fica sobre a imagem
+    });
+
     test('seleciona, move com desfazer e apaga', () {
       final c = CanvasController(Notebook.empty('a', 'A'));
       final im = mk();
       c.page.images.add(im);
       c.tool = Tool.select;
-      expect(c.selectImageAt(const Offset(150, 250)), isTrue);
-      c.beginImageMove(const Offset(150, 250));
-      c.imageDragTo(const Offset(170, 260));
-      c.endImageDrag();
+      c.beginLasso(const Offset(150, 250));
+      c.endLasso(10); // toque: seleciona o item sob o ponto
+      expect(c.selImages, [im]);
+      c.beginSelMove(const Offset(150, 250));
+      c.selDragTo(const Offset(170, 260));
+      c.endSelDrag();
       expect(im.rect.topLeft, const Offset(120, 210));
       c.undo();
       expect(im.rect.topLeft, const Offset(100, 200));
       c.redo();
       expect(im.rect.topLeft, const Offset(120, 210));
-      c.selectImageAt(const Offset(150, 250));
-      c.deleteSelectedImage();
+      c.beginLasso(const Offset(150, 250));
+      c.endLasso(10);
+      c.deleteSelection();
       expect(c.page.images, isEmpty);
       c.undo();
       expect(c.page.images.length, 1);
@@ -1339,13 +1397,100 @@ void main() {
       final im = mk();
       c.page.images.add(im);
       c.tool = Tool.select;
-      c.selectImageAt(const Offset(150, 250));
-      c.beginImageResize(2); // canto inferior direito
-      c.imageDragTo(const Offset(700, 400));
-      c.endImageDrag();
+      c.beginLasso(const Offset(150, 250));
+      c.endLasso(10);
+      c.beginSelResize(2); // canto inferior direito
+      c.selDragTo(const Offset(700, 400));
+      c.endSelDrag();
       expect(im.rect.topLeft, const Offset(100, 200));
       expect(im.rect.width / im.rect.height, closeTo(2.0, 1e-6));
       expect(im.rect.width, closeTo(600, 1e-6));
+    });
+  });
+
+  group('laço', () {
+    Stroke line(String id, Offset a, Offset b) => Stroke(
+          id: id,
+          points: [a, Offset.lerp(a, b, 0.5)!, b],
+          color: 0xFF000000,
+          width: 3,
+        );
+
+    CanvasController mk() {
+      final c = CanvasController(Notebook.empty('a', 'A'));
+      c.page.strokes
+        ..add(line('a', const Offset(100, 100), const Offset(200, 100)))
+        ..add(line('b', const Offset(100, 300), const Offset(200, 300)))
+        ..add(line('c', const Offset(600, 600), const Offset(700, 600)));
+      c.tool = Tool.select;
+      return c;
+    }
+
+    test('ponto dentro do polígono', () {
+      final sq = [const Offset(0, 0), const Offset(10, 0), const Offset(10, 10), const Offset(0, 10)];
+      expect(pointInPolygon(const Offset(5, 5), sq), isTrue);
+      expect(pointInPolygon(const Offset(15, 5), sq), isFalse);
+    });
+
+    test('laço pega só o que está dentro', () {
+      final c = mk();
+      c.beginLasso(const Offset(50, 50));
+      for (final p in const [Offset(300, 50), Offset(300, 350), Offset(50, 350)]) {
+        c.extendLasso(p);
+      }
+      c.endLasso(10);
+      expect(c.selStrokes.map((s) => s.id), ['a', 'b']);
+    });
+
+    test('toque seleciona o traço sob o ponto', () {
+      final c = mk();
+      c.beginLasso(const Offset(150, 102));
+      c.endLasso(10);
+      expect(c.selStrokes.map((s) => s.id), ['a']);
+    });
+
+    test('mover, escalar, desfazer', () {
+      final c = mk();
+      c.beginLasso(const Offset(150, 102));
+      c.endLasso(10);
+      c.beginSelMove(const Offset(150, 100));
+      c.selDragTo(const Offset(160, 120));
+      c.endSelDrag();
+      expect(c.page.strokes.first.points.first, const Offset(110, 120));
+      c.undo();
+      expect(c.page.strokes.first.points.first, const Offset(100, 100));
+    });
+
+    test('duplicar, colar e trocar cor com desfazer', () {
+      final c = mk();
+      c.beginLasso(const Offset(150, 102));
+      c.endLasso(10);
+      c.duplicateSelection();
+      expect(c.page.strokes.length, 4);
+      expect(c.selStrokes.single.points.first, const Offset(124, 124));
+      c.undo();
+      expect(c.page.strokes.length, 3);
+
+      c.beginLasso(const Offset(150, 102));
+      c.endLasso(10);
+      c.copySelection();
+      c.pasteSelection();
+      expect(c.page.strokes.length, 4);
+
+      c.recolorSelection(0xFFFF0000);
+      expect(c.selStrokes.single.color & 0xFFFFFF, 0xFF0000);
+      c.undo();
+      expect(c.page.strokes.last.color & 0xFFFFFF, 0x000000);
+    });
+
+    test('apagar a seleção e desfazer devolve na mesma ordem', () {
+      final c = mk();
+      c.beginLasso(const Offset(150, 102));
+      c.endLasso(10);
+      c.deleteSelection();
+      expect(c.page.strokes.map((s) => s.id), ['b', 'c']);
+      c.undo();
+      expect(c.page.strokes.map((s) => s.id), ['a', 'b', 'c']);
     });
   });
 
@@ -1364,6 +1509,265 @@ void main() {
     test('ponta mais aguda afina mais', () {
       expect(tipMin(1.0), lessThan(tipMin(0.5)));
       expect(tipMin(0.5), closeTo(0.45, 1e-9));
+    });
+  });
+
+  group('ponto', () {
+    for (final t in [Tool.pen, Tool.fountain, Tool.brush]) {
+      test('toque sem mover vira ponto de tamanho normal (${t.name})', () {
+        final c = CanvasController(Notebook.empty('a', 'A'));
+        c.setTool(t);
+        c.beginStroke(const Offset(100, 100), 0.5);
+        c.endStroke();
+        final s = c.page.strokes.single;
+        expect(s.points.length, 1);
+        if (t != Tool.pen) {
+          expect(s.widths!.single, greaterThanOrEqualTo(s.width * 0.8));
+        }
+      });
+    }
+  });
+
+  group('biblioteca de formas', () {
+    test('toda forma gera contorno válido dentro da caixa arrastada', () {
+      const a = Offset(100, 100), b = Offset(300, 260);
+      for (final k in ShapeKind.values) {
+        final pts = shapePoints(k, a, b, headLen: 20);
+        expect(pts.length, greaterThanOrEqualTo(2), reason: k.name);
+        for (final p in pts) {
+          expect(p.dx.isFinite && p.dy.isFinite, isTrue, reason: k.name);
+        }
+        if (k == ShapeKind.curvedArrow) continue; // a curva e a ponta saem um pouco da caixa
+        final box = boundsOf(pts);
+        expect(box.left, greaterThanOrEqualTo(a.dx - 0.5), reason: k.name);
+        expect(box.right, lessThanOrEqualTo(b.dx + 0.5), reason: k.name);
+        expect(box.top, greaterThanOrEqualTo(a.dy - 0.5), reason: k.name);
+        expect(box.bottom, lessThanOrEqualTo(b.dy + 0.5), reason: k.name);
+      }
+    });
+
+    test('formas fechadas voltam ao ponto de partida', () {
+      for (final k in ShapeKind.values
+          .where((k) => isClosedShape(k) && shapeFillOutline(k, Offset.zero, const Offset(1, 1)) == null)) {
+        final pts = shapePoints(k, const Offset(0, 0), const Offset(120, 90));
+        expect((pts.first - pts.last).distance, lessThan(1e-6), reason: k.name);
+      }
+    });
+
+    test('a biblioteca cobre todas as formas fora da barra', () {
+      expect(kBasicShapes.length + kLibraryShapes.length, ShapeKind.values.length);
+    });
+
+    test('desenhar uma forma da biblioteca e redimensionar a seta dupla', () {
+      final c = CanvasController(Notebook.empty('a', 'A'));
+      c.setShape(ShapeKind.doubleArrow);
+      c.beginStroke(const Offset(100, 100), 0.5);
+      c.extendStroke(const Offset(300, 100), 0.5);
+      c.endStroke();
+      expect(c.editHandles().length, 2);
+      c.beginResize(1);
+      c.resizeTo(const Offset(400, 100));
+      c.endResize();
+      expect(c.editHandles()[1].dx, closeTo(400, 1e-6));
+      c.setShape(ShapeKind.star);
+      c.beginStroke(const Offset(0, 0), 0.5);
+      c.extendStroke(const Offset(100, 100), 0.5);
+      c.endStroke();
+      expect(c.page.strokes.length, 2);
+    });
+  });
+
+  test('cubo e cilindro: preenchimento na silhueta, que acompanha o redimensionar', () {
+    final c = CanvasController(Notebook.empty('a', 'A'));
+    c.settings.shapeFill = true;
+    for (final k in [ShapeKind.cube, ShapeKind.cylinder]) {
+      c.setShape(k);
+      c.beginStroke(const Offset(100, 100), 0.5);
+      c.extendStroke(const Offset(300, 260), 0.5);
+      c.endStroke();
+      final s = c.page.strokes.last;
+      expect(s.fill, isNotNull, reason: k.name);
+      expect(s.fillNorm, isNotNull, reason: k.name);
+      final box = boundsOf(s.fillPolygon);
+      final pb = boundsOf(s.points);
+      expect((box.left - pb.left).abs(), lessThan(1e-6), reason: k.name);
+      expect((box.bottom - pb.bottom).abs(), lessThan(1e-6), reason: k.name);
+      // mover: a silhueta vai junto
+      final before = s.fillPolygon.first;
+      s.points = [for (final q in s.points) q + const Offset(50, 0)];
+      s.invalidate();
+      expect(s.fillPolygon.first.dx, closeTo(before.dx + 50, 1e-6), reason: k.name);
+      // salvar e reabrir mantém
+      final back = Stroke.fromJson(jsonDecode(jsonEncode(s.toJson())) as Map<String, dynamic>);
+      expect(back.fillNorm!.length, s.fillNorm!.length, reason: k.name);
+    }
+  });
+
+  group('post-its', () {
+    test('criar, editar com desfazer, copiar e salvar', () {
+      final c = CanvasController(Notebook.empty('a', 'A'));
+      c.insertNote('Prova sexta', kNoteColors[2], 26);
+      final n = c.page.images.single;
+      expect(n.isNote, isTrue);
+      expect(n.text, 'Prova sexta');
+      expect(c.selImages, [n]);
+      expect(n.front, isTrue);
+
+      c.updateNote(n, text: 'Prova quinta', color: kNoteColors[1], fontSize: 38);
+      expect(n.text, 'Prova quinta');
+      expect(n.fontSize, 38);
+      c.undo();
+      expect(n.text, 'Prova sexta');
+      expect(n.noteColor, kNoteColors[2]);
+      c.redo();
+      expect(n.text, 'Prova quinta');
+
+      final back = PageImage.fromJson(jsonDecode(jsonEncode(n.toJson())) as Map<String, dynamic>)!;
+      expect(back.isNote, isTrue);
+      expect(back.text, 'Prova quinta');
+      expect(back.noteColor, kNoteColors[1]);
+      expect(back.fontSize, 38);
+
+      c.beginLasso(n.rect.center);
+      c.endLasso(10);
+      c.duplicateSelection();
+      expect(c.page.images.length, 2);
+      expect(c.page.images.last.text, 'Prova quinta');
+    });
+
+    test('post-it move e redimensiona como imagem', () {
+      final c = CanvasController(Notebook.empty('a', 'A'));
+      c.insertNote('x', kNoteColors[0], 26, at: const Offset(300, 300));
+      final n = c.page.images.single;
+      final w0 = n.rect.width;
+      c.beginSelMove(n.rect.center);
+      c.selDragTo(n.rect.center + const Offset(40, 0));
+      c.endSelDrag();
+      expect(n.rect.center.dx, closeTo(340, 1e-6));
+      c.beginSelResize(2);
+      c.selDragTo(n.rect.bottomRight + const Offset(100, 100));
+      c.endSelDrag();
+      expect(n.rect.width, greaterThan(w0));
+    });
+
+    test('lados esticam só um eixo; seleção com traço não tem lados', () {
+      final c = CanvasController(Notebook.empty('a', 'A'));
+      c.insertNote('x', kNoteColors[0], 26, at: const Offset(300, 300));
+      final n = c.page.images.single;
+      final r0 = n.rect;
+      expect(c.selHandles().length, 8);
+      c.beginSelResize(5); // direita
+      c.selDragTo(Offset(r0.right + 60, r0.bottom + 500));
+      c.endSelDrag();
+      expect(n.rect.width, closeTo(r0.width + 60, 1e-6));
+      expect(n.rect.height, closeTo(r0.height, 1e-6));
+      expect(n.rect.left, closeTo(r0.left, 1e-6));
+      c.beginSelResize(4); // topo
+      c.selDragTo(Offset(0, n.rect.top - 30));
+      c.endSelDrag();
+      expect(n.rect.height, closeTo(r0.height + 30, 1e-6));
+      expect(n.rect.bottom, closeTo(r0.bottom, 1e-6));
+      c.page.strokes.add(Stroke(
+          id: '9-1', points: const [Offset(10, 10), Offset(20, 10)], color: 0xFF000000, width: 3));
+      c.selStrokes.add(c.page.strokes.last);
+      expect(c.selHandles().length, 4);
+    });
+  });
+
+  test('cor da seleção: prévia sem desfazer, um passo ao terminar', () {
+    final c = CanvasController(Notebook.empty('a', 'A'));
+    c.page.strokes.add(Stroke(
+        id: '1-1', points: const [Offset(100, 100), Offset(200, 100)], color: 0xFF000000, width: 3));
+    c.tool = Tool.select;
+    c.beginLasso(const Offset(150, 102));
+    c.endLasso(10);
+    c.previewRecolor(0xFFFF0000);
+    c.previewRecolor(0xFF00FF00);
+    c.previewRecolor(0xFF0000FF);
+    c.endRecolor();
+    expect(c.page.strokes.single.color & 0xFFFFFF, 0x0000FF);
+    expect(c.selStrokes.single.color & 0xFFFFFF, 0x0000FF);
+    c.undo(); // um único passo volta ao preto
+    expect(c.page.strokes.single.color & 0xFFFFFF, 0x000000);
+    c.redo();
+    expect(c.page.strokes.single.color & 0xFFFFFF, 0x0000FF);
+  });
+
+  group('pastas', () {
+    final fs = [
+      Folder(id: 'a', name: 'A'),
+      Folder(id: 'b', name: 'B', parentId: 'a'),
+      Folder(id: 'c', name: 'C', parentId: 'b'),
+      Folder(id: 'd', name: 'D'),
+    ];
+
+    test('descendentes e caminho', () {
+      expect(descendantIds(fs, 'a'), {'b', 'c'});
+      expect(descendantIds(fs, 'd'), isEmpty);
+      expect(folderPath(fs, 'c').map((f) => f.id), ['a', 'b', 'c']);
+      expect(folderPath(fs, null), isEmpty);
+    });
+
+    test('seleção em intervalo (Shift) vale nos dois sentidos', () {
+      final l = ['1', '2', '3', '4', '5'];
+      expect(rangeBetween(l, '2', '4'), ['2', '3', '4']);
+      expect(rangeBetween(l, '4', '2'), ['2', '3', '4']);
+      expect(rangeBetween(l, '3', '3'), ['3']);
+    });
+
+    test('pasta salva e reabre; caderno guarda a pasta', () {
+      final back = Folder.fromJson(jsonDecode(jsonEncode(fs[1].toJson())))!;
+      expect(back.parentId, 'a');
+      expect(Folder.fromJson({'x': 1}), isNull);
+      final nb = Notebook.empty('n', 'N')..folderId = 'a';
+      final nb2 = Notebook.fromJson(jsonDecode(jsonEncode(nb.toJson())) as Map<String, dynamic>);
+      expect(nb2.folderId, 'a');
+      expect(Notebook.fromJson(Notebook.empty('m', 'M').toJson()).folderId, isNull);
+    });
+  });
+
+  group('PDF importado', () {
+    test('página cabe inteira e centralizada', () {
+      final r = fitPdfRect(595, 842, const Size(1000, 1414));
+      expect(r.left, closeTo(0, 1.5));
+      expect(r.width / r.height, closeTo(595 / 842, 0.001));
+      final wide = fitPdfRect(842, 595, const Size(1000, 1414));
+      expect(wide.width, closeTo(1000, 0.01));
+      expect(wide.top, greaterThan(100));
+    });
+    test('formato segue a primeira página', () {
+      expect(formatForPdf(842, 595), NotebookFormat.landscape);
+      expect(formatForPdf(595, 842), NotebookFormat.portrait);
+    });
+    test('fundo do PDF sobrevive ao salvar', () {
+      final pg = NotePage(
+        pdfBg: PageImage(
+          id: 'pdf-0',
+          bytes: Uint8List.fromList([1, 2, 3]),
+          rect: const Rect.fromLTWH(0, 0, 1000, 1414),
+          front: false,
+        ),
+      );
+      final back = NotePage.fromJson(jsonDecode(jsonEncode(pg.toJson())) as Map<String, dynamic>);
+      expect(back.pdfBg, isNotNull);
+      expect(back.pdfBg!.bytes, [1, 2, 3]);
+      expect(back.images, isEmpty);
+      expect(NotePage.fromJson(NotePage().toJson()).pdfBg, isNull);
+    });
+  });
+
+  group('sincronização', () {
+    test('decide pela data de edição', () {
+      expect(decideSync(local: 5, remote: 5, lastSynced: 5), SyncAction.none);
+      expect(decideSync(local: 9, remote: 5, lastSynced: 5), SyncAction.upload);
+      expect(decideSync(local: 5, remote: 9, lastSynced: 5), SyncAction.download);
+      expect(decideSync(local: 9, remote: 8, lastSynced: 5), SyncAction.conflict);
+      expect(decideSync(local: 5, remote: 5), SyncAction.none);
+      expect(decideSync(local: 5, remote: 6), SyncAction.conflict);
+    });
+    test('nome de arquivo seguro', () {
+      expect(driveFileName('Aula 1/2: "física"?'), 'Aula 1_2_ _física__.notas');
+      expect(driveFileName('  '), 'Caderno.notas');
     });
   });
 }

@@ -12,7 +12,9 @@ import 'dialogs.dart';
 import 'models.dart';
 import 'export_ui.dart';
 import 'pages_sidebar.dart';
+import 'note_dialog.dart';
 import 'pen_tune.dart';
+import 'selection_bar.dart';
 import 'settings.dart';
 import 'settings_page.dart';
 import 'shape_bar.dart';
@@ -102,6 +104,28 @@ class _EditorPageState extends State<EditorPage> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  /// Botão Post-it: pede o texto e cria a nota no centro da área visível.
+  Future<void> _newNote() async {
+    final r = await showNoteDialog(context);
+    if (r == null) return;
+    c.insertNote(r.text, r.color, r.size);
+  }
+
+  /// Edita o post-it selecionado (texto, cor, tamanho).
+  Future<void> _editNote() async {
+    if (c.selImages.length != 1 || !c.selImages.first.isNote) return;
+    final n = c.selImages.first;
+    final r = await showNoteDialog(
+      context,
+      text: n.text ?? '',
+      color: n.noteColor,
+      size: n.fontSize,
+      isNew: false,
+    );
+    if (r == null) return;
+    c.updateNote(n, text: r.text, color: r.color, fontSize: r.size);
+  }
+
   /// Botão: escolhe uma ou mais imagens do computador.
   Future<void> _pickImage() async {
     try {
@@ -120,15 +144,33 @@ class _EditorPageState extends State<EditorPage> with WidgetsBindingObserver {
     }
   }
 
+  // Copiar/recortar: troca o conteúdo da área de transferência do sistema, para o
+  // Ctrl+V colar o que foi copiado aqui e não uma imagem antiga de outro app.
+  void _copy() {
+    if (!c.hasSel) return;
+    c.copySelection();
+    Clipboard.setData(const ClipboardData(text: 'notas'));
+  }
+
+  void _cut() {
+    if (!c.hasSel) return;
+    c.cutSelection();
+    Clipboard.setData(const ClipboardData(text: 'notas'));
+  }
+
   /// Ctrl+V: cola a imagem que está na área de transferência.
   Future<void> _paste() async {
     try {
       final b = await Pasteboard.image;
-      if (b != null && b.isNotEmpty) await c.insertImageBytes(b);
+      if (b != null && b.isNotEmpty) {
+        await c.insertImageBytes(b);
+      } else {
+        c.pasteSelection(); // o que foi copiado com o laço
+      }
     } catch (_) {}
   }
 
-  void _openShapes() => c.setShape(c.shapeKind);
+  void _openShapes() => c.openShapes();
 
   Future<void> _close() async {
     _saveTimer?.cancel();
@@ -167,6 +209,7 @@ class _EditorPageState extends State<EditorPage> with WidgetsBindingObserver {
         onExport: () => showExportDialog(context, c.notebook, spacing: widget.settings.lineSpacing),
         pos: pos,
         onImage: _pickImage,
+        onNote: _newNote,
       ),
     );
     final body = Expanded(
@@ -220,6 +263,19 @@ class _EditorPageState extends State<EditorPage> with WidgetsBindingObserver {
                                 builder: (context, _) => Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
+                                    if (c.tool == Tool.select)
+                                      Center(child: ExcludeFocus(child: SelectionBar(controller: c, onEditNote: _editNote))),
+                                    if (c.tool == Tool.select &&
+                                        c.showSelColors &&
+                                        c.hasSel &&
+                                        c.selStrokes.isNotEmpty) ...[
+                                      const SizedBox(height: 8),
+                                      Center(
+                                        child: ExcludeFocus(
+                                          child: ColorPanel(controller: c, forSelection: true),
+                                        ),
+                                      ),
+                                    ],
                                     if (c.showOptions && c.showTune && c.isPenTool)
                                       Center(
                                         child: ExcludeFocus(child: PenTunePanel(controller: c)),
@@ -233,6 +289,12 @@ class _EditorPageState extends State<EditorPage> with WidgetsBindingObserver {
                                       Center(
                                         child: ExcludeFocus(child: ShapeBar(controller: c)),
                                       ),
+                                      if (c.showShapeLib) ...[
+                                        const SizedBox(height: 8),
+                                        Center(
+                                          child: ExcludeFocus(child: ShapeLibrary(controller: c)),
+                                        ),
+                                      ],
                                     ],
                                   ],
                                 ),
@@ -270,8 +332,12 @@ class _EditorPageState extends State<EditorPage> with WidgetsBindingObserver {
           const SingleActivator(LogicalKeyboardKey.keyF): () => c.setTool(Tool.fountain),
           const SingleActivator(LogicalKeyboardKey.keyV, control: true): _paste,
           const SingleActivator(LogicalKeyboardKey.keyV): () => c.selectTool(Tool.select),
-          const SingleActivator(LogicalKeyboardKey.delete): c.deleteSelectedImage,
-          const SingleActivator(LogicalKeyboardKey.backspace): c.deleteSelectedImage,
+          const SingleActivator(LogicalKeyboardKey.delete): c.deleteSelection,
+          const SingleActivator(LogicalKeyboardKey.backspace): c.deleteSelection,
+          const SingleActivator(LogicalKeyboardKey.escape): c.clearSelection,
+          const SingleActivator(LogicalKeyboardKey.keyC, control: true): _copy,
+          const SingleActivator(LogicalKeyboardKey.keyX, control: true): _cut,
+          const SingleActivator(LogicalKeyboardKey.keyD, control: true): c.duplicateSelection,
           const SingleActivator(LogicalKeyboardKey.keyB): () => c.setTool(Tool.brush),
           const SingleActivator(LogicalKeyboardKey.keyH): () =>
               c.setTool(Tool.highlighter),

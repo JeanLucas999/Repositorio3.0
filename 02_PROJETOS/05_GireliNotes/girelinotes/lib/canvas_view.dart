@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' show ClipOp;
 
 import 'package:flutter/gestures.dart';
 import 'package:desktop_drop/desktop_drop.dart';
@@ -7,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'canvas_controller.dart';
+import 'layers.dart';
 import 'models.dart';
 import 'page_image.dart';
 import 'palm_guard.dart';
@@ -51,12 +53,7 @@ const int kHighlightAlpha = 120;
 /// Pinta todos os marca-textos juntos numa camada só: onde um traço cruza
 /// outro (ou ele mesmo) o realce NÃO escurece; fica uniforme. Pontas redondas.
 void paintHighlighters(Canvas canvas, Iterable<Stroke> strokes, Rect bounds) {
-  var any = false;
-  for (final s in strokes) {
-    any = true;
-    break;
-  }
-  if (!any) return;
+  if (strokes.isEmpty) return;
   canvas.saveLayer(bounds, Paint()..color = const Color.fromARGB(kHighlightAlpha, 0, 0, 0));
   for (final s in strokes) {
     paintStroke(canvas, s, opaque: true);
@@ -64,12 +61,68 @@ void paintHighlighters(Canvas canvas, Iterable<Stroke> strokes, Rect bounds) {
   canvas.restore();
 }
 
+/// Marca-texto escrito DEPOIS de uma imagem (camada [k] > 0): fica sobre a
+/// imagem, mas continua atrás da escrita. Como a escrita das camadas
+/// anteriores já foi desenhada, ela é redesenhada por cima do marca-texto,
+/// exceto onde as imagens intermediárias a cobrem.
+void paintLayerHighlights(Canvas canvas, List<List<Stroke>> groups, List<PageImage> fr,
+    int k, Rect bounds) {
+  final hl = groups[k].where((s) => s.highlighter);
+  if (hl.isEmpty) return;
+  paintHighlighters(canvas, hl, bounds);
+  for (var i = 0; i < k; i++) {
+    final ink = groups[i].where((s) => !s.highlighter).toList();
+    if (ink.isEmpty) continue;
+    canvas.save();
+    for (var j = i; j < k; j++) {
+      canvas.clipRect(fr[j].rect, clipOp: ClipOp.difference);
+    }
+    for (final s in ink) {
+      paintStroke(canvas, s);
+    }
+    canvas.restore();
+  }
+}
+
+List<List<Stroke>> _layerGroups(Iterable<Stroke> strokes, List<PageImage> fr) {
+  final g = List.generate(fr.length + 1, (_) => <Stroke>[]);
+  for (final s in strokes) {
+    g[fr.isEmpty ? 0 : strokeLayer(s, fr).clamp(0, fr.length).toInt()].add(s);
+  }
+  return g;
+}
+
+/// Conteúdo de uma página (miniaturas): imagens de trás, e então, camada por
+/// camada, fundos de forma, marca-texto e tinta, com as imagens da frente
+/// entre as camadas (o que foi escrito depois da imagem fica sobre ela).
+void paintPageContent(Canvas canvas, NotePage page, Rect bounds, VoidCallback onReady) {
+  paintPdfBg(canvas, page.pdfBg, onReady);
+  paintImages(canvas, page.images.where((m) => !m.front), onReady);
+  final fr = frontImages(page);
+  final groups = _layerGroups(page.strokes, fr);
+  for (var k = 0; k <= fr.length; k++) {
+    if (k > 0) paintImages(canvas, [fr[k - 1]], onReady);
+    final g = groups[k];
+    for (final s in g) {
+      if (s.fill != null) paintFill(canvas, s);
+    }
+    if (k == 0) {
+      paintHighlighters(canvas, g.where((s) => s.highlighter), bounds);
+    } else {
+      paintLayerHighlights(canvas, groups, fr, k, bounds);
+    }
+    for (final s in g) {
+      if (!s.highlighter) paintStroke(canvas, s);
+    }
+  }
+}
+
 /// Fundo claro e translúcido de formas fechadas (fica atrás da tinta).
 void paintFill(Canvas canvas, Stroke s) {
   final f = s.fill;
   if (f == null || s.points.length < 3) return;
   canvas.drawPath(
-    Path()..addPolygon(s.points, true),
+    Path()..addPolygon(s.fillPolygon, true),
     Paint()
       ..style = PaintingStyle.fill
       ..isAntiAlias = true
@@ -130,7 +183,8 @@ class _CanvasViewState extends State<CanvasView> {
   Offset _panLast = Offset.zero;
   int? _drawPointer;
   int? _resizePointer; // arrastando uma alça de redimensionar
-  int? _imgPointer; // arrastando/redimensionando uma imagem
+  int? _selPointer; // laço, ou arrastando/redimensionando a seleção
+  bool _selLasso = false;
   bool _drawIsTouch = false;
   Timer? _holdTimer;
   Offset _holdAnchor = Offset.zero;
@@ -352,7 +406,7 @@ class _CanvasViewState extends State<CanvasView> {
     }
 
     if (_tryStartResize(e)) return;
-    if (_imageDown(e)) return;
+    if (_selectDown(e)) return;
 
     if (e.kind == PointerDeviceKind.touch) {
       if (_guard.rejectTouchDown(e.pointer, now, e.radiusMajor)) return;
@@ -394,27 +448,38 @@ class _CanvasViewState extends State<CanvasView> {
   Offset _centerOnActivePage() =>
       _toDoc(_viewSize.center(Offset.zero)) - Offset(0, c.pageIndex * _stride);
 
-  /// Ferramenta Selecionar: alça -> redimensiona; imagem -> seleciona e move;
-  /// vazio -> limpa a seleção. Nunca desenha.
-  bool _imageDown(PointerDownEvent e) {
+  /// Ferramenta Selecionar: alça -> redimensiona; dentro da seleção -> move;
+  /// fora -> desenha o laço (toque simples seleciona o item sob o ponto).
+  bool _selectDown(PointerDownEvent e) {
     if (c.tool != Tool.select || c.panActive) return false;
     if (e.kind == PointerDeviceKind.touch && !c.fingerDraws) return false;
-    if (_imgPointer != null) return true;
-    final h = c.hitImageHandle(_toActivePage(e.localPosition), 18 / _scale);
-    if (h != null) {
-      _imgPointer = e.pointer;
-      c.beginImageResize(h);
-      return true;
-    }
-    final pageNo = _pageAt(_toDoc(e.localPosition).dy);
-    c.activatePage(pageNo);
+    if (_selPointer != null) return true;
     final p = _toActivePage(e.localPosition);
-    if (c.selectImageAt(p)) {
-      _imgPointer = e.pointer;
-      c.beginImageMove(p);
-    } else {
-      c.clearImageSelection();
+    if (c.hasSel) {
+      if (c.hitLayerButton(p, _scale)) {
+        _selPointer = e.pointer; // consome o toque (sem arrastar)
+        _selLasso = false;
+        c.toggleImageLayer();
+        return true;
+      }
+      final h = c.hitSelHandle(p, 18 / _scale);
+      if (h != null) {
+        _selPointer = e.pointer;
+        _selLasso = false;
+        c.beginSelResize(h);
+        return true;
+      }
+      if (c.selContains(p)) {
+        _selPointer = e.pointer;
+        _selLasso = false;
+        c.beginSelMove(p);
+        return true;
+      }
     }
+    c.activatePage(_pageAt(_toDoc(e.localPosition).dy));
+    _selPointer = e.pointer;
+    _selLasso = true;
+    c.beginLasso(_toActivePage(e.localPosition));
     return true;
   }
 
@@ -467,8 +532,13 @@ class _CanvasViewState extends State<CanvasView> {
       c.resizeTo(_toActivePage(e.localPosition));
       return;
     }
-    if (e.pointer == _imgPointer) {
-      c.imageDragTo(_toActivePage(e.localPosition));
+    if (e.pointer == _selPointer) {
+      final q = _toActivePage(e.localPosition);
+      if (_selLasso) {
+        c.extendLasso(q);
+      } else {
+        c.selDragTo(q);
+      }
       return;
     }
 
@@ -564,9 +634,13 @@ class _CanvasViewState extends State<CanvasView> {
       c.endResize();
       return;
     }
-    if (e.pointer == _imgPointer) {
-      _imgPointer = null;
-      c.endImageDrag();
+    if (e.pointer == _selPointer) {
+      _selPointer = null;
+      if (_selLasso) {
+        c.endLasso(10 / _scale);
+      } else {
+        c.endSelDrag();
+      }
       return;
     }
     if (e.pointer == _panPointer) {
@@ -765,7 +839,7 @@ class _BackgroundPainter extends CustomPainter {
       _beginPage(canvas, o, scale);
       final vis = _visibleRect(size, o, scale);
       paintInfiniteLines(canvas, pages[0].background, vis, c.settings.lineSpacing);
-      paintImages(canvas, pages[0].images, c.imageReady, visible: vis);
+      paintImages(canvas, pages[0].images.where((m) => !m.front), c.imageReady, visible: vis);
       canvas.restore();
       return;
     }
@@ -776,7 +850,8 @@ class _BackgroundPainter extends CustomPainter {
       paintPageLines(canvas, pages[i].background, ps, step: c.settings.lineSpacing);
       canvas.save();
       canvas.clipRect(pageRect);
-      paintImages(canvas, pages[i].images, c.imageReady, visible: visible);
+      paintPdfBg(canvas, pages[i].pdfBg, c.imageReady);
+      paintImages(canvas, pages[i].images.where((m) => !m.front), c.imageReady, visible: visible);
       canvas.restore();
     });
   }
@@ -802,14 +877,17 @@ class _HighlightPainter extends CustomPainter {
     final inf = c.notebook.infinite;
     _forVisiblePages(canvas, size, offset, scale, pages.length, ps.height, (i, visible) {
       if (!inf) canvas.clipRect(Offset.zero & ps);
-      for (final s in pages[i].strokes) {
-        if (s.fill != null && s.bounds.overlaps(visible)) paintFill(canvas, s);
-      }
-      final hl = <Stroke>[
+      // só a camada 0: o que foi escrito depois de uma imagem da frente é
+      // desenhado junto com a tinta, por cima dela (ver _InkPainter)
+      final fr = frontImages(pages[i]);
+      final base = [
         for (final s in pages[i].strokes)
-          if (s.highlighter && s.bounds.overlaps(visible)) s,
+          if (s.bounds.overlaps(visible) && (fr.isEmpty || strokeLayer(s, fr) == 0)) s,
       ];
-      paintHighlighters(canvas, hl, inf ? visible : Offset.zero & ps);
+      for (final s in base) {
+        if (s.fill != null) paintFill(canvas, s);
+      }
+      paintHighlighters(canvas, base.where((s) => s.highlighter), inf ? visible : Offset.zero & ps);
     });
   }
 
@@ -832,8 +910,26 @@ class _InkPainter extends CustomPainter {
     final inf = c.notebook.infinite;
     _forVisiblePages(canvas, size, offset, scale, pages.length, ps.height, (i, visible) {
       if (!inf) canvas.clipRect(Offset.zero & ps);
-      for (final s in pages[i].strokes) {
-        if (!s.highlighter && s.bounds.overlaps(visible)) paintStroke(canvas, s);
+      final fr = frontImages(pages[i]);
+      final vis = [
+        for (final s in pages[i].strokes)
+          if (s.bounds.overlaps(visible)) s,
+      ];
+      final groups = _layerGroups(vis, fr);
+      for (var k = 0; k <= fr.length; k++) {
+        if (k > 0) paintImages(canvas, [fr[k - 1]], c.imageReady, visible: visible);
+        final g = groups[k];
+        if (k > 0) {
+          // escrito depois da imagem: fundos e marca-texto também ficam acima dela,
+          // mas o marca-texto continua atrás da escrita
+          for (final s in g) {
+            if (s.fill != null) paintFill(canvas, s);
+          }
+          paintLayerHighlights(canvas, groups, fr, k, inf ? visible : Offset.zero & ps);
+        }
+        for (final s in g) {
+          if (!s.highlighter) paintStroke(canvas, s);
+        }
       }
     });
   }
@@ -845,10 +941,12 @@ class _InkPainter extends CustomPainter {
 class _LiveInkPainter extends CustomPainter {
   _LiveInkPainter(this.c, this.scale, this.offset)
       : edit = c.editing,
-        sel = c.activeSel,
+        sel = c.activeSelBounds,
+        lasso = c.lasso == null ? null : List<Offset>.of(c.lasso!),
         super(repaint: c.live);
 
-  final Object? sel; // imagem selecionada
+  final Rect? sel; // caixa da seleção
+  final List<Offset>? lasso;
   final Object? edit; // forma em edição (para repintar as alças quando muda)
 
   final CanvasController c;
@@ -862,7 +960,7 @@ class _LiveInkPainter extends CustomPainter {
     // ao soltar ele passa para trás, na camada do realce.
     final ink = s;
     final eraser = c.eraserPos;
-    if (ink == null && eraser == null && c.editing == null && c.activeSel == null) return;
+    if (ink == null && eraser == null && c.editing == null && c.activeSelBounds == null && c.lasso == null) return;
     // O traço ao vivo pertence à página ativa.
     final ps = c.notebook.pageSize;
     final inf = c.notebook.infinite;
@@ -874,7 +972,8 @@ class _LiveInkPainter extends CustomPainter {
     }
     final edit = c.editing;
     if (edit != null && s == null) _paintHandles(canvas, scale);
-    if (c.activeSel != null) _paintImageSelection(canvas, scale);
+    if (c.activeSelBounds != null) _paintSelection(canvas, scale);
+    if (c.lasso != null) _paintLasso(canvas, scale);
     if (eraser != null) {
       // círculo-guia da borracha, com o tamanho real da área apagada
       canvas.drawCircle(
@@ -889,29 +988,101 @@ class _LiveInkPainter extends CustomPainter {
     canvas.restore();
   }
 
-  /// Moldura e 4 alças nos cantos da imagem selecionada.
-  void _paintImageSelection(Canvas canvas, double scale) {
-    final r = c.activeSel?.rect;
+  /// Moldura e 4 alças nos cantos da seleção.
+  void _paintSelection(Canvas canvas, double scale) {
+    final r = c.activeSelBounds;
     if (r == null) return;
     const accent = Color(0xFF2979FF);
     canvas.drawRect(
-      r,
+      r.inflate(4 / scale),
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5 / scale
         ..color = accent,
     );
-    for (final p in c.imageHandles()) {
-      canvas.drawCircle(p, 8 / scale, Paint()..color = Colors.white);
+    final bp = c.layerButtonPos(scale);
+    if (bp != null) {
+      final front = c.selImages.first.front;
+      final u = 1 / scale;
+      canvas.drawCircle(bp, 13 * u, Paint()..color = Colors.white);
       canvas.drawCircle(
-        p,
-        8 / scale,
+        bp,
+        13 * u,
         Paint()
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 2 / scale
+          ..strokeWidth = 2 * u
           ..color = accent,
       );
+      // dois quadrados sobrepostos; o cheio mostra em que camada a imagem está
+      void sq(Rect r, bool filled) {
+        canvas.drawRect(r, Paint()..color = filled ? accent : Colors.white);
+        canvas.drawRect(
+          r,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.6 * u
+            ..color = accent,
+        );
+      }
+
+      sq(Rect.fromLTWH(bp.dx - 7 * u, bp.dy - 7 * u, 9 * u, 9 * u), !front);
+      sq(Rect.fromLTWH(bp.dx - 2 * u, bp.dy - 2 * u, 9 * u, 9 * u), front);
     }
+    final hs = c.selHandles();
+    for (var i = 0; i < hs.length; i++) {
+      final p = hs[i];
+      if (i < 4) {
+        canvas.drawCircle(p, 8 / scale, Paint()..color = Colors.white);
+        canvas.drawCircle(
+          p,
+          8 / scale,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2 / scale
+            ..color = accent,
+        );
+      } else {
+        // lados: barrinha arredondada, deitada nos lados de cima/baixo e em pé nos outros
+        final horiz = i == 4 || i == 6;
+        final rr = RRect.fromRectAndRadius(
+          Rect.fromCenter(
+            center: p,
+            width: (horiz ? 18 : 8) / scale,
+            height: (horiz ? 8 : 18) / scale,
+          ),
+          Radius.circular(4 / scale),
+        );
+        canvas.drawRRect(rr, Paint()..color = Colors.white);
+        canvas.drawRRect(
+          rr,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2 / scale
+            ..color = accent,
+        );
+      }
+    }
+  }
+
+  /// Laço em andamento: contorno azul com preenchimento leve.
+  void _paintLasso(Canvas canvas, double scale) {
+    final l = c.lasso;
+    if (l == null || l.length < 2) return;
+    final path = Path()..moveTo(l.first.dx, l.first.dy);
+    for (final q in l.skip(1)) {
+      path.lineTo(q.dx, q.dy);
+    }
+    const accent = Color(0xFF2979FF);
+    canvas.drawPath(Path.from(path)..close(), Paint()..color = accent.withAlpha(30));
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5 / scale
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..color = accent,
+    );
   }
 
   /// Caixa tracejada leve e alças para redimensionar a forma recém-criada.
