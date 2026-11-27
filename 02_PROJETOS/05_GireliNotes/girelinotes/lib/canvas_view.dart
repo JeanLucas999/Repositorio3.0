@@ -17,7 +17,6 @@ import 'palm_guard.dart';
 const Size kPageSize = Size(1000, 1414);
 
 /// Espaço entre páginas na coluna e distância de topo a topo.
-const double kPageGap = 24;
 
 /// Margem entre a coluna de páginas e a borda da área visível.
 const double kPanMargin = 16;
@@ -75,7 +74,7 @@ void paintLayerHighlights(Canvas canvas, List<List<Stroke>> groups, List<PageIma
     if (ink.isEmpty) continue;
     canvas.save();
     for (var j = i; j < k; j++) {
-      canvas.clipRect(fr[j].rect, clipOp: ClipOp.difference);
+      canvas.clipRect(fr[j].bounds, clipOp: ClipOp.difference);
     }
     for (final s in ink) {
       paintStroke(canvas, s);
@@ -462,6 +461,12 @@ class _CanvasViewState extends State<CanvasView> {
         c.toggleImageLayer();
         return true;
       }
+      if (c.hitRotate(p, _scale)) {
+        _selPointer = e.pointer;
+        _selLasso = false;
+        c.beginSelRotate(p, _scale);
+        return true;
+      }
       final h = c.hitSelHandle(p, 18 / _scale);
       if (h != null) {
         _selPointer = e.pointer;
@@ -732,9 +737,20 @@ class _CanvasViewState extends State<CanvasView> {
                   size: Size.infinite,
                 ),
               ),
-              CustomPaint(
-                painter: _LiveInkPainter(c, _scale, _offset),
-                size: Size.infinite,
+              // traços feitos há pouco: camada pequena, para não repintar a tinta toda
+              RepaintBoundary(
+                child: CustomPaint(
+                  painter: _RecentInkPainter(c, _scale, _offset),
+                  size: Size.infinite,
+                ),
+              ),
+              // camada própria: o cursor/traço ao vivo repinta só ela, nunca o resto
+              // da tela (miniaturas, barras) nem as camadas de tinta já prontas
+              RepaintBoundary(
+                child: CustomPaint(
+                  painter: _LiveInkPainter(c, _scale, _offset),
+                  size: Size.infinite,
+                ),
               ),
             ],
           ),
@@ -780,8 +796,9 @@ void _forVisiblePages(
 
 /// Linhas do fundo da página (pautado / quadriculado).
 void paintPageLines(Canvas canvas, PageBackground bg, Size pageSize,
-    {double strokeWidth = 1, double step = 40}) {
+    {double strokeWidth = 1, double step = 40, bool fitWidth = false}) {
   if (bg == PageBackground.blank) return;
+  if (fitWidth) step = fitStep(pageSize.width, step);
   final p = Paint()
     ..color = const Color(0xFFD5DCE8)
     ..strokeWidth = strokeWidth;
@@ -847,10 +864,18 @@ class _BackgroundPainter extends CustomPainter {
       final pageRect = Offset.zero & ps;
       canvas.drawShadow(Path()..addRect(pageRect), Colors.black, 3, false);
       canvas.drawRect(pageRect, Paint()..color = Colors.white);
-      paintPageLines(canvas, pages[i].background, ps, step: c.settings.lineSpacing);
+      paintPageLines(canvas, pages[i].background, ps,
+          step: c.settings.lineSpacing, fitWidth: !c.notebook.infinite);
       canvas.save();
       canvas.clipRect(pageRect);
       paintPdfBg(canvas, pages[i].pdfBg, c.imageReady);
+      final found = c.searchRects[i];
+      if (found != null) {
+        final hp = Paint()..color = const Color(0x66FF9800);
+        for (final r in found) {
+          canvas.drawRRect(RRect.fromRectAndRadius(r.inflate(1.5), const Radius.circular(3)), hp);
+        }
+      }
       paintImages(canvas, pages[i].images.where((m) => !m.front), c.imageReady, visible: visible);
       canvas.restore();
     });
@@ -938,6 +963,31 @@ class _InkPainter extends CustomPainter {
   bool shouldRepaint(_InkPainter old) => old.scale != scale || old.offset != offset;
 }
 
+/// Os últimos traços soltos, desenhados por cima de tudo até serem fundidos na tinta.
+class _RecentInkPainter extends CustomPainter {
+  _RecentInkPainter(this.c, this.scale, this.offset) : super(repaint: c.recentInk);
+
+  final CanvasController c;
+  final double scale;
+  final Offset offset;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (c.recentStrokes.isEmpty) return;
+    final ps = c.notebook.pageSize;
+    final inf = c.notebook.infinite;
+    for (final r in c.recentStrokes) {
+      _beginPage(canvas, offset + Offset(0, r.page * (ps.height + kPageGap) * scale), scale);
+      if (!inf) canvas.clipRect(Offset.zero & ps);
+      paintStroke(canvas, r.stroke);
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RecentInkPainter old) => old.scale != scale || old.offset != offset;
+}
+
 class _LiveInkPainter extends CustomPainter {
   _LiveInkPainter(this.c, this.scale, this.offset)
       : edit = c.editing,
@@ -960,12 +1010,26 @@ class _LiveInkPainter extends CustomPainter {
     // ao soltar ele passa para trás, na camada do realce.
     final ink = s;
     final eraser = c.eraserPos;
-    if (ink == null && eraser == null && c.editing == null && c.activeSelBounds == null && c.lasso == null) return;
+    if (ink == null && eraser == null && !c.movingSel && c.editing == null && c.activeSelBounds == null && c.lasso == null) return;
     // O traço ao vivo pertence à página ativa.
     final ps = c.notebook.pageSize;
     final inf = c.notebook.infinite;
     _beginPage(canvas, offset + Offset(0, c.pageIndex * (ps.height + kPageGap) * scale), scale);
-    if (!inf) canvas.clipRect(Offset.zero & ps);
+    final moving = c.movingSel && !inf;
+    if (moving) {
+      // arrastando a seleção: ela aparece inteira, mesmo fora da página de origem
+      // Só a parte que está FORA da página de origem é desenhada aqui; a de dentro
+      // já aparece na tinta normal (desenhar as duas escureceria o marca-texto).
+      canvas.save();
+      canvas.clipRect(Offset.zero & ps, clipOp: ClipOp.difference);
+      paintImages(canvas, c.selImages, c.imageReady);
+      for (final st in c.selStrokes) {
+        paintFill(canvas, st);
+        paintStroke(canvas, st);
+      }
+      canvas.restore();
+    }
+    if (!inf && !moving) canvas.clipRect(Offset.zero & ps);
     if (ink != null) {
       paintFill(canvas, ink);
       paintStroke(canvas, ink);
@@ -974,15 +1038,24 @@ class _LiveInkPainter extends CustomPainter {
     if (edit != null && s == null) _paintHandles(canvas, scale);
     if (c.activeSelBounds != null) _paintSelection(canvas, scale);
     if (c.lasso != null) _paintLasso(canvas, scale);
-    if (eraser != null) {
+    final ring = eraser;
+    if (ring != null) {
       // círculo-guia da borracha, com o tamanho real da área apagada
       canvas.drawCircle(
-        eraser,
+        ring,
         c.eraserRadius,
         Paint()
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.5 / scale
-          ..color = const Color(0xAA607D8B),
+          ..strokeWidth = 3 / scale
+          ..color = const Color(0xCCFFFFFF),
+      );
+      canvas.drawCircle(
+        ring,
+        c.eraserRadius,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.2 / scale
+          ..color = const Color(0xFF455A64),
       );
     }
     canvas.restore();
@@ -993,13 +1066,71 @@ class _LiveInkPainter extends CustomPainter {
     final r = c.activeSelBounds;
     if (r == null) return;
     const accent = Color(0xFF2979FF);
-    canvas.drawRect(
-      r.inflate(4 / scale),
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5 / scale
-        ..color = accent,
-    );
+    final frameP = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5 / scale
+      ..color = accent;
+    final one = c.singleImage;
+    if (one != null && one.angle != 0) {
+      // moldura girada junto com a imagem
+      final cc = one.rect.center;
+      canvas.save();
+      canvas.translate(cc.dx, cc.dy);
+      canvas.rotate(one.angle);
+      canvas.translate(-cc.dx, -cc.dy);
+      canvas.drawRect(one.rect.inflate(4 / scale), frameP);
+      canvas.restore();
+    } else {
+      canvas.drawRect(r.inflate(4 / scale), frameP);
+    }
+    final rh = c.rotateHandlePos(scale);
+    if (rh != null) {
+      final u = 1 / scale;
+      var stemFrom = Offset(r.center.dx, r.top - 4 * u);
+      if (one != null && one.angle != 0) {
+        final cc = one.rect.center, d = Offset(0, -(one.rect.height / 2 + 4 * u));
+        final cs = math.cos(one.angle), sn = math.sin(one.angle);
+        stemFrom = Offset(cc.dx + d.dx * cs - d.dy * sn, cc.dy + d.dx * sn + d.dy * cs);
+      }
+      canvas.drawLine(
+        stemFrom,
+        rh,
+        Paint()
+          ..strokeWidth = 1.5 * u
+          ..color = accent,
+      );
+      canvas.drawCircle(rh, 13 * u, Paint()..color = Colors.white);
+      canvas.drawCircle(
+        rh,
+        13 * u,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2 * u
+          ..color = accent,
+      );
+      // setinha circular
+      final arc = Rect.fromCircle(center: rh, radius: 5.5 * u);
+      canvas.drawArc(
+        arc,
+        -math.pi * 0.6,
+        math.pi * 1.5,
+        false,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.8 * u
+          ..strokeCap = StrokeCap.round
+          ..color = accent,
+      );
+      final tip = rh + Offset(math.cos(-math.pi * 0.6), math.sin(-math.pi * 0.6)) * (5.5 * u);
+      canvas.drawPath(
+        Path()
+          ..moveTo(tip.dx - 3.5 * u, tip.dy - 0.5 * u)
+          ..lineTo(tip.dx + 3.5 * u, tip.dy - 1.5 * u)
+          ..lineTo(tip.dx + 0.5 * u, tip.dy + 3.5 * u)
+          ..close(),
+        Paint()..color = accent,
+      );
+    }
     final bp = c.layerButtonPos(scale);
     if (bp != null) {
       final front = c.selImages.first.front;
@@ -1052,6 +1183,12 @@ class _LiveInkPainter extends CustomPainter {
           ),
           Radius.circular(4 / scale),
         );
+        canvas.save();
+        if (one != null) {
+          canvas.translate(p.dx, p.dy);
+          canvas.rotate(one.angle); // a barrinha acompanha o giro da imagem
+          canvas.translate(-p.dx, -p.dy);
+        }
         canvas.drawRRect(rr, Paint()..color = Colors.white);
         canvas.drawRRect(
           rr,
@@ -1060,6 +1197,7 @@ class _LiveInkPainter extends CustomPainter {
             ..strokeWidth = 2 / scale
             ..color = accent,
         );
+        canvas.restore();
       }
     }
   }

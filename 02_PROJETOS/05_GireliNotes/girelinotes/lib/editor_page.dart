@@ -11,6 +11,10 @@ import 'color_panel.dart';
 import 'dialogs.dart';
 import 'models.dart';
 import 'export_ui.dart';
+import 'bg_remove_dialog.dart';
+import 'graph.dart';
+import 'graph_dialog.dart';
+import 'image_search_dialog.dart';
 import 'pages_sidebar.dart';
 import 'note_dialog.dart';
 import 'pen_tune.dart';
@@ -42,6 +46,7 @@ class _EditorPageState extends State<EditorPage> with WidgetsBindingObserver {
   late final CanvasController c;
   Timer? _saveTimer;
   bool _dirty = false;
+  final SaveStatus _saveStatus = SaveStatus();
   bool _pagesOpen = false;
 
   @override
@@ -75,6 +80,7 @@ class _EditorPageState extends State<EditorPage> with WidgetsBindingObserver {
 
   void _scheduleSave() {
     _dirty = true;
+    _saveStatus.set(pending: true);
     _saveTimer?.cancel();
     _saveTimer = Timer(const Duration(seconds: 2), _flush);
   }
@@ -82,7 +88,14 @@ class _EditorPageState extends State<EditorPage> with WidgetsBindingObserver {
   Future<void> _flush() async {
     if (!_dirty) return;
     _dirty = false;
-    await widget.storage.save(widget.notebook);
+    _saveStatus.set(saving: true);
+    try {
+      await widget.storage.save(widget.notebook);
+      _saveStatus.set(last: DateTime.now(), pending: _dirty);
+    } catch (_) {
+      _saveStatus.set(failed: true, pending: true);
+      rethrow;
+    }
   }
 
   @override
@@ -101,6 +114,7 @@ class _EditorPageState extends State<EditorPage> with WidgetsBindingObserver {
     _saveTimer?.cancel();
     _flush();
     c.dispose();
+    _saveStatus.dispose();
     super.dispose();
   }
 
@@ -127,6 +141,49 @@ class _EditorPageState extends State<EditorPage> with WidgetsBindingObserver {
   }
 
   /// Botão: escolhe uma ou mais imagens do computador.
+  /// Cria um gráfico de função no caderno.
+  Future<void> _newGraph() async {
+    final spec = await showGraphDialog(context);
+    if (spec == null || !mounted) return;
+    final png = await renderGraphPng(spec);
+    await c.insertImageBytes(png, graph: spec.encode());
+  }
+
+  /// Edita o gráfico selecionado.
+  Future<void> _editGraph() async {
+    if (c.selStrokes.isNotEmpty || c.selImages.length != 1 || !c.selImages.first.isGraph) return;
+    final im = c.selImages.first;
+    final spec = await showGraphDialog(context, initial: GraphSpec.decode(im.graph));
+    if (spec == null || !mounted) return;
+    final png = await renderGraphPng(spec);
+    await c.replaceImageBytes(im, png, graph: spec.encode());
+  }
+
+  /// Remove o fundo da imagem selecionada (varinha mágica).
+  Future<void> _removeBg() async {
+    if (c.selStrokes.isNotEmpty || c.selImages.length != 1 || c.selImages.first.isNote) return;
+    final im = c.selImages.first;
+    final out = await showBgRemover(context, im.bytes);
+    if (out == null || !mounted) return;
+    if (!await c.replaceImageBytes(im, out) && mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Não consegui aplicar.')));
+    }
+  }
+
+  /// Busca imagens na internet e coloca a escolhida no caderno.
+  Future<void> _searchImage() async {
+    final pick = await showImageSearch(context);
+    if (pick == null || !mounted) return;
+    final ok = await c.insertImageBytes(pick.bytes);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(ok ? 'Fonte: ${pick.credit}' : 'Não consegui usar essa imagem.'),
+      ));
+  }
+
   Future<void> _pickImage() async {
     try {
       final r = await FilePicker.platform
@@ -203,13 +260,14 @@ class _EditorPageState extends State<EditorPage> with WidgetsBindingObserver {
         controller: c,
         onBack: _close,
         onRename: _rename,
+        saveStatus: _saveStatus,
         onSettings: _openSettings,
         pagesOpen: _pagesOpen,
         onPages: () => setState(() => _pagesOpen = !_pagesOpen),
         onExport: () => showExportDialog(context, c.notebook, spacing: widget.settings.lineSpacing),
         pos: pos,
         onImage: _pickImage,
-        onNote: _newNote,
+        onSearchImage: _searchImage,
       ),
     );
     final body = Expanded(
@@ -264,7 +322,7 @@ class _EditorPageState extends State<EditorPage> with WidgetsBindingObserver {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     if (c.tool == Tool.select)
-                                      Center(child: ExcludeFocus(child: SelectionBar(controller: c, onEditNote: _editNote))),
+                                      Center(child: ExcludeFocus(child: SelectionBar(controller: c, onEditNote: _editNote, onRemoveBg: _removeBg, onEditGraph: _editGraph))),
                                     if (c.tool == Tool.select &&
                                         c.showSelColors &&
                                         c.hasSel &&
@@ -287,12 +345,12 @@ class _EditorPageState extends State<EditorPage> with WidgetsBindingObserver {
                                     if (c.tool == Tool.shape) ...[
                                       if (c.showColors) const SizedBox(height: 8),
                                       Center(
-                                        child: ExcludeFocus(child: ShapeBar(controller: c)),
+                                        child: ExcludeFocus(child: ShapeBar(controller: c, onNote: _newNote)),
                                       ),
                                       if (c.showShapeLib) ...[
                                         const SizedBox(height: 8),
                                         Center(
-                                          child: ExcludeFocus(child: ShapeLibrary(controller: c)),
+                                          child: ExcludeFocus(child: ShapeLibrary(controller: c, onGraph: _newGraph)),
                                         ),
                                       ],
                                     ],
@@ -328,8 +386,17 @@ class _EditorPageState extends State<EditorPage> with WidgetsBindingObserver {
           const SingleActivator(LogicalKeyboardKey.keyY, control: true): c.redo,
           const SingleActivator(LogicalKeyboardKey.keyZ, control: true, shift: true):
               c.redo,
-          const SingleActivator(LogicalKeyboardKey.keyP): () => c.setTool(Tool.pen),
-          const SingleActivator(LogicalKeyboardKey.keyF): () => c.setTool(Tool.fountain),
+          // 1, 2, 3: caneta, tinteiro e pincel
+          const SingleActivator(LogicalKeyboardKey.digit1): () => c.setTool(Tool.pen),
+          const SingleActivator(LogicalKeyboardKey.numpad1): () => c.setTool(Tool.pen),
+          const SingleActivator(LogicalKeyboardKey.digit2): () => c.setTool(Tool.fountain),
+          const SingleActivator(LogicalKeyboardKey.numpad2): () => c.setTool(Tool.fountain),
+          const SingleActivator(LogicalKeyboardKey.digit3): () => c.setTool(Tool.brush),
+          const SingleActivator(LogicalKeyboardKey.numpad3): () => c.setTool(Tool.brush),
+          // F: a última caneta usada, como se tocasse no botão de caneta da barra
+          const SingleActivator(LogicalKeyboardKey.keyF): c.selectPen,
+          const SingleActivator(LogicalKeyboardKey.keyS, control: true): () =>
+              showExportDialog(context, c.notebook, spacing: widget.settings.lineSpacing),
           const SingleActivator(LogicalKeyboardKey.keyV, control: true): _paste,
           const SingleActivator(LogicalKeyboardKey.keyV): () => c.selectTool(Tool.select),
           const SingleActivator(LogicalKeyboardKey.delete): c.deleteSelection,
@@ -338,7 +405,6 @@ class _EditorPageState extends State<EditorPage> with WidgetsBindingObserver {
           const SingleActivator(LogicalKeyboardKey.keyC, control: true): _copy,
           const SingleActivator(LogicalKeyboardKey.keyX, control: true): _cut,
           const SingleActivator(LogicalKeyboardKey.keyD, control: true): c.duplicateSelection,
-          const SingleActivator(LogicalKeyboardKey.keyB): () => c.setTool(Tool.brush),
           const SingleActivator(LogicalKeyboardKey.keyH): () =>
               c.setTool(Tool.highlighter),
           const SingleActivator(LogicalKeyboardKey.keyL): () => _openShapes(),

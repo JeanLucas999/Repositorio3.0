@@ -3,14 +3,22 @@ import 'dart:typed_data';
 import 'dart:math' as math;
 import 'dart:ui';
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notas/canvas_controller.dart';
 import 'package:notas/canvas_view.dart';
 import 'package:notas/geometry.dart';
 import 'package:notas/drive_sync.dart';
+import 'package:notas/bg_remove.dart';
+import 'package:notas/backup_service.dart';
 import 'package:notas/folders.dart';
+import 'package:notas/app_style.dart';
+import 'package:notas/function_parser.dart';
+import 'package:notas/graph.dart';
+import 'package:notas/zip_io.dart';
+import 'package:notas/pdf_text.dart';
+import 'package:notas/review.dart';
+import 'package:notas/image_search.dart';
 import 'package:notas/layers.dart';
 import 'package:notas/models.dart';
 import 'package:notas/pen_tune.dart';
@@ -21,6 +29,7 @@ import 'package:notas/scribble.dart';
 import 'package:notas/settings.dart';
 import 'package:notas/shape_recognizer.dart';
 import 'package:notas/shapes.dart';
+import 'package:notas/storage.dart';
 import 'package:notas/color_utils.dart';
 import 'package:notas/export_service.dart';
 
@@ -110,6 +119,8 @@ List<Offset> _zig({int passes = 8, double w = 120, double h = 14}) {
 }
 
 void main() {
+  // o temporizador da camada de recentes ficaria pendente nos testes de widget
+  CanvasController.useRecentLayer = false;
   group('reconhecimento de formas', () {
     test('reta', () {
       expect(_rate(() => _polyPath([const Offset(0, 0), const Offset(300, 8)]), 'line'),
@@ -1400,7 +1411,7 @@ void main() {
       c.beginLasso(const Offset(150, 250));
       c.endLasso(10);
       c.beginSelResize(2); // canto inferior direito
-      c.selDragTo(const Offset(700, 400));
+      c.selDragTo(const Offset(700, 500)); // sobre a diagonal: o canto acompanha
       c.endSelDrag();
       expect(im.rect.topLeft, const Offset(100, 200));
       expect(im.rect.width / im.rect.height, closeTo(2.0, 1e-6));
@@ -1650,6 +1661,19 @@ void main() {
       expect(n.rect.width, greaterThan(w0));
     });
 
+    test('canto acompanha o cursor mesmo em objeto largo', () {
+      final c = CanvasController(Notebook.empty('a', 'A'));
+      c.insertNote('x', kNoteColors[0], 26, at: const Offset(300, 300));
+      final n = c.page.images.single;
+      c.beginSelResize(2);
+      final target = n.rect.bottomRight + const Offset(100, 10); // fora da diagonal
+      final before = (n.rect.bottomRight - target).distance;
+      c.selDragTo(target);
+      c.endSelDrag();
+      expect((n.rect.bottomRight - target).distance, lessThan(before));
+      expect((n.rect.bottomRight - target).distance, lessThan(60));
+    });
+
     test('lados esticam só um eixo; seleção com traço não tem lados', () {
       final c = CanvasController(Notebook.empty('a', 'A'));
       c.insertNote('x', kNoteColors[0], 26, at: const Offset(300, 300));
@@ -1770,4 +1794,543 @@ void main() {
       expect(driveFileName('  '), 'Caderno.notas');
     });
   });
+
+  group('girar seleção', () {
+    test('redimensionar escala a grossura do traço e desfaz', () {
+      final c = CanvasController(Notebook.empty('a', 'A'));
+      c.page.strokes.add(Stroke(
+          id: '1-1',
+          points: const [Offset(100, 100), Offset(200, 200)],
+          color: 0xFF000000,
+          width: 4,
+          widths: [2, 3]));
+      final st = c.page.strokes.single;
+      c.tool = Tool.select;
+      c.selStrokes.add(st);
+      c.beginSelResize(2); // canto inferior direito, âncora em (100,100)
+      c.selDragTo(const Offset(300, 300)); // dobra o tamanho
+      c.endSelDrag();
+      expect(st.width, closeTo(8, 1e-6));
+      expect(st.widths, [4, 6]);
+      expect(st.points.last.dx, closeTo(300, 1e-6));
+      c.undo();
+      expect(st.width, 4);
+      expect(st.widths, [2, 3]);
+      c.redo();
+      expect(st.width, closeTo(8, 1e-6));
+    });
+
+    test('arrastar a seleção para outra página a transfere (e desfaz)', () {
+      final c = CanvasController(Notebook.empty('a', 'A'));
+      c.addPage();
+      c.goToPage(0);
+      final st = Stroke(
+          id: '1-1', points: const [Offset(100, 100), Offset(160, 100)], color: 0xFF000000, width: 3);
+      c.page.strokes.add(st);
+      final stride = c.notebook.pageSize.height + kPageGap;
+      c.tool = Tool.select;
+      c.selStrokes.add(st);
+      c.beginSelMove(const Offset(130, 100));
+      c.selDragTo(Offset(130, 100 + stride)); // solta na página de baixo
+      c.endSelDrag();
+      expect(c.pageIndex, 1);
+      expect(c.notebook.pages[0].strokes, isEmpty);
+      expect(c.notebook.pages[1].strokes, contains(st));
+      expect(st.points.first.dy, closeTo(100, 1e-6)); // mesma altura, agora na página 2
+      c.undo();
+      expect(c.notebook.pages[0].strokes, contains(st));
+      expect(c.notebook.pages[1].strokes, isEmpty);
+      expect(st.points.first.dy, closeTo(100, 1e-6));
+      c.redo();
+      expect(c.notebook.pages[1].strokes, contains(st));
+      expect(c.notebook.pages[0].strokes, isEmpty);
+    });
+
+    test('cor de destaque personalizada é salva e lida', () {
+      final s = AppSettings()..accent = 0xFF8E24AA;
+      final copy = AppSettings.fromJson(s.toJson());
+      expect(copy.accent, 0xFF8E24AA);
+      expect(AppSettings.accents.contains(copy.accent), isFalse);
+    });
+
+    test('estilo do app é salvo; valor inválido volta ao padrão', () {
+      final s = AppSettings()..style = AppStyle.papel;
+      expect(AppSettings.fromJson(s.toJson()).style, AppStyle.papel);
+      expect(AppSettings.fromJson({'style': 99}).style, AppStyle.padrao);
+    });
+
+    test('todo estilo gera um tema com o destaque escolhido', () {
+      for (final st in AppStyle.values) {
+        for (final br in Brightness.values) {
+          final t = buildStyledTheme(br, 0xFF8E24AA, st);
+          expect(t.colorScheme.primary, isNot(Colors.transparent));
+          if (st.forceDark) expect(t.brightness, Brightness.dark);
+        }
+      }
+      expect(AppStyle.meiaNoite.forceDark, isTrue);
+    });
+
+    test('espaçamento se ajusta à largura: sem pedaço de quadrado na direita', () {
+      for (final step in [20.0, 33.0, 40.0, 57.0, 90.0, 120.0]) {
+        final f = fitStep(595, step);
+        final n = 595 / f;
+        expect((n - n.round()).abs(), lessThan(1e-9));
+        expect((f - step).abs() / step, lessThan(0.2));
+      }
+      expect(fitStep(595, 0), 0);
+    });
+
+    test('salvamento em pedaços gera o mesmo JSON de sempre', () async {
+      final nb = Notebook.empty('n', 'N');
+      nb.pages.add(NotePage());
+      for (var p = 0; p < 2; p++) {
+        for (var i = 0; i < 7; i++) {
+          nb.pages[p].strokes.add(Stroke(
+              id: '$p-$i',
+              points: [Offset(i * 3.0, 1), Offset(i * 3.0 + 2, 5)],
+              color: 0xFF000000,
+              width: 2));
+        }
+      }
+      nb.pages[1].images.add(PageImage(
+          id: 'i', bytes: Uint8List.fromList([1, 2, 3, 4]), rect: const Rect.fromLTWH(0, 0, 5, 5)));
+      final chunked = jsonDecode(await encodeNotebook(nb, batch: 3));
+      expect(chunked, jsonDecode(jsonEncode(nb.toJson())));
+      final empty = Notebook.empty('e', 'E');
+      expect(jsonDecode(await encodeNotebook(empty)), jsonDecode(jsonEncode(empty.toJson())));
+    });
+
+    test('traço solto vai para a camada de recentes; desfazer e outras ações a esvaziam', () {
+      CanvasController.useRecentLayer = true;
+      addTearDown(() => CanvasController.useRecentLayer = false);
+      final c = CanvasController(Notebook.empty('a', 'A'));
+      c.tool = Tool.pen;
+      c.beginStroke(const Offset(10, 10), 0.5);
+      c.extendStroke(const Offset(60, 40), 0.5);
+      c.extendStroke(const Offset(120, 30), 0.5);
+      c.endStroke();
+      expect(c.page.strokes.length, 1);
+      expect(c.recentStrokes.length, 1); // ainda não foi fundido na tinta principal
+      c.undo();
+      expect(c.page.strokes, isEmpty);
+      expect(c.recentStrokes, isEmpty);
+      c.redo();
+      expect(c.page.strokes.length, 1);
+      c.dispose();
+    });
+
+    test('impressão digital da página muda com qualquer edição e o cache de bytes bate', () async {
+      final pg = NotePage();
+      pg.strokes.add(Stroke(
+          id: '1-1', points: const [Offset(1, 1), Offset(5, 5)], color: 0xFF000000, width: 2));
+      final f0 = pageFingerprint(pg);
+      expect(pageFingerprint(pg), f0); // estável
+      pg.strokes.first.points = const [Offset(1, 1), Offset(5, 6)]; // mexeu num ponto
+      final f1 = pageFingerprint(pg);
+      expect(f1, isNot(f0));
+      pg.mark = 'importante';
+      expect(pageFingerprint(pg), isNot(f1));
+      final bytes = await encodePage(pg, batch: 1);
+      expect(jsonDecode(utf8.decode(bytes)), jsonDecode(jsonEncode(pg.toJson())));
+    });
+
+    test('toque seleciona o item mais da frente (camadas)', () {
+      final c = CanvasController(Notebook.empty('a', 'A'));
+      const r = Rect.fromLTWH(0, 0, 100, 100);
+      // traço antigo (t=1), imagem da frente (z=100), traço novo sobre ela (t=200)
+      c.page.strokes.add(Stroke(
+          id: '1-1', points: const [Offset(10, 50), Offset(90, 50)], color: 0xFF000000, width: 3));
+      final img = PageImage(id: 'i', bytes: Uint8List(8), rect: r, front: true, z: 100);
+      c.page.images.add(img);
+      c.tool = Tool.select;
+      c.beginLasso(const Offset(50, 50));
+      c.endLasso(10);
+      expect(c.selImages, contains(img)); // imagem cobre o traço antigo
+      expect(c.selStrokes, isEmpty);
+      c.page.strokes.add(Stroke(
+          id: '200-1', points: const [Offset(10, 50), Offset(90, 50)], color: 0xFF000000, width: 3));
+      c.beginLasso(const Offset(50, 50));
+      c.endLasso(10);
+      expect(c.selStrokes.single.id, '200-1'); // traço novo fica sobre a imagem
+      expect(c.selImages, isEmpty);
+    });
+
+    test('traço gira em torno do centro e desfaz', () {
+      final c = CanvasController(Notebook.empty('a', 'A'));
+      c.page.strokes.add(Stroke(
+          id: '1-1', points: const [Offset(100, 100), Offset(200, 100)], color: 0xFF000000, width: 3));
+      c.tool = Tool.select;
+      c.selStrokes.add(c.page.strokes.single);
+      const center = Offset(150, 100);
+      c.beginSelRotate(center + const Offset(0, -80), 1);
+      c.selDragTo(center + const Offset(80, 0)); // +90°
+      c.endSelDrag();
+      final p = c.page.strokes.single.points;
+      expect(p.first.dx, closeTo(150, 1e-6));
+      expect(p.first.dy, closeTo(50, 1e-6));
+      expect(p.last.dy, closeTo(150, 1e-6));
+      c.undo();
+      expect(c.page.strokes.single.points.first.dx, closeTo(100, 1e-6));
+    });
+
+    test('post-it guarda o ângulo, gruda em 15° e sobrevive ao salvar', () {
+      final c = CanvasController(Notebook.empty('a', 'A'));
+      c.insertNote('x', kNoteColors[0], 26, at: const Offset(300, 300));
+      final n = c.page.images.single;
+      final ctr = n.rect.center;
+      c.beginSelRotate(ctr + const Offset(0, -100), 1);
+      c.selDragTo(ctr + const Offset(100, 3)); // ~ +88° -> gruda em 90°
+      c.endSelDrag();
+      expect(n.angle, closeTo(math.pi / 2, 1e-6));
+      expect(n.rect.center.dx, closeTo(ctr.dx, 1e-6));
+      expect(n.bounds.width, closeTo(n.rect.height, 1e-6));
+      final back = PageImage.fromJson(jsonDecode(jsonEncode(n.toJson())) as Map<String, dynamic>)!;
+      expect(back.angle, closeTo(math.pi / 2, 1e-3));
+      expect(c.selHandles().length, 8); // uma imagem girada também estica pelos lados
+      c.undo();
+      expect(n.angle, 0);
+    });
+
+    test('imagem girada tem moldura girada e estica nos eixos dela', () {
+      final c = CanvasController(Notebook.empty('a', 'A'));
+      final im = PageImage(
+          id: 'i',
+          bytes: Uint8List(8),
+          rect: const Rect.fromLTWH(0, 0, 200, 100),
+          angle: math.pi / 2);
+      c.page.images.add(im);
+      c.tool = Tool.select;
+      c.selImages.add(im);
+      final hs = c.selHandles();
+      expect(hs.length, 8);
+      expect(hs[0].dx, closeTo(150, 1e-6)); // canto superior esquerdo, girado
+      expect(hs[0].dy, closeTo(-50, 1e-6));
+      expect(hs[5].dx, closeTo(100, 1e-6)); // lado direito vai para baixo
+      expect(hs[5].dy, closeTo(150, 1e-6));
+      c.beginSelResize(5);
+      c.selDragTo(const Offset(100, 250));
+      c.endSelDrag();
+      expect(im.angle, closeTo(math.pi / 2, 1e-9));
+      expect(im.rect.width, closeTo(300, 1e-6));
+      expect(im.rect.height, closeTo(100, 1e-6));
+      expect(im.rect.center.dx, closeTo(100, 1e-6)); // o lado oposto ficou parado
+      expect(im.rect.center.dy, closeTo(100, 1e-6));
+      c.undo();
+      expect(im.rect, const Rect.fromLTWH(0, 0, 200, 100));
+    });
+
+    test('toque numa imagem girada respeita o formato', () {
+      final im = PageImage(
+        id: 'i',
+        bytes: Uint8List(0),
+        rect: const Rect.fromLTWH(0, 0, 200, 20),
+        angle: math.pi / 2,
+      );
+      expect(im.containsPoint(const Offset(100, 90)), isTrue); // ficou em pé
+      expect(im.containsPoint(const Offset(190, 10)), isFalse);
+    });
+  });
+
+  group('busca de imagens', () {
+    test('reconhece formatos de imagem e monta alternativas de download', () {
+      final png = Uint8List.fromList([0x89, 0x50, 0x4E, 0x47, 1, 2, 3, 4, 5, 6, 7, 8]);
+      final html = Uint8List.fromList('<html><body>x</body></html>'.codeUnits);
+      expect(looksLikeImage(png), isTrue);
+      expect(looksLikeImage(html), isFalse);
+      final h = ImageHit(
+          title: 't',
+          thumbUrl: 'https://u.org/thumb/a/320px-x.png',
+          fullUrl: 'https://u.org/a/x.png',
+          source: 'Commons');
+      expect(downloadCandidates(h), [
+        'https://u.org/a/x.png',
+        'https://u.org/thumb/a/1280px-x.png',
+        'https://u.org/thumb/a/320px-x.png',
+      ]);
+    });
+
+    test('crédito junta autor, licença e fonte', () {
+      final h = ImageHit(
+          title: 't',
+          thumbUrl: 'a',
+          fullUrl: 'b',
+          source: 'Openverse',
+          license: 'CC BY 4.0',
+          author: 'Ana');
+      expect(h.credit, 'Ana · CC BY 4.0 · Openverse');
+    });
+  });
+
+  group('remover fundo', () {
+    // 6x4: fundo branco, quadrado vermelho 2x2 no meio
+    Uint8List img() {
+      final b = Uint8List(6 * 4 * 4);
+      for (var p = 0; p < 24; p++) {
+        final x = p % 6, y = p ~/ 6;
+        final red = x >= 2 && x <= 3 && y >= 1 && y <= 2;
+        b.setRange(p * 4, p * 4 + 4, red ? [220, 0, 0, 255] : [255, 255, 255, 255]);
+      }
+      return b;
+    }
+
+    test('toque no fundo apaga o fundo e preserva o objeto', () {
+      final m = wandMask(img(), 6, 4, const [WandTap(0, 0)], 20, contiguous: true);
+      expect(m.where((v) => v == 1).length, 20);
+      expect(m[1 * 6 + 2], 0); // vermelho fica
+      final out = applyMask(img(), 6, 4, m);
+      expect(out[3], 0);
+      expect(out[(1 * 6 + 2) * 4 + 3], 255);
+    });
+
+    test('contíguo x todas as áreas da cor', () {
+      // 5x5: quadrado vermelho 3x3 com o miolo branco (ilha isolada)
+      final b = Uint8List(5 * 5 * 4);
+      for (var p = 0; p < 25; p++) {
+        final x = p % 5, y = p ~/ 5;
+        final ring = x >= 1 && x <= 3 && y >= 1 && y <= 3 && !(x == 2 && y == 2);
+        b.setRange(p * 4, p * 4 + 4, ring ? [220, 0, 0, 255] : [255, 255, 255, 255]);
+      }
+      final one = wandMask(b, 5, 5, const [WandTap(0, 0)], 20, contiguous: true);
+      final all = wandMask(b, 5, 5, const [WandTap(0, 0)], 20, contiguous: false);
+      expect(one[2 * 5 + 2], 0);
+      expect(all[2 * 5 + 2], 1);
+    });
+
+    test('tolerância maior pega cores mais distantes', () {
+      final low = wandMask(img(), 6, 4, const [WandTap(0, 0)], 5, contiguous: true);
+      final high = wandMask(img(), 6, 4, const [WandTap(0, 0)], 100, contiguous: true);
+      expect(low.where((v) => v == 1).length, 20);
+      expect(high.where((v) => v == 1).length, 24); // pega até o vermelho
+    });
+
+    test('suavizar borda deixa o vizinho do corte semitransparente', () {
+      final m = wandMask(img(), 6, 4, const [WandTap(0, 0)], 20, contiguous: true);
+      final out = applyMask(img(), 6, 4, m, feather: 1);
+      final a = out[(1 * 6 + 2) * 4 + 3];
+      expect(a, lessThan(255));
+      expect(a, greaterThan(0));
+    });
+  });
+
+  group('favoritos', () {
+    test('páginas favoritas: marcar, titular, salvar', () {
+      final c = CanvasController(Notebook.empty('a', 'A'));
+      c.addPage();
+      c.addPage();
+      c.toggleMark(2);
+      c.toggleMark(0);
+      c.setMarkTitle(2, '  Mitose ');
+      expect(c.markedPages, [0, 2]);
+      final back = Notebook.fromJson(jsonDecode(jsonEncode(c.notebook.toJson())) as Map<String, dynamic>);
+      expect(back.pages[2].mark, 'Mitose');
+      expect(back.pages[0].mark, '');
+      expect(back.pages[1].mark, isNull);
+      c.toggleMark(0);
+      expect(c.markedPages, [2]);
+    });
+
+    test('caderno favorito sobrevive ao salvar', () {
+      final nb = Notebook.empty('a', 'A')..favorite = true;
+      final back = Notebook.fromJson(jsonDecode(jsonEncode(nb.toJson())) as Map<String, dynamic>);
+      expect(back.favorite, isTrue);
+      expect(Notebook.fromJson(Notebook.empty('b', 'B').toJson()).favorite, isFalse);
+    });
+  });
+
+  group('revisão', () {
+    Stroke hl(String id, Offset a, Offset b, {int color = 0x66FFEB3B}) => Stroke(
+        id: id, points: [a, b], color: color, width: 20, highlighter: true);
+
+    test('agrupa marca-textos próximos e ignora a caneta', () {
+      final pg = NotePage(strokes: [
+        hl('1-1', const Offset(100, 100), const Offset(400, 100)),
+        hl('2-1', const Offset(380, 110), const Offset(600, 110)), // encosta no primeiro
+        hl('3-1', const Offset(100, 700), const Offset(300, 700)), // longe
+        Stroke(id: '4-1', points: const [Offset(100, 300), Offset(300, 300)], color: 0xFF000000, width: 3),
+      ]);
+      final r = highlightRegions(pg);
+      expect(r.length, 2);
+      expect(r.first.top, lessThan(r.last.top));
+      expect(r.first.right, greaterThan(590));
+    });
+
+    test('recortes do caderno com página e cor', () {
+      final nb = Notebook.empty('a', 'A');
+      nb.pages.add(NotePage(strokes: [
+        hl('1-1', const Offset(50, 50), const Offset(200, 50), color: 0x66FF4081),
+      ]));
+      final clips = reviewClips(nb);
+      expect(clips.length, 1);
+      expect(clips.single.pageIndex, 1);
+      expect(clips.single.color, 0xFFFF4081);
+      expect(clips.single.rect.left, greaterThanOrEqualTo(0)); // dentro da página
+    });
+  });
+
+  group('pesquisa em PDF', () {
+    // "Olá mundo" com uma caixa de 10x10 por caractere (normalizado)
+    List<Rect> boxes(String t) => [
+          for (var i = 0; i < t.length; i++) Rect.fromLTWH(i * 0.01, 0.1, 0.01, 0.02),
+        ];
+
+    test('junta caracteres em palavras com a caixa certa', () {
+      const t = 'Olá mundo';
+      final w = wordsFromChars(t, boxes(t));
+      expect(w.map((x) => x.text), ['Olá', 'mundo']);
+      expect(w.first.box.left, 0);
+      expect(w.first.box.right, closeTo(0.03, 1e-9));
+      expect(w.last.box.left, closeTo(0.04, 1e-9));
+    });
+
+    test('busca sem acento e sem maiúscula, em sequência', () {
+      final nb = Notebook.empty('a', 'A');
+      const t = 'A célula é a unidade básica da vida';
+      nb.pages.first
+        ..pdfBg = PageImage(
+            id: 'p', bytes: Uint8List(0), rect: const Rect.fromLTWH(0, 0, 1000, 1414), front: false)
+        ..words = wordsFromChars(t, boxes(t));
+      expect(searchNotebook(nb, 'CELULA').length, 1);
+      expect(searchNotebook(nb, 'unidade basica').single.match, 'unidade básica');
+      expect(searchNotebook(nb, 'vida unidade'), isEmpty); // fora de ordem
+      expect(searchNotebook(nb, '   '), isEmpty);
+      final r = searchNotebook(nb, 'célula').single.rects.single;
+      expect(r.left, closeTo(0.02 * 1000, 1e-6)); // mapeado para a página do caderno
+    });
+
+    test('palavras sobrevivem ao salvar', () {
+      final pg = NotePage(words: [const PdfWord('oi', Rect.fromLTRB(0.1, 0.2, 0.3, 0.4))]);
+      final back = NotePage.fromJson(jsonDecode(jsonEncode(pg.toJson())) as Map<String, dynamic>);
+      expect(back.words!.single.text, 'oi');
+      expect(back.words!.single.box.right, closeTo(0.3, 1e-9));
+      expect(NotePage.fromJson(NotePage().toJson()).words, isNull);
+    });
+  });
+
+  group('backup', () {
+    test('zip: escreve e lê de volta, com acentos e arquivo vazio', () {
+      final ents = [
+        ZipEntry('Biologia/Célula.notas', Uint8List.fromList(List.generate(300, (i) => i % 251))),
+        ZipEntry('vazio.txt', Uint8List(0)),
+      ];
+      final back = readZip(writeZip(ents, when: DateTime(2026, 11, 22, 17)));
+      expect(back.map((e) => e.name), ['Biologia/Célula.notas', 'vazio.txt']);
+      expect(back.first.data, ents.first.data);
+      expect(back.last.data, isEmpty);
+      expect(() => readZip(Uint8List.fromList([1, 2, 3])), throwsFormatException);
+    });
+
+    test('crc32 conhecido', () {
+      // "123456789" -> 0xCBF43926 (valor de referência do CRC-32)
+      expect(crc32(Uint8List.fromList('123456789'.codeUnits)), 0xCBF43926);
+    });
+
+    test('backup .notas guarda pastas e nomes repetidos, e restaura', () async {
+      final fol = [Folder(id: 'f1', name: 'Biologia')];
+      final a = Notebook.empty('a', 'Aula')..folderId = 'f1';
+      final b = Notebook.empty('b', 'Aula'); // mesmo nome, outra pasta
+      final c = Notebook.empty('c', 'Aula'); // mesmo nome e pasta que b
+      final zip = await buildBackup([a, b, c], fol, pdf: false, lineSpacing: 40);
+      final names = readZip(zip).map((e) => e.name).toList();
+      expect(names, ['Biologia/Aula.notas', 'Aula.notas', 'Aula (2).notas']);
+
+      final books = <Notebook>[];
+      final folders = <Folder>[];
+      final r = await restoreBackup(zip, books, folders, _FakeStorage());
+      expect(r.added, 3);
+      expect(books.map((x) => x.id).toSet(), {'a', 'b', 'c'});
+      expect(folders.single.name, 'Biologia');
+      expect(books.firstWhere((x) => x.id == 'a').folderId, folders.single.id);
+      // restaurar de novo não duplica nem troca nada
+      final again = await restoreBackup(zip, books, folders, _FakeStorage());
+      expect(again.added, 0);
+      expect(again.skipped, 3);
+      expect(books.length, 3);
+    });
+  });
+
+  group('gráfico de funções', () {
+    double ev(String f, double x) => parseFunction(f)(x);
+
+    test('lê expressões comuns', () {
+      expect(ev('x^2 - 3x + 2', 3), closeTo(2, 1e-9));
+      expect(ev('y = 2x + 1', 4), closeTo(9, 1e-9));
+      expect(ev('f(x)=x²', -3), closeTo(9, 1e-9));
+      expect(ev('-x^2', 3), closeTo(-9, 1e-9)); // -(x^2)
+      expect(ev('2^3^2', 0), closeTo(512, 1e-9)); // potência associa à direita
+      expect(ev('2^-x', 1), closeTo(0.5, 1e-9));
+      expect(ev('3(x+1)', 1), closeTo(6, 1e-9)); // multiplicação implícita
+      expect(ev('2sin(x)', 0), closeTo(0, 1e-9));
+      expect(ev('sin(pi/2)', 0), closeTo(1, 1e-9));
+      expect(ev('sqrt(x)', 9), closeTo(3, 1e-9));
+      expect(ev('1/2x', 4), closeTo(2, 1e-9)); // (1/2)*x
+      expect(ev('e^x', 1), closeTo(2.718281828, 1e-6));
+      expect(ev('ln(e)', 0), closeTo(1, 1e-9));
+      expect(ev('abs(x)', -5), closeTo(5, 1e-9));
+      expect(ev('1,5x', 2), closeTo(3, 1e-9)); // vírgula decimal
+      expect(ev('x(x-1)', 3), closeTo(6, 1e-9));
+    });
+
+    test('domínio inválido vira não-finito', () {
+      expect(ev('sqrt(x)', -1).isNaN, isTrue);
+      expect(ev('1/x', 0).isInfinite, isTrue);
+      expect(ev('ln(x)', 0).isFinite, isFalse);
+    });
+
+    test('erros claros', () {
+      expect(() => parseFunction(''), throwsFormatException);
+      expect(() => parseFunction('2 +'), throwsFormatException);
+      expect(() => parseFunction('(x+1'), throwsFormatException);
+      expect(() => parseFunction('abc'), throwsFormatException);
+      expect(() => parseFunction('x # 2'), throwsFormatException);
+    });
+
+    test('passo redondo e faixa automática', () {
+      expect(niceStep(20), 2);
+      expect(niceStep(1), closeTo(0.1, 1e-12));
+      expect(niceStep(100), 10);
+      final (lo, hi) = autoYRange([parseFunction('x^2')], -3, 3);
+      expect(lo, lessThan(0.5));
+      expect(hi, greaterThan(8.5));
+      // assíntota de 1/x não estica a janela até o infinito
+      final (_, hi2) = autoYRange([parseFunction('1/x')], -5, 5);
+      expect(hi2, lessThan(100));
+    });
+
+    test('especificação sobrevive ao salvar', () {
+      final s = GraphSpec(
+        fns: [GraphFn('sin(x)', 0xFFE53935)],
+        xMin: -6.28,
+        xMax: 6.28,
+        autoY: false,
+        yMin: -2,
+        yMax: 2,
+        grid: false,
+      );
+      final b = GraphSpec.decode(s.encode())!;
+      expect(b.fns.single.expr, 'sin(x)');
+      expect(b.fns.single.color, 0xFFE53935);
+      expect(b.xMin, -6.28);
+      expect(b.autoY, isFalse);
+      expect(b.grid, isFalse);
+      expect(GraphSpec.decode('lixo'), isNull);
+    });
+
+    test('imagem de gráfico guarda a especificação e o base64 acompanha troca', () {
+      final im = PageImage(
+          id: 'g', bytes: Uint8List.fromList([1, 2]), rect: const Rect.fromLTWH(0, 0, 400, 300), graph: '{}');
+      final j1 = im.toJson();
+      im.bytes = Uint8List.fromList([9, 9, 9]);
+      final back = PageImage.fromJson(jsonDecode(jsonEncode(im.toJson())) as Map<String, dynamic>)!;
+      expect(back.graph, '{}');
+      expect(back.bytes, [9, 9, 9]); // não volta com a imagem antiga
+      expect(j1['d'], isNot(im.toJson()['d']));
+    });
+  });
+}
+
+class _FakeStorage extends NotebookStorage {
+  @override
+  Future<void> save(Notebook nb) async {}
+  @override
+  Future<void> saveFolders(List<Folder> folders) async {}
 }

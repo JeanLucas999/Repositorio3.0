@@ -19,14 +19,17 @@ const List<double> kNoteSizes = [18, 26, 38];
 class PageImage {
   PageImage({
     required this.id,
-    required this.bytes,
+    required Uint8List bytes,
     required this.rect,
     this.front = true,
     int? z,
     this.text,
     this.noteColor = 0xFFFFF59D,
     this.fontSize = 26,
-  }) : z = z ?? DateTime.now().microsecondsSinceEpoch;
+    this.angle = 0,
+    this.graph,
+  })  : _bytes = bytes,
+        z = z ?? DateTime.now().microsecondsSinceEpoch;
 
   /// Post-it: texto digitado, cor do papel e tamanho da letra.
   String? text;
@@ -55,8 +58,49 @@ class PageImage {
     return _tp!;
   }
 
+  /// Rotação (radianos, sentido horário) em torno do centro de [rect].
+  double angle;
+
+  /// Caixa alinhada aos eixos que envolve a imagem já girada.
+  ui.Rect get bounds {
+    if (angle == 0) return rect;
+    final c = rect.center, cs = math.cos(angle), sn = math.sin(angle);
+    var minX = double.infinity, minY = double.infinity;
+    var maxX = -double.infinity, maxY = -double.infinity;
+    for (final q in [rect.topLeft, rect.topRight, rect.bottomRight, rect.bottomLeft]) {
+      final d = q - c;
+      final x = c.dx + d.dx * cs - d.dy * sn, y = c.dy + d.dx * sn + d.dy * cs;
+      minX = math.min(minX, x);
+      maxX = math.max(maxX, x);
+      minY = math.min(minY, y);
+      maxY = math.max(maxY, y);
+    }
+    return ui.Rect.fromLTRB(minX, minY, maxX, maxY);
+  }
+
+  /// O ponto [p] (página) está sobre a imagem, contando [margin] de folga?
+  bool containsPoint(ui.Offset p, [double margin = 0]) {
+    if (angle == 0) return rect.inflate(margin).contains(p);
+    final c = rect.center, cs = math.cos(-angle), sn = math.sin(-angle);
+    final d = p - c;
+    final local = ui.Offset(c.dx + d.dx * cs - d.dy * sn, c.dy + d.dx * sn + d.dy * cs);
+    return rect.inflate(margin).contains(local);
+  }
+
   final String id;
-  final Uint8List bytes; // PNG ou JPEG
+  Uint8List _bytes;
+
+  /// PNG ou JPEG. Pode mudar (ex.: fundo removido, gráfico editado); trocar
+  /// invalida o texto base64 guardado para salvar.
+  Uint8List get bytes => _bytes;
+  set bytes(Uint8List v) {
+    _bytes = v;
+    _b64 = null;
+  }
+
+  /// Gráfico de função: especificação (JSON) usada para redesenhar/editar.
+  String? graph;
+  bool get isGraph => graph != null;
   ui.Rect rect;
 
   /// Camada: true = na frente de tudo (padrão); false = atrás da tinta.
@@ -95,6 +139,7 @@ class PageImage {
         'w': _r(rect.width),
         'h': _r(rect.height),
         if (!front) 'back': true,
+        if (angle != 0) 'r': (angle * 10000).roundToDouble() / 10000,
         'z': z,
         if (isNote) ...{
           'tx': text,
@@ -102,6 +147,7 @@ class PageImage {
           'fs': fontSize,
         } else
           'd': _b64 ??= base64Encode(bytes),
+        if (graph != null) 'gr': graph,
       };
 
   static PageImage? fromJson(Map<String, dynamic> j) {
@@ -117,6 +163,8 @@ class PageImage {
         noteColor: (j['nc'] as num?)?.toInt() ?? 0xFFFFF59D,
         fontSize: (j['fs'] as num?)?.toDouble() ?? 26,
         front: j['back'] != true,
+        angle: (j['r'] as num?)?.toDouble() ?? 0,
+        graph: j['gr'] as String?,
         z: (j['z'] as num?)?.toInt() ?? 0,
         rect: ui.Rect.fromLTWH((j['x'] as num).toDouble(), (j['y'] as num).toDouble(), w, h),
       );
@@ -132,24 +180,35 @@ class PageImage {
 void paintImages(ui.Canvas canvas, Iterable<PageImage> images, ui.VoidCallback onReady,
     {ui.Rect? visible}) {
   for (final im in images) {
-    if (visible != null && !im.rect.overlaps(visible)) continue;
-    if (im.isNote) {
-      paintNote(canvas, im);
-      continue;
-    }
+    if (visible != null && !im.bounds.overlaps(visible)) continue;
     final img = im.image;
-    if (img == null) {
+    if (!im.isNote && img == null) {
       im.ensureDecoded(onReady);
       continue;
     }
-    canvas.drawImageRect(
-      img,
-      ui.Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
-      im.rect,
-      ui.Paint()
-        ..filterQuality = ui.FilterQuality.medium
-        ..isAntiAlias = true,
-    );
+    canvas.save();
+    if (im.angle != 0) {
+      final c = im.rect.center;
+      canvas.translate(c.dx, c.dy);
+      canvas.rotate(im.angle);
+      canvas.translate(-c.dx, -c.dy);
+    }
+    if (im.isNote) {
+      paintNote(canvas, im);
+      canvas.restore();
+      continue;
+    }
+    if (img != null) {
+      canvas.drawImageRect(
+        img,
+        ui.Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
+        im.rect,
+        ui.Paint()
+          ..filterQuality = ui.FilterQuality.medium
+          ..isAntiAlias = true,
+      );
+    }
+    canvas.restore();
   }
 }
 

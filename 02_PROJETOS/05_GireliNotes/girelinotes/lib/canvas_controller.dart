@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 
 import 'geometry.dart';
+import 'layers.dart';
 import 'models.dart';
 import 'pen_tune.dart';
 import 'page_image.dart';
@@ -14,6 +16,9 @@ import 'shapes.dart';
 
 /// pen/fountain = canetas; shape = formas básicas (reta, seta, retângulo...);
 /// pan = mãozinha (a caneta arrasta a página em vez de desenhar).
+/// Espaço entre as páginas na rolagem contínua.
+const double kPageGap = 24;
+
 enum Tool { pen, fountain, brush, smart, select, highlighter, shape, eraser, pan }
 
 class _Ping extends ChangeNotifier {
@@ -46,6 +51,43 @@ class CanvasController extends ChangeNotifier {
   /// Avisa as camadas de traços já prontos (repinta só quando algo é confirmado).
   final _Ping _committed = _Ping();
   Listenable get committed => _committed;
+
+  // ---- traços recentes ----
+  // Repintar a tinta inteira a cada traço solto custa mais quanto maior o
+  // caderno (trava ao escrever). Então o traço que acabou de ser feito fica numa
+  // camada pequena à parte e só é "fundido" na tinta principal depois de uma
+  // pausa na escrita, ou quando junta muitos, ou quando qualquer outra coisa muda.
+  final _Ping _recent = _Ping();
+  Listenable get recentInk => _recent;
+  final List<({int page, Stroke stroke})> recentStrokes = [];
+  Timer? _mergeTimer;
+
+  /// Liga a camada de recentes. Desligável:
+  /// os testes de widget não aceitam temporizadores pendentes.
+  static bool useRecentLayer = true;
+
+  /// Repinta a tinta principal (já com os recentes dentro) e esvazia a camada de recentes.
+  void _pingCommitted() {
+    _mergeTimer?.cancel();
+    _mergeTimer = null;
+    if (recentStrokes.isNotEmpty) {
+      recentStrokes.clear();
+      _recent.ping();
+    }
+    _committed.ping();
+  }
+
+  /// Traço novo que cabe na camada de recentes (sem marca-texto nem preenchimento).
+  void _addRecent(Stroke s, int pageIdx) {
+    recentStrokes.add((page: pageIdx, stroke: s));
+    _recent.ping();
+    if (recentStrokes.length >= 120) {
+      _pingCommitted();
+      return;
+    }
+    _mergeTimer?.cancel();
+    _mergeTimer = Timer(const Duration(milliseconds: 1500), _pingCommitted);
+  }
 
   /// Avisa a camada do traço de tinta que está sendo desenhado agora.
   final _Ping _live = _Ping();
@@ -243,6 +285,7 @@ class CanvasController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _mergeTimer?.cancel();
     settings.removeListener(notifyListeners);
     super.dispose();
   }
@@ -695,7 +738,8 @@ class CanvasController extends ChangeNotifier {
       },
     ));
     pg.strokes.add(s);
-    _bump();
+    final quick = useRecentLayer && !shapeDone && !s.highlighter && s.fill == null;
+    _bump(fresh: quick ? s : null);
     if (shapeDone) _startEditing(s); // logo após criar, dá para redimensionar
     _pingLive(force: true);
   }
@@ -769,7 +813,7 @@ class CanvasController extends ChangeNotifier {
       r = r == null ? s.bounds : r.expandToInclude(s.bounds);
     }
     for (final im in selImages) {
-      r = r == null ? im.rect : r.expandToInclude(im.rect);
+      r = r == null ? im.bounds : r.expandToInclude(im.bounds);
     }
     return r;
   }
@@ -778,7 +822,7 @@ class CanvasController extends ChangeNotifier {
 
   /// Chamado quando uma imagem terminou de decodificar: repinta as páginas.
   void imageReady() {
-    _committed.ping();
+    _pingCommitted();
     _live.ping();
   }
 
@@ -800,7 +844,7 @@ class CanvasController extends ChangeNotifier {
   /// Insere uma imagem (PNG, JPEG, WebP...) na página ativa, centrada em [at]
   /// (ou no centro da área visível). Passa para a ferramenta de seleção.
   /// Retorna false se os bytes não forem uma imagem.
-  Future<bool> insertImageBytes(Uint8List raw, {Offset? at, int? pageNo}) async {
+  Future<bool> insertImageBytes(Uint8List raw, {Offset? at, int? pageNo, String? graph}) async {
     final prep = await prepareImage(raw);
     if (prep == null) return false;
     if (pageNo != null) activatePage(pageNo);
@@ -817,7 +861,8 @@ class CanvasController extends ChangeNotifier {
       left = left.clamp(0.0, math.max(0.0, ps.width - w)).toDouble();
       top = top.clamp(0.0, math.max(0.0, ps.height - h)).toDouble();
     }
-    _adoptNew(PageImage(id: _newId(), bytes: prep.$1, rect: Rect.fromLTWH(left, top, w, h)));
+    _adoptNew(PageImage(
+        id: _newId(), bytes: prep.$1, rect: Rect.fromLTWH(left, top, w, h), graph: graph));
     return true;
   }
 
@@ -891,7 +936,7 @@ class CanvasController extends ChangeNotifier {
     notebook.modified = DateTime.now();
     onDocumentChanged?.call();
     version++;
-    _committed.ping();
+    _pingCommitted();
     _live.ping();
     notifyListeners();
   }
@@ -937,20 +982,37 @@ class CanvasController extends ChangeNotifier {
     return false;
   }
 
+  /// Seleciona o item mais à frente sob o ponto, respeitando as camadas:
+  /// imagens de trás < camada 0 < imagem da frente 1 < camada 1 < ...
+  /// (dentro de uma camada: marca-texto, depois tinta; o mais novo fica por cima).
   void _pickAt(Offset p, double tol) {
     final pg = page;
-    for (var i = pg.strokes.length - 1; i >= 0; i--) {
-      if (_hitStroke(pg.strokes[i], p, tol)) {
-        selStrokes.add(pg.strokes[i]);
-        return;
+    final fr = frontImages(pg);
+    double bestRank = -double.infinity;
+    Stroke? bestS;
+    PageImage? bestI;
+    void offer(double rank, Stroke? s, PageImage? im) {
+      if (rank >= bestRank) {
+        bestRank = rank;
+        bestS = s;
+        bestI = im;
       }
     }
-    for (var i = pg.images.length - 1; i >= 0; i--) {
-      if (pg.images[i].rect.inflate(2).contains(p)) {
-        selImages.add(pg.images[i]);
-        return;
-      }
+
+    for (var i = 0; i < pg.images.length; i++) {
+      final im = pg.images[i];
+      if (!im.containsPoint(p, 2)) continue;
+      final k = im.front ? fr.indexOf(im) + 1 : 0;
+      offer(im.front ? 2.0 * k : -1 + i / 1e6, null, im);
     }
+    for (var i = 0; i < pg.strokes.length; i++) {
+      final s = pg.strokes[i];
+      if (!_hitStroke(s, p, tol)) continue;
+      final k = fr.isEmpty ? 0 : strokeLayer(s, fr);
+      offer(2.0 * k + (s.highlighter ? 0.5 : 1) + i / 1e6, s, null);
+    }
+    if (bestS != null) selStrokes.add(bestS!);
+    if (bestI != null) selImages.add(bestI!);
   }
 
   void _selectInside(List<Offset> poly) {
@@ -970,25 +1032,131 @@ class CanvasController extends ChangeNotifier {
   }
 
   // --- mover / redimensionar a seleção ---
+  Map<Stroke, double> _origW = {};
+  Map<Stroke, List<double>?> _origWs = {};
   Map<Stroke, List<Offset>> _origPts = {};
   Map<PageImage, Rect> _origRects = {};
   Rect _selBox = Rect.zero;
   Offset _selGrab = Offset.zero;
-  int _selHandle = -2; // -2 nada, -1 mover, 0..3 cantos (TL, TR, BR, BL), 4..7 lados (T, R, B, L)
+  int _selHandle = -2; // -2 nada, -1 mover, 0..3 cantos (TL, TR, BR, BL), 4..7 lados (T, R, B, L), 8 girar
   bool _selMoved = false;
+  Map<PageImage, double> _origAngles = {};
+  Map<Stroke, List<Offset>?> _origNorms = {};
+  Map<Stroke, List<Offset>> _origFill = {};
+  double _rotStart = 0;
+  double _rotAbs = 0; // rotação total aplicada (rad)
+
+  // --- girar a seleção ---
+  /// Seleção de uma única imagem (ou post-it): a moldura acompanha o giro dela,
+  /// em vez de ser a caixa que a envolve.
+  PageImage? get singleImage =>
+      (tool == Tool.select && selStrokes.isEmpty && selImages.length == 1) ? selImages.first : null;
+
+  /// Gira [local] (ponto no quadro da imagem sem giro) em torno do centro de [im].
+  Offset _turn(PageImage im, Offset local, [double? ang]) {
+    final c = im.rect.center, a = ang ?? im.angle;
+    final cs = math.cos(a), sn = math.sin(a);
+    final d = local - c;
+    return Offset(c.dx + d.dx * cs - d.dy * sn, c.dy + d.dx * sn + d.dy * cs);
+  }
+
+  /// Alça de girar: acima do centro da moldura.
+  Offset? rotateHandlePos(double scale) {
+    final r = selBounds;
+    if (!hasSel || r == null) return null;
+    final im = singleImage;
+    if (im != null) {
+      return _turn(im, Offset(im.rect.center.dx, im.rect.top - 30 / scale));
+    }
+    return Offset(r.center.dx, r.top - 30 / scale);
+  }
+
+  bool hitRotate(Offset p, double scale) {
+    final h = rotateHandlePos(scale);
+    return h != null && dist(h, p) <= 16 / scale;
+  }
+
+  void beginSelRotate(Offset p, double scale) {
+    if (!hasSel) return;
+    _snapSel();
+    _origAngles = {for (final im in selImages) im: im.angle};
+    _origNorms = {for (final s in selStrokes) s: s.fillNorm == null ? null : List<Offset>.of(s.fillNorm!)};
+    _origFill = {for (final s in selStrokes) if (s.fillNorm != null) s: s.fillPolygon};
+    _selHandle = 8;
+    _rotStart = math.atan2(p.dy - _selBox.center.dy, p.dx - _selBox.center.dx);
+    _rotAbs = 0;
+  }
+
+  void _rotateBy(double d) {
+    final c = _selBox.center;
+    final cs = math.cos(d), sn = math.sin(d);
+    Offset rot(Offset q) {
+      final v = q - c;
+      return Offset(c.dx + v.dx * cs - v.dy * sn, c.dy + v.dx * sn + v.dy * cs);
+    }
+
+    for (final s in selStrokes) {
+      final o = _origPts[s];
+      if (o == null) continue;
+      s.points = [for (final q in o) rot(q)];
+      final poly = _origFill[s];
+      if (poly != null) {
+        // a silhueta do preenchimento é relativa à caixa do traço: refaz na nova caixa
+        final bb = boundsOf(s.points);
+        final w = math.max(bb.width, 1e-9), h = math.max(bb.height, 1e-9);
+        s.fillNorm = [
+          for (final q in poly) () {
+            final r = rot(q);
+            return Offset((r.dx - bb.left) / w, (r.dy - bb.top) / h);
+          }(),
+        ];
+      }
+      s.invalidate();
+    }
+    for (final im in selImages) {
+      final o = _origRects[im];
+      if (o == null) continue;
+      im.rect = Rect.fromCenter(center: rot(o.center), width: o.width, height: o.height);
+      im.angle = (_origAngles[im] ?? 0) + d;
+    }
+    _selMoved = true;
+    _pingCommitted();
+    _live.ping();
+  }
+
+  void _rotateDrag(Offset p) {
+    final c = _selBox.center;
+    var d = math.atan2(p.dy - c.dy, p.dx - c.dx) - _rotStart;
+    // gruda de 15° em 15° quando está perto (no ângulo final, se for uma imagem só)
+    const step = math.pi / 12, tol = math.pi / 45;
+    final base = (selStrokes.isEmpty && selImages.length == 1)
+        ? (_origAngles[selImages.first] ?? 0)
+        : 0.0;
+    final target = base + d;
+    final near = (target / step).roundToDouble() * step;
+    if ((target - near).abs() < tol) d = near - base;
+    _rotAbs = d;
+    _rotateBy(d);
+  }
 
   List<Offset> selHandles() {
-    final r = selBounds;
+    final im = singleImage;
+    final r = im?.rect ?? selBounds;
     if (r == null) return const [];
-    return [
+    final pts = [
       r.topLeft, r.topRight, r.bottomRight, r.bottomLeft,
       // lados: só quando a seleção é de imagens/post-its (esticam sem manter a proporção)
       if (stretchable) ...[r.topCenter, r.centerRight, r.bottomCenter, r.centerLeft],
     ];
+    return im == null || im.angle == 0 ? pts : [for (final q in pts) _turn(im, q)];
   }
 
-  /// Seleção só de imagens e post-its: aceita esticar por um lado.
-  bool get stretchable => selStrokes.isEmpty && selImages.isNotEmpty;
+  /// Seleção só de imagens e post-its: aceita esticar por um lado. Uma imagem
+  /// sozinha estica mesmo girada (nos eixos dela); várias, só se nenhuma girou.
+  bool get stretchable =>
+      selStrokes.isEmpty &&
+      selImages.isNotEmpty &&
+      (selImages.length == 1 || selImages.every((m) => m.angle == 0));
 
   int? hitSelHandle(Offset p, double tol) {
     final hs = selHandles();
@@ -1004,14 +1172,23 @@ class CanvasController extends ChangeNotifier {
     return best;
   }
 
-  bool selContains(Offset p) => selBounds?.inflate(6).contains(p) ?? false;
+  bool selContains(Offset p) {
+    final im = singleImage;
+    if (im != null) return im.containsPoint(p, 6);
+    return selBounds?.inflate(6).contains(p) ?? false;
+  }
 
   void _snapSel() {
-    _selBox = selBounds ?? Rect.zero;
+    _selBox = singleImage?.rect ?? selBounds ?? Rect.zero;
     _origPts = {for (final s in selStrokes) s: List<Offset>.of(s.points)};
     _origRects = {for (final im in selImages) im: im.rect};
+    _origW = {for (final s in selStrokes) s: s.width};
+    _origWs = {for (final s in selStrokes) s: s.widths == null ? null : List<double>.of(s.widths!)};
     _selMoved = false;
   }
+
+  /// Arrastando a seleção (mover, não esticar nem girar).
+  bool get movingSel => _selHandle == -1 && _selMoved;
 
   void beginSelMove(Offset p) {
     if (!hasSel) return;
@@ -1039,13 +1216,22 @@ class CanvasController extends ChangeNotifier {
       im.rect = Rect.fromPoints(f(o.topLeft), f(o.bottomRight));
     }
     _selMoved = true;
-    _committed.ping();
+    _pingCommitted();
     _live.ping();
   }
 
   /// Move ou redimensiona (proporcional, a partir do canto oposto) a seleção.
   void selDragTo(Offset p) {
     if (_selHandle == -2) return;
+    final one = singleImage;
+    if (one != null && one.angle != 0 && _selHandle >= 0 && _selHandle <= 7) {
+      _resizeTurned(one, p);
+      return;
+    }
+    if (_selHandle == 8) {
+      _rotateDrag(p);
+      return;
+    }
     if (_selHandle == -1) {
       final d = p - _selGrab;
       _applySel((q) => q + d);
@@ -1080,41 +1266,234 @@ class CanvasController extends ChangeNotifier {
     final sx = (_selHandle == 1 || _selHandle == 2) ? 1.0 : -1.0;
     final sy = (_selHandle == 2 || _selHandle == 3) ? 1.0 : -1.0;
     final w = math.max(o.width, 1.0), h = math.max(o.height, 1.0);
-    final k = math.max(math.max((p.dx - anchor.dx) * sx / w, (p.dy - anchor.dy) * sy / h), 0.05);
+    // projeta o cursor na diagonal do canto: a alça fica o mais perto possível
+    // do cursor mesmo em objetos muito largos ou altos
+    final dx = w * sx, dy = h * sy;
+    final k = math.max(
+        ((p.dx - anchor.dx) * dx + (p.dy - anchor.dy) * dy) / (dx * dx + dy * dy), 0.05);
     _applySel((q) => anchor + (q - anchor) * k);
+    _scaleInk(k); // a grossura do traço acompanha o tamanho
   }
 
-  void _restoreSel(Map<Stroke, List<Offset>> pts, Map<PageImage, Rect> rects) {
+  /// Escala a grossura dos traços selecionados por [k] (a partir da original).
+  void _scaleInk(double k) {
+    for (final s in selStrokes) {
+      final w0 = _origW[s];
+      if (w0 == null) continue;
+      s.width = math.max(w0 * k, 0.2);
+      final ws0 = _origWs[s];
+      if (ws0 != null) s.widths = [for (final v in ws0) v * k];
+      s.invalidate();
+    }
+  }
+
+  /// Redimensiona uma imagem girada nos eixos dela: o cursor é levado para o
+  /// quadro sem giro, o retângulo é calculado ali e depois recolocado girado,
+  /// mantendo o canto/lado oposto parado na tela.
+  void _resizeTurned(PageImage im, Offset p) {
+    final o = _origRects[im];
+    if (o == null) return;
+    final a = im.angle; // não muda ao esticar
+    final c0 = o.center;
+    final cs = math.cos(-a), sn = math.sin(-a);
+    final d = p - c0;
+    final q = Offset(c0.dx + d.dx * cs - d.dy * sn, c0.dy + d.dx * sn + d.dy * cs);
+    final w = math.max(o.width, 1.0), h = math.max(o.height, 1.0);
+    const minK = 0.05;
+    var l = o.left, t = o.top, r = o.right, b = o.bottom;
+    switch (_selHandle) {
+      case 4:
+        t = o.bottom - math.max(o.bottom - q.dy, h * minK);
+      case 5:
+        r = o.left + math.max(q.dx - o.left, w * minK);
+      case 6:
+        b = o.top + math.max(q.dy - o.top, h * minK);
+      case 7:
+        l = o.right - math.max(o.right - q.dx, w * minK);
+      default:
+        final anchor = switch (_selHandle) {
+          0 => o.bottomRight,
+          1 => o.bottomLeft,
+          2 => o.topLeft,
+          _ => o.topRight,
+        };
+        final sx = (_selHandle == 1 || _selHandle == 2) ? 1.0 : -1.0;
+        final sy = (_selHandle == 2 || _selHandle == 3) ? 1.0 : -1.0;
+        final dx = w * sx, dy = h * sy;
+        final k = math.max(
+            ((q.dx - anchor.dx) * dx + (q.dy - anchor.dy) * dy) / (dx * dx + dy * dy), minK);
+        final pa = anchor, pb = anchor + Offset(dx, dy) * k;
+        l = math.min(pa.dx, pb.dx);
+        r = math.max(pa.dx, pb.dx);
+        t = math.min(pa.dy, pb.dy);
+        b = math.max(pa.dy, pb.dy);
+    }
+    final local = Rect.fromLTRB(l, t, r, b);
+    // centro real na página: o do retângulo novo, girado em torno do centro antigo
+    final lc = local.center - c0;
+    final ca = math.cos(a), sa = math.sin(a);
+    final world = Offset(c0.dx + lc.dx * ca - lc.dy * sa, c0.dy + lc.dx * sa + lc.dy * ca);
+    im.rect = Rect.fromCenter(center: world, width: local.width, height: local.height);
+    _selMoved = true;
+    _pingCommitted();
+    _live.ping();
+  }
+
+  void _restoreSel(Map<Stroke, List<Offset>> pts, Map<PageImage, Rect> rects,
+      [Map<PageImage, double>? angles,
+      Map<Stroke, List<Offset>?>? norms,
+      Map<Stroke, double>? widthOf,
+      Map<Stroke, List<double>?>? widthsOf]) {
+    widthOf?.forEach((s, w) => s.width = w);
+    widthsOf?.forEach((s, w) => s.widths = w == null ? null : List<double>.of(w));
     pts.forEach((s, o) {
       s.points = List<Offset>.of(o);
+      final n = norms?[s];
+      if (norms != null && norms.containsKey(s)) s.fillNorm = n == null ? null : List<Offset>.of(n);
       s.invalidate();
     });
     rects.forEach((im, r) => im.rect = r);
+    angles?.forEach((im, a) => im.angle = a);
   }
 
   void endSelDrag() {
     if (_selHandle == -2) return;
+    final wasRot = _selHandle == 8;
+    final wasMove = _selHandle == -1;
     _selHandle = -2;
     if (!_selMoved) return;
     final bp = _origPts, br = _origRects;
+    // Soltou numa outra página? Então a seleção muda de página.
+    final xfer = wasMove ? _transferToPageUnderSel() : null;
     final ap = {for (final s in selStrokes) s: List<Offset>.of(s.points)};
     final ar = {for (final im in selImages) im: im.rect};
-    final pg = page;
+    final rotated = wasRot;
+    final ba = rotated ? _origAngles : null, bn = rotated ? _origNorms : null;
+    final aa = rotated ? {for (final im in selImages) im: im.angle} : null;
+    final an = rotated
+        ? {for (final s in selStrokes) s: s.fillNorm == null ? null : List<Offset>.of(s.fillNorm!)}
+        : null;
+    final bw = _origW, bws = _origWs;
+    final aw = {for (final s in selStrokes) s: s.width};
+    final aws = {for (final s in selStrokes) s: s.widths == null ? null : List<double>.of(s.widths!)};
+    final pg = xfer?.from ?? page;
+    final dest = xfer?.to ?? pg;
     _push(_Action(
       () {
-        _restoreSel(bp, br);
+        if (xfer != null) xfer.back();
+        _restoreSel(bp, br, ba, bn, bw, bws);
         _show(pg);
       },
       () {
-        _restoreSel(ap, ar);
-        _show(pg);
+        if (xfer != null) xfer.forth();
+        _restoreSel(ap, ar, aa, an, aw, aws);
+        _show(dest);
       },
     ));
+    _rotAbs = 0;
     notebook.modified = DateTime.now();
     onDocumentChanged?.call();
     version++;
-    _committed.ping();
+    _pingCommitted();
     notifyListeners();
+  }
+
+  /// Se o centro da seleção caiu em outra página, passa os itens para ela
+  /// (já com as coordenadas convertidas) e devolve como desfazer/refazer.
+  /// Chamado ao soltar o arrasto; as posições originais seguem em [_origPts].
+  ({NotePage from, NotePage to, VoidCallback back, VoidCallback forth})? _transferToPageUnderSel() {
+    if (notebook.infinite) return null;
+    final b = selBounds;
+    if (b == null) return null;
+    final stride = notebook.pageSize.height + kPageGap;
+    final n = notebook.pages.length;
+    final target = ((b.center.dy + pageIndex * stride) / stride).floor().clamp(0, n - 1).toInt();
+    if (target == pageIndex) return null;
+    final from = page, to = notebook.pages[target];
+    final strokes = List<Stroke>.of(selStrokes), imgs = List<PageImage>.of(selImages);
+    final sIdx = {for (final s in strokes) s: from.strokes.indexOf(s)};
+    final iIdx = {for (final m in imgs) m: from.images.indexOf(m)};
+    final dy = (pageIndex - target) * stride; // coordenada na origem -> no destino
+
+    void shift(double d) {
+      for (final s in strokes) {
+        s.points = [for (final q in s.points) q.translate(0, d)];
+        s.invalidate();
+      }
+      for (final m in imgs) {
+        m.rect = m.rect.shift(Offset(0, d));
+      }
+    }
+
+    void forth() {
+      from.strokes.removeWhere(strokes.contains);
+      from.images.removeWhere(imgs.contains);
+      to.strokes.addAll(strokes);
+      to.images.addAll(imgs);
+    }
+
+    void back() {
+      to.strokes.removeWhere(strokes.contains);
+      to.images.removeWhere(imgs.contains);
+      final so = strokes.toList()..sort((a, b) => sIdx[a]!.compareTo(sIdx[b]!));
+      for (final s in so) {
+        from.strokes.insert(sIdx[s]!.clamp(0, from.strokes.length).toInt(), s);
+      }
+      final io = imgs.toList()..sort((a, b) => iIdx[a]!.compareTo(iIdx[b]!));
+      for (final m in io) {
+        from.images.insert(iIdx[m]!.clamp(0, from.images.length).toInt(), m);
+      }
+    }
+
+    shift(dy);
+    forth();
+    pageIndex = target;
+    return (
+      from: from,
+      to: to,
+      // desfazer: tira dos novos lugares; as posições originais vêm de _restoreSel
+      back: back,
+      forth: forth,
+    );
+  }
+
+  /// Troca a imagem por outra versão (ex.: sem fundo), com desfazer.
+  Future<bool> replaceImageBytes(PageImage im, Uint8List bytes, {String? graph}) async {
+    try {
+      final codec = await instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+      final oldBytes = im.bytes;
+      final oldImage = im.image;
+      final oldGraph = im.graph;
+      final newImage = frame.image;
+      final newGraph = graph ?? im.graph;
+      final pg = page;
+      im.bytes = bytes;
+      im.image = newImage;
+      im.graph = newGraph;
+      _push(_Action(
+        () {
+          im.bytes = oldBytes;
+          im.image = oldImage;
+          im.graph = oldGraph;
+          _show(pg);
+        },
+        () {
+          im.bytes = bytes;
+          im.image = newImage;
+          im.graph = newGraph;
+          _show(pg);
+        },
+      ));
+      notebook.modified = DateTime.now();
+      onDocumentChanged?.call();
+      version++;
+      _pingCommitted();
+      notifyListeners();
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   // --- camada das imagens (frente/atrás) ---
@@ -1124,6 +1503,8 @@ class CanvasController extends ChangeNotifier {
     if (!hasSel || selImages.isEmpty) return null;
     final r = selBounds;
     if (r == null) return null;
+    final im = singleImage;
+    if (im != null) return _turn(im, im.rect.topRight) + Offset(24 / scale, -24 / scale);
     return r.topRight + Offset(24 / scale, -24 / scale);
   }
 
@@ -1163,7 +1544,7 @@ class CanvasController extends ChangeNotifier {
     notebook.modified = DateTime.now();
     onDocumentChanged?.call();
     version++;
-    _committed.ping();
+    _pingCommitted();
     _live.ping();
     notifyListeners();
   }
@@ -1211,7 +1592,8 @@ class CanvasController extends ChangeNotifier {
 
   PageImage _cloneImage(PageImage im, Offset shift) =>
       PageImage(id: _newId(), bytes: im.bytes, rect: im.rect.shift(shift),
-          front: im.front, text: im.text, noteColor: im.noteColor, fontSize: im.fontSize)
+          front: im.front, text: im.text, noteColor: im.noteColor, fontSize: im.fontSize,
+          angle: im.angle, graph: im.graph)
         ..image = im.image;
 
   /// Adiciona cópias à página ativa (desfazível) e as seleciona.
@@ -1275,7 +1657,7 @@ class CanvasController extends ChangeNotifier {
       first = false;
     }
     for (final im in _clipI) {
-      box = first ? im.rect : box.expandToInclude(im.rect);
+      box = first ? im.bounds : box.expandToInclude(im.bounds);
       first = false;
     }
     final ps = notebook.pageSize;
@@ -1326,7 +1708,7 @@ class CanvasController extends ChangeNotifier {
     selStrokes
       ..clear()
       ..addAll(newSel);
-    _committed.ping();
+    _pingCommitted();
     _live.ping();
     notifyListeners();
   }
@@ -1355,7 +1737,7 @@ class CanvasController extends ChangeNotifier {
     notebook.modified = DateTime.now();
     onDocumentChanged?.call();
     version++;
-    _committed.ping();
+    _pingCommitted();
     notifyListeners();
   }
 
@@ -1473,7 +1855,7 @@ class CanvasController extends ChangeNotifier {
       ];
     }
     s.invalidate();
-    _committed.ping();
+    _pingCommitted();
     _live.ping();
   }
 
@@ -1483,7 +1865,7 @@ class CanvasController extends ChangeNotifier {
     notebook.modified = DateTime.now();
     onDocumentChanged?.call();
     version++;
-    _committed.ping();
+    _pingCommitted();
     notifyListeners();
   }
 
@@ -1566,7 +1948,7 @@ class CanvasController extends ChangeNotifier {
     if (changed) {
       _eraseChanged = true;
       version++;
-      _committed.ping();
+      _pingCommitted();
     }
   }
 
@@ -1727,12 +2109,16 @@ class CanvasController extends ChangeNotifier {
     scrollTick++;
   }
 
-  void _bump() {
+  void _bump({Stroke? fresh}) {
     editing = null;
     _dropSel();
     version++;
     notebook.modified = DateTime.now();
-    _committed.ping();
+    if (fresh != null) {
+      _addRecent(fresh, pageIndex);
+    } else {
+      _pingCommitted();
+    }
     notifyListeners();
     onDocumentChanged?.call();
   }
@@ -1797,6 +2183,43 @@ class CanvasController extends ChangeNotifier {
     _redo.clear();
     _bump();
     _pingLive(force: true);
+  }
+
+  // --- pesquisa no texto de PDFs importados ---
+  /// Trechos encontrados, por página (coordenadas da página), para destacar.
+  Map<int, List<Rect>> searchRects = {};
+
+  void setSearchRects(Map<int, List<Rect>> m) {
+    if (m.isEmpty && searchRects.isEmpty) return;
+    searchRects = m;
+    _pingCommitted();
+    notifyListeners();
+  }
+
+  // --- páginas favoritas ---
+  /// Índices das páginas favoritas, em ordem.
+  List<int> get markedPages => [
+        for (var i = 0; i < notebook.pages.length; i++)
+          if (notebook.pages[i].mark != null) i,
+      ];
+
+  void toggleMark(int i) {
+    if (i < 0 || i >= notebook.pages.length) return;
+    final p = notebook.pages[i];
+    p.mark = p.mark == null ? '' : null;
+    _markChanged();
+  }
+
+  void setMarkTitle(int i, String title) {
+    if (i < 0 || i >= notebook.pages.length) return;
+    notebook.pages[i].mark = title.trim();
+    _markChanged();
+  }
+
+  void _markChanged() {
+    notebook.modified = DateTime.now();
+    onDocumentChanged?.call();
+    notifyListeners();
   }
 
   void cycleBackground() {

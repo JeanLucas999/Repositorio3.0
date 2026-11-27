@@ -5,6 +5,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
 
 import 'canvas_view.dart';
+import 'backup_service.dart';
+import 'backup_ui.dart';
 import 'dialogs.dart';
 import 'drive_auth.dart';
 import 'drive_sync.dart';
@@ -119,8 +121,13 @@ class _LibraryPageState extends State<LibraryPage> {
   List<Object> get _items {
     final fs = _folders.where((f) => f.parentId == _cwd).toList()
       ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-    final bs = (_books ?? const <Notebook>[]).where((b) => b.folderId == _cwd);
-    return [...fs, ...bs];
+    final bs = (_books ?? const <Notebook>[]).where((b) => b.folderId == _cwd).toList();
+    // pastas; depois os favoritos; depois os demais cadernos
+    return [
+      ...fs,
+      ...bs.where((b) => b.favorite),
+      ...bs.where((b) => !b.favorite),
+    ];
   }
 
   GlobalKey _keyOf(Object o) => _keys.putIfAbsent(o, GlobalKey.new);
@@ -179,6 +186,13 @@ class _LibraryPageState extends State<LibraryPage> {
     );
     setState(() => _folders.add(f));
     await widget.storage.saveFolders(_folders);
+  }
+
+  Future<void> _toggleFavorite(Notebook nb) async {
+    nb.favorite = !nb.favorite;
+    nb.modified = DateTime.now();
+    await widget.storage.save(nb);
+    if (mounted) setState(_sort);
   }
 
   Future<void> _rename(Object it) async {
@@ -247,9 +261,29 @@ class _LibraryPageState extends State<LibraryPage> {
     await _open(nb);
   }
 
+  Future<void> _backup() => showBackupDialog(
+        context,
+        books: List<Notebook>.of(_books ?? const []),
+        folders: List<Folder>.of(_folders),
+        spacing: widget.settings.lineSpacing,
+      );
+
+  Future<void> _restore() async {
+    final books = _books;
+    if (books == null) return;
+    final r = await pickAndRestore(context, books, _folders, widget.storage);
+    if (r == null || !mounted) return;
+    setState(_sort);
+    _say(r.summary);
+  }
+
   Future<void> _openSettings() async {
     await Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => SettingsPage(settings: widget.settings),
+      builder: (_) => SettingsPage(
+        settings: widget.settings,
+        onBackup: _backup,
+        onRestore: _restore,
+      ),
     ));
     if (!mounted) return;
     setState(() {});
@@ -548,7 +582,7 @@ class _LibraryPageState extends State<LibraryPage> {
       );
     }
     return AppBar(
-      title: Text(path.isEmpty ? 'Notas' : path.last.name),
+      title: Text(path.isEmpty ? 'Gireli Notes' : path.last.name),
       leading: path.isEmpty
           ? null
           : IconButton(
@@ -705,6 +739,7 @@ class _LibraryPageState extends State<LibraryPage> {
                                   selected: selected,
                                   onOpen: () => _tapItem(nb),
                                   onRename: () => _rename(nb),
+                                  onFavorite: () => _toggleFavorite(nb),
                                   onDelete: () => _deleteItems([nb]),
                                   onSelect: () => _toggleSelect(nb),
                                   onMove: () => _moveDialog([nb]),
@@ -776,6 +811,7 @@ class _NotebookCard extends StatelessWidget {
     required this.selected,
     required this.onOpen,
     required this.onRename,
+    required this.onFavorite,
     required this.onDelete,
     required this.onSelect,
     required this.onMove,
@@ -783,6 +819,7 @@ class _NotebookCard extends StatelessWidget {
   });
 
   final Notebook notebook;
+  final VoidCallback onFavorite;
   final bool selected;
   final VoidCallback onOpen;
   final VoidCallback onRename;
@@ -865,6 +902,8 @@ class _NotebookCard extends StatelessWidget {
                     onSelected: (v) {
                       if (v == 'rename') {
                         onRename();
+                      } else if (v == 'fav') {
+                        onFavorite();
                       } else if (v == 'export') {
                         onExport();
                       } else if (v == 'select') {
@@ -875,12 +914,16 @@ class _NotebookCard extends StatelessWidget {
                         onDelete();
                       }
                     },
-                    itemBuilder: (_) => const [
-                      PopupMenuItem(value: 'rename', child: Text('Renomear')),
-                      PopupMenuItem(value: 'select', child: Text('Selecionar')),
-                      PopupMenuItem(value: 'move', child: Text('Mover para…')),
-                      PopupMenuItem(value: 'export', child: Text('Exportar…')),
-                      PopupMenuItem(value: 'delete', child: Text('Excluir')),
+                    itemBuilder: (_) => [
+                      PopupMenuItem(
+                        value: 'fav',
+                        child: Text(notebook.favorite ? 'Tirar dos favoritos' : 'Favoritar'),
+                      ),
+                      const PopupMenuItem(value: 'rename', child: Text('Renomear')),
+                      const PopupMenuItem(value: 'select', child: Text('Selecionar')),
+                      const PopupMenuItem(value: 'move', child: Text('Mover para…')),
+                      const PopupMenuItem(value: 'export', child: Text('Exportar…')),
+                      const PopupMenuItem(value: 'delete', child: Text('Excluir')),
                     ],
                   ),
                 ],
@@ -893,6 +936,17 @@ class _NotebookCard extends StatelessWidget {
               top: 8,
               left: 8,
               child: Icon(Icons.check_circle, color: scheme.primary, size: 22),
+            ),
+          if (notebook.favorite)
+            Positioned(
+              top: 4,
+              right: 4,
+              child: IconButton(
+                tooltip: 'Tirar dos favoritos',
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.star_rounded, color: Color(0xFFFFB300), size: 22),
+                onPressed: onFavorite,
+              ),
             ),
         ]),
       ),

@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'app_style.dart';
+import 'color_panel.dart';
+import 'color_utils.dart';
 import 'drive_auth.dart';
 import 'drive_tile.dart';
 import 'settings.dart';
 
 class SettingsPage extends StatelessWidget {
-  const SettingsPage({super.key, required this.settings});
+  const SettingsPage({super.key, required this.settings, this.onBackup, this.onRestore});
 
   final AppSettings settings;
+
+  /// Backup completo e restauração (só a biblioteca oferece).
+  final VoidCallback? onBackup;
+  final VoidCallback? onRestore;
 
   Future<void> _captureKey(BuildContext context) async {
     final id = await showDialog<int>(
@@ -21,16 +28,32 @@ class SettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Configurações')),
-      body: ListenableBuilder(
-        listenable: settings,
-        builder: (context, _) {
-          final s = settings;
-          return ListView(
-            padding: const EdgeInsets.only(bottom: 32),
-            children: [
-              const _Section('Aparência'),
+    return DefaultTabController(
+      length: 5,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Configurações'),
+          bottom: const TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            tabs: [
+              Tab(text: 'Aparência'),
+              Tab(text: 'Caneta'),
+              Tab(text: 'Cadernos'),
+              Tab(text: 'Formas e gestos'),
+              Tab(text: 'Backup e Drive'),
+            ],
+          ),
+        ),
+        body: ListenableBuilder(
+          listenable: settings,
+          builder: (context, _) {
+            final s = settings;
+            return TabBarView(
+              children: [
+              ListView(
+                padding: const EdgeInsets.only(bottom: 32),
+                children: [
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 child: SegmentedButton<ThemePref>(
@@ -54,6 +77,16 @@ class SettingsPage extends StatelessWidget {
                   selected: {s.theme},
                   onSelectionChanged: (v) => s.update(() => s.theme = v.first),
                 ),
+              ),
+              ListTile(
+                title: const Text('Estilo do app'),
+                subtitle: Text('${s.style.label} — ${s.style.description}'),
+                leading: _StylePreview(style: s.style, accent: Color(s.accent)),
+                trailing: const Icon(Icons.arrow_drop_down),
+                onTap: () async {
+                  final st = await _pickStyle(context, s.style, Color(s.accent));
+                  if (st != null) s.update(() => s.style = st);
+                },
               ),
               ListTile(
                 title: const Text('Cor de destaque'),
@@ -82,11 +115,48 @@ class SettingsPage extends StatelessWidget {
                                 : null,
                           ),
                         ),
+                      // qualquer outra cor: círculo cromático
+                      Builder(builder: (context) {
+                        final custom = !AppSettings.accents.contains(s.accent);
+                        return Tooltip(
+                          message: 'Outra cor…',
+                          child: GestureDetector(
+                            onTap: () async {
+                              final c = await _pickAccent(context, s.accent);
+                              if (c != null) s.update(() => s.accent = c);
+                            },
+                            child: Container(
+                              width: 34,
+                              height: 34,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: custom ? Color(s.accent) : null,
+                                gradient: custom
+                                    ? null
+                                    : SweepGradient(colors: [
+                                        for (var i = 0; i <= 6; i++)
+                                          Color(hsvToArgb(i * 60.0, 0.85, 1)),
+                                      ]),
+                                border: Border.all(
+                                  color: custom ? scheme.onSurface : Colors.transparent,
+                                  width: 3,
+                                ),
+                              ),
+                              child: Icon(custom ? Icons.check : Icons.colorize,
+                                  size: 18, color: Colors.white),
+                            ),
+                          ),
+                        );
+                      }),
                     ],
                   ),
                 ),
               ),
-              const _Section('Caneta e palma (tablet)'),
+                ],
+              ),
+              ListView(
+                padding: const EdgeInsets.only(bottom: 32),
+                children: [
               SwitchListTile(
                 title: const Text('Rejeição de palma'),
                 subtitle: const Text(
@@ -141,7 +211,11 @@ class SettingsPage extends StatelessWidget {
                   ),
                 ),
               ),
-              const _Section('Cadernos'),
+                ],
+              ),
+              ListView(
+                padding: const EdgeInsets.only(bottom: 32),
+                children: [
               _SliderTile(
                 title: 'Espaçamento de linhas e quadriculado',
                 valueText: '${s.lineSpacing.round()}',
@@ -169,7 +243,11 @@ class SettingsPage extends StatelessWidget {
                   ),
                 ),
               ),
-              const _Section('Formas e gestos'),
+                ],
+              ),
+              ListView(
+                padding: const EdgeInsets.only(bottom: 32),
+                children: [
               SwitchListTile(
                 title: const Text('Segurar a caneta encaixa reta/forma'),
                 value: s.autoShape,
@@ -202,11 +280,36 @@ class SettingsPage extends StatelessWidget {
                 ),
                 onTap: () => _captureKey(context),
               ),
+                ],
+              ),
+              ListView(
+                padding: const EdgeInsets.only(bottom: 32),
+                children: [
+              if (onBackup != null || onRestore != null) ...[
+                const _Section('Backup'),
+                if (onBackup != null)
+                  ListTile(
+                    leading: const Icon(Icons.archive_outlined),
+                    title: const Text('Fazer backup completo'),
+                    subtitle: const Text('Todos os cadernos e pastas, em .notas ou PDF'),
+                    onTap: onBackup,
+                  ),
+                if (onRestore != null)
+                  ListTile(
+                    leading: const Icon(Icons.unarchive_outlined),
+                    title: const Text('Restaurar backup'),
+                    subtitle: const Text('Lê um backup em .notas (.zip)'),
+                    onTap: onRestore,
+                  ),
+              ],
               const _Section('Google Drive'),
               DriveSection(auth: driveAuth),
-            ],
-          );
-        },
+                ],
+              ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -316,4 +419,107 @@ class _KeyCaptureDialogState extends State<_KeyCaptureDialog> {
       ],
     );
   }
+}
+
+
+/// Janela com o círculo cromático para escolher qualquer cor de destaque.
+Future<int?> _pickAccent(BuildContext context, int current) {
+  var c = current | 0xFF000000;
+  return showDialog<int>(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setS) => AlertDialog(
+        title: const Text('Cor de destaque'),
+        content: SizedBox(
+          width: 260,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ColorWheel(argb: c, size: 220, onChanged: (v) => setS(() => c = v)),
+              const SizedBox(height: 14),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(color: Color(c), shape: BoxShape.circle),
+                  ),
+                  const SizedBox(width: 10),
+                  Text('#${(c & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}'),
+                ],
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, c), child: const Text('Usar')),
+        ],
+      ),
+    ),
+  );
+}
+
+
+/// Miniatura de um estilo: fundo, "cartão" e uma pílula na cor de destaque.
+class _StylePreview extends StatelessWidget {
+  const _StylePreview({required this.style, required this.accent});
+
+  final AppStyle style;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final br = Theme.of(context).brightness;
+    final sf = styleSurfaces(style, br, accent);
+    final r = style.radius.clamp(3.0, 12.0).toDouble();
+    return Container(
+      width: 54,
+      height: 40,
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        color: sf?.bg ?? scheme.surface,
+        borderRadius: BorderRadius.circular(r + 2),
+        border: Border.all(color: sf?.outline ?? scheme.outlineVariant),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: sf?.high ?? scheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(r),
+        ),
+        alignment: Alignment.bottomLeft,
+        padding: const EdgeInsets.all(4),
+        child: Container(
+          width: 20,
+          height: 6,
+          decoration: BoxDecoration(
+            color: accent,
+            borderRadius: BorderRadius.circular(style == AppStyle.grafite ? 2 : 4),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Lista de estilos para escolher.
+Future<AppStyle?> _pickStyle(BuildContext context, AppStyle current, Color accent) {
+  return showDialog<AppStyle>(
+    context: context,
+    builder: (ctx) => SimpleDialog(
+      title: const Text('Estilo do app'),
+      children: [
+        for (final st in AppStyle.values)
+          ListTile(
+            leading: _StylePreview(style: st, accent: accent),
+            title: Text(st.label),
+            subtitle: Text(st.description),
+            trailing: st == current ? const Icon(Icons.check) : null,
+            onTap: () => Navigator.pop(ctx, st),
+          ),
+      ],
+    ),
+  );
 }

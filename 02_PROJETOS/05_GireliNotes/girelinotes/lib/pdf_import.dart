@@ -6,6 +6,7 @@ import 'package:pdfrx/pdfrx.dart';
 
 import 'models.dart';
 import 'page_image.dart';
+import 'pdf_text.dart';
 
 /// Lado maior (px) de cada página renderizada: equilíbrio entre nitidez e
 /// tamanho do arquivo do caderno.
@@ -23,6 +24,24 @@ ui.Rect fitPdfRect(double w, double h, ui.Size page) {
 /// Formato do caderno para o PDF: horizontal se a primeira página for mais larga.
 NotebookFormat formatForPdf(double w, double h) =>
     w > h ? NotebookFormat.landscape : NotebookFormat.portrait;
+
+/// Texto da página (para pesquisar), com a posição de cada palavra. Null se a
+/// página não tem texto (ex.: PDF escaneado) ou a leitura falhar.
+Future<List<PdfWord>?> _extractWords(PdfPage pg) async {
+  try {
+    final t = await pg.loadText();
+    if (t == null) return null;
+    final w = pg.width, h = pg.height;
+    final rects = <ui.Rect>[
+      for (final r in t.charRects)
+        ui.Rect.fromLTRB(r.left / w, 1 - r.top / h, r.right / w, 1 - r.bottom / h),
+    ];
+    final words = wordsFromChars(t.fullText, rects);
+    return words.isEmpty ? null : words;
+  } catch (_) {
+    return null;
+  }
+}
 
 /// Importa um PDF como caderno: cada página vira o fundo fixo de uma página.
 /// [onProgress] recebe (feitas, total). Retorna null se o PDF não abrir.
@@ -47,9 +66,10 @@ Future<Notebook?> importPdf(
       final k = kPdfRenderSide / math.max(rect.width, rect.height);
       final pw = math.max(1, (rect.width * k).round());
       final ph = math.max(1, (rect.height * k).round());
+      final words = await _extractWords(pg);
       final raster = await pg.render(fullWidth: pw.toDouble(), fullHeight: ph.toDouble());
       if (raster == null) {
-        nb.pages.add(NotePage());
+        nb.pages.add(NotePage(words: words));
         continue;
       }
       try {
@@ -57,6 +77,7 @@ Future<Notebook?> importPdf(
         final data = await img.toByteData(format: ui.ImageByteFormat.png);
         img.dispose();
         nb.pages.add(NotePage(
+          words: words,
           pdfBg: data == null
               ? null
               : PageImage(

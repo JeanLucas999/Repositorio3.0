@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 
+import 'app_style.dart';
 import 'models.dart' show StrokeStyle;
 
 enum ThemePref { system, light, dark }
@@ -28,6 +29,7 @@ class AppSettings extends ChangeNotifier {
   // ---- aparência ----
   ThemePref theme = ThemePref.system;
   int accent = defaultAccent;
+  AppStyle style = AppStyle.padrao;
 
   // ---- palm rejection ----
   bool palmRejection = true;
@@ -117,6 +119,7 @@ class AppSettings extends ChangeNotifier {
   Map<String, dynamic> toJson() => {
         'theme': theme.index,
         'accent': accent,
+        'style': style.index,
         'palmRejection': palmRejection,
         'palmGuardMs': palmGuardMs,
         'palmRadius': palmRadius,
@@ -152,6 +155,8 @@ class AppSettings extends ChangeNotifier {
     }
     final a = j['accent'];
     if (a is int) s.accent = a;
+    final st = j['style'];
+    if (st is int && st >= 0 && st < AppStyle.values.length) s.style = AppStyle.values[st];
     if (j['palmRejection'] is bool) s.palmRejection = j['palmRejection'] as bool;
     final g = j['palmGuardMs'];
     if (g is num) s.palmGuardMs = g.toInt().clamp(100, 3000).toInt();

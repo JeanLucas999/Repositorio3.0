@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'dart:ui' show Offset, Path, PathMetric, Rect;
 
 import 'package:pdf/pdf.dart';
+import 'package:vector_math/vector_math_64.dart' show Matrix4;
 
 import 'layers.dart';
 import 'models.dart';
@@ -26,7 +27,7 @@ Uint8List encodeNotas(Notebook nb) {
 
 /// Lê um arquivo .notas (ou o JSON puro). Dá ao caderno o [newId] para não
 /// sobrescrever um caderno existente. Lança [FormatException] se não for válido.
-Notebook decodeNotas(Uint8List bytes, String newId) {
+Notebook decodeNotas(Uint8List bytes, String newId, {bool keepId = false}) {
   final isGzip = bytes.length > 2 && bytes[0] == 0x1f && bytes[1] == 0x8b;
   final text = utf8.decode(isGzip ? gzip.decode(bytes) : bytes);
   final map = jsonDecode(text);
@@ -38,7 +39,7 @@ Notebook decodeNotas(Uint8List bytes, String newId) {
     throw const FormatException('Versão do arquivo mais nova que este app.');
   }
   final nbJson = Map<String, dynamic>.from(map['notebook'] as Map);
-  nbJson['id'] = newId;
+  if (!keepId) nbJson['id'] = newId;
   nbJson.remove('fld'); // a pasta é da biblioteca de quem exportou
   return Notebook.fromJson(nbJson);
 }
@@ -69,7 +70,7 @@ Future<Uint8List> buildPdf(Notebook nb, {double lineSpacing = 40}) async {
       any = true;
     }
     for (final im in page.images) {
-      b = any ? b.expandToInclude(im.rect) : im.rect;
+      b = any ? b.expandToInclude(im.bounds) : im.bounds;
       any = true;
     }
     final area = any ? b.inflate(40) : const Rect.fromLTWH(0, 0, 1000, 1414);
@@ -80,8 +81,8 @@ Future<Uint8List> buildPdf(Notebook nb, {double lineSpacing = 40}) async {
   } else {
     final ps = nb.pageSize;
     for (final page in nb.pages) {
-      _drawPage(doc, page, Rect.fromLTWH(0, 0, ps.width, ps.height), _kA4Scale, lineSpacing,
-          notePngs);
+      _drawPage(doc, page, Rect.fromLTWH(0, 0, ps.width, ps.height), _kA4Scale,
+          fitStep(ps.width, lineSpacing), notePngs);
     }
   }
   return doc.save();
@@ -131,8 +132,17 @@ void _drawPage(PdfDocument doc, NotePage page, Rect area, double k, double spaci
         final bytes = im.isNote ? notePngs[im] : im.bytes;
         if (bytes == null) continue;
         final img = PdfImage.file(doc, bytes: bytes);
-        final tl = map(im.rect.bottomLeft);
-        g.drawImage(img, tl.dx, tl.dy, im.rect.width * k, im.rect.height * k);
+        if (im.angle == 0) {
+          final tl = map(im.rect.bottomLeft);
+          g.drawImage(img, tl.dx, tl.dy, im.rect.width * k, im.rect.height * k);
+        } else {
+          final cc = map(im.rect.center);
+          final iw = im.rect.width * k, ih = im.rect.height * k;
+          g.saveContext();
+          g.setTransform(Matrix4.translationValues(cc.dx, cc.dy, 0)..rotateZ(-im.angle));
+          g.drawImage(img, -iw / 2, -ih / 2, iw, ih);
+          g.restoreContext();
+        }
       } catch (_) {
         // imagem que o PDF não consegue ler: segue sem ela
       }
@@ -180,7 +190,7 @@ void _drawPage(PdfDocument doc, NotePage page, Rect area, double k, double spaci
         g.saveContext();
         g.drawRect(0, 0, w, h);
         for (var j = i; j < layer; j++) {
-          final r = fr[j].rect;
+          final r = fr[j].bounds;
           final a = map(r.bottomLeft);
           g.drawRect(a.dx, a.dy, r.width * k, r.height * k);
         }

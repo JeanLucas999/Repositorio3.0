@@ -57,3 +57,24 @@ List<T> rangeBetween<T>(List<T> items, T a, T b) {
   if (i < 0 || j < 0) return [b];
   return items.sublist(i < j ? i : j, (i < j ? j : i) + 1);
 }
+
+/// Id da pasta no fim do caminho [path] (nomes, da raiz para dentro), criando
+/// as que faltarem em [all]. Caminho vazio = raiz (null).
+String? ensureFolderPath(List<Folder> all, List<String> path) {
+  String? cur;
+  for (final name in path) {
+    final hit = all.where((f) => f.parentId == cur && f.name == name).firstOrNull;
+    if (hit != null) {
+      cur = hit.id;
+    } else {
+      final f = Folder(
+        id: 'fd-${DateTime.now().microsecondsSinceEpoch}-${all.length}',
+        name: name,
+        parentId: cur,
+      );
+      all.add(f);
+      cur = f.id;
+    }
+  }
+  return cur;
+}

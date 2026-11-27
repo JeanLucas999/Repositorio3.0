@@ -123,3 +123,9 @@ Na pasta de documentos do usuário: `notas_app/<id>.json` (um por caderno) e
   geométricas, post-its.
 - **C:** importar/anotar PDF, pastas na biblioteca, modelos de página.
 - Depois: sincronização com o Google Drive, gravação de áudio, flashcards, etc.
+
+## Nome e ícone (Gireli Notes)
+1. `flutter pub get`
+2. `dart run tools/aplicar_marca.dart`  (nome no Android/Windows; o .exe passa a ser `GireliNotes.exe`; garante a permissão de internet)
+3. `dart run flutter_launcher_icons`  (gera os ícones do Android e do Windows a partir de `assets/icon/`)
+4. `flutter clean` e compile de novo.

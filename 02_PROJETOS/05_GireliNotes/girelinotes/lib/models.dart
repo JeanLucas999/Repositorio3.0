@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'page_image.dart';
+import 'pdf_text.dart';
 
 enum PageBackground { blank, ruled, grid }
 
@@ -55,7 +56,7 @@ class Stroke {
   late final int t = int.tryParse(id.split('-').first) ?? 0;
   List<Offset> points;
   final int color; // ARGB
-  final double width;
+  double width; // muda ao redimensionar a seleção
   final bool highlighter;
   final bool fountain;
   final StrokeStyle style;
@@ -358,6 +359,8 @@ class NotePage {
     List<PageImage>? images,
     this.background = PageBackground.blank,
     this.pdfBg,
+    this.mark,
+    this.words,
   })  : strokes = strokes ?? [],
         images = images ?? [];
 
@@ -368,16 +371,33 @@ class NotePage {
   /// Página de PDF importado, desenhada como fundo fixo (não seleciona nem apaga).
   PageImage? pdfBg;
 
-  Map<String, dynamic> toJson() => {
+  /// Página favorita: null = comum; '' = favorita sem título; senão o título.
+  String? mark;
+
+  /// Texto do PDF importado (para pesquisar); null se a página não tem texto.
+  List<PdfWord>? words;
+
+  /// Tudo da página, menos os traços (que o salvamento grava em lotes).
+  Map<String, dynamic> metaJson() => {
         'bg': background.index,
+        if (mark != null) 'mk': mark,
+        if (words != null && words!.isNotEmpty) 'pw': [for (final w in words!) w.toJson()],
         if (pdfBg != null) 'pdf': pdfBg!.toJson(),
-        'strokes': [for (final s in strokes) s.toJson()],
         if (images.isNotEmpty) 'imgs': [for (final i in images) i.toJson()],
+      };
+
+  Map<String, dynamic> toJson() => {
+        ...metaJson(),
+        'strokes': [for (final s in strokes) s.toJson()],
       };
 
   factory NotePage.fromJson(Map<String, dynamic> j) {
     final bg = (j['bg'] as int?) ?? 0;
     return NotePage(
+      mark: j['mk'] as String?,
+      words: j['pw'] is List
+          ? [for (final w in j['pw'] as List) if (PdfWord.fromJson(w) case final x?) x]
+          : null,
       pdfBg: j['pdf'] is Map<String, dynamic>
           ? PageImage.fromJson(j['pdf'] as Map<String, dynamic>)
           : null,
@@ -426,19 +446,28 @@ class Notebook {
   /// Pasta da biblioteca onde o caderno está (null = raiz).
   String? folderId;
 
+  /// Caderno favorito: aparece no topo da biblioteca.
+  bool favorite = false;
+
   factory Notebook.empty(String id, String name,
           [NotebookFormat format = NotebookFormat.portrait]) =>
       Notebook(id: id, name: name, pages: [NotePage()], format: format);
 
-  Map<String, dynamic> toJson() => {
+  /// Dados do caderno, menos as páginas.
+  Map<String, dynamic> headerJson() => {
         'v': 1,
         'id': id,
         'name': name,
         'modified': modified.toIso8601String(),
         'fmt': format.index,
-        'pages': [for (final p in pages) p.toJson()],
         if (nextBackground != null) 'nbg': nextBackground!.index,
         if (folderId != null) 'fld': folderId,
+        if (favorite) 'fav': true,
+      };
+
+  Map<String, dynamic> toJson() => {
+        ...headerJson(),
+        'pages': [for (final p in pages) p.toJson()],
       };
 
   factory Notebook.fromJson(Map<String, dynamic> j) {
@@ -463,6 +492,16 @@ class Notebook {
     }
     final fld = j['fld'];
     if (fld is String) nb.folderId = fld;
+    nb.favorite = j['fav'] == true;
     return nb;
   }
+}
+
+/// Ajusta o espaçamento para a largura da página caber num número inteiro de
+/// quadrados (sem sobrar pedaço de quadrado na borda direita). Os quadrados
+/// continuam quadrados; a diferença para o valor escolhido é pequena.
+double fitStep(double width, double step) {
+  if (step <= 0 || width <= 0) return step;
+  final n = (width / step).round();
+  return n < 1 ? step : width / n;
 }

@@ -16,25 +16,27 @@ class NotasToolbar extends StatelessWidget {
     required this.controller,
     required this.onBack,
     required this.onRename,
+    required this.saveStatus,
     required this.onSettings,
     required this.onPages,
     required this.pagesOpen,
     required this.pos,
     required this.onExport,
     required this.onImage,
-    required this.onNote,
+    required this.onSearchImage,
   });
 
   final CanvasController controller;
   final VoidCallback onBack;
   final VoidCallback onRename;
+  final SaveStatus saveStatus;
   final VoidCallback onSettings;
   final VoidCallback onPages;
   final bool pagesOpen;
   final ToolbarPos pos;
   final VoidCallback onExport;
   final VoidCallback onImage;
-  final VoidCallback onNote;
+  final VoidCallback onSearchImage;
 
   static IconData _penIcon(Tool t) => switch (t) {
         Tool.fountain => Icons.draw,
@@ -102,7 +104,7 @@ class NotasToolbar extends StatelessWidget {
               // abre a subaba para trocar de tipo (o marca-texto fica de fora).
               _ToolButton(
                 icon: _penIcon(c.isPenTool ? c.tool : c.lastPen),
-                tooltip: '${_penName(c.isPenTool ? c.tool : c.lastPen)} (P / F) — '
+                tooltip: '${_penName(c.isPenTool ? c.tool : c.lastPen)} (F · 1 / 2 / 3) — '
                     'toque para trocar de caneta',
                 selected: c.isPenTool,
                 badge: true,
@@ -137,9 +139,9 @@ class NotasToolbar extends StatelessWidget {
                 onPressed: onImage,
               ),
               IconButton(
-                tooltip: 'Post-it',
-                icon: const Icon(Icons.sticky_note_2_outlined),
-                onPressed: onNote,
+                tooltip: 'Buscar imagens na internet',
+                icon: const Icon(Icons.image_search_outlined),
+                onPressed: onSearchImage,
               ),
               _ToolButton(
                 icon: Icons.pan_tool_alt_outlined,
@@ -279,11 +281,20 @@ class NotasToolbar extends StatelessWidget {
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 8, vertical: 6),
-                                  child: Text(
-                                    c.notebook.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context).textTheme.titleSmall,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          c.notebook.name,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: Theme.of(context).textTheme.titleSmall,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      SaveBadge(status: saveStatus),
+                                    ],
                                   ),
                                 ),
                               ),
@@ -786,6 +797,106 @@ class NotasOptions extends StatelessWidget {
               if (c.showOptions)
                 Divider(height: 1, thickness: 1, color: scheme.outlineVariant),
             ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+
+/// Estado do salvamento do caderno aberto (alimenta o [SaveBadge]).
+class SaveStatus extends ChangeNotifier {
+  DateTime? last;
+  bool saving = false;
+  bool pending = false;
+  bool failed = false;
+
+  void set({DateTime? last, bool? saving, bool? pending, bool failed = false}) {
+    if (_disposed) return; // o salvamento final pode terminar depois de fechar
+    final sv = saving ?? false, pd = pending ?? false;
+    if (last == null && sv == this.saving && pd == this.pending && failed == this.failed) {
+      return; // nada mudou: evita reconstruir a cada traço
+    }
+    if (last != null) this.last = last;
+    this.saving = sv;
+    this.pending = pd;
+    this.failed = failed;
+    notifyListeners();
+  }
+
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+}
+
+/// Ícone discreto ao lado do nome: nuvem com check (salvo), relógio (alterações
+/// aguardando), círculo girando (salvando) ou aviso (falhou). O tooltip mostra
+/// há quanto tempo foi o último salvamento.
+class SaveBadge extends StatefulWidget {
+  const SaveBadge({super.key, required this.status});
+  final SaveStatus status;
+
+  @override
+  State<SaveBadge> createState() => _SaveBadgeState();
+}
+
+class _SaveBadgeState extends State<SaveBadge> {
+  static String _ago(DateTime t) {
+    final d = DateTime.now().difference(t);
+    if (d.inSeconds < 10) return 'agora mesmo';
+    if (d.inSeconds < 60) return 'há ${d.inSeconds} segundos';
+    if (d.inMinutes < 60) {
+      return d.inMinutes == 1 ? 'há 1 minuto' : 'há ${d.inMinutes} minutos';
+    }
+    if (d.inHours < 24) {
+      return d.inHours == 1 ? 'há 1 hora' : 'há ${d.inHours} horas';
+    }
+    return 'há ${d.inDays} dias';
+  }
+
+  String _message(SaveStatus s) {
+    if (s.failed) return 'Falha ao salvar. Tentando de novo na próxima alteração';
+    if (s.saving) return 'Salvando…';
+    final base = s.last == null
+        ? 'Nenhuma alteração salva nesta sessão'
+        : 'Último salvamento: ${_ago(s.last!)}';
+    return s.pending ? '$base\n(há alterações aguardando)' : base;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return ListenableBuilder(
+      listenable: widget.status,
+      builder: (context, _) {
+        final s = widget.status;
+        final Widget icon;
+        if (s.failed) {
+          icon = Icon(Icons.error_outline, size: 16, color: scheme.error);
+        } else if (s.saving) {
+          icon = SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(strokeWidth: 2, color: scheme.outline),
+          );
+        } else if (s.pending) {
+          icon = Icon(Icons.schedule, size: 16, color: scheme.outline);
+        } else {
+          icon = Icon(Icons.cloud_done_outlined, size: 16, color: scheme.outline);
+        }
+        // O texto é recalculado no build; o tooltip só aparece depois de um
+        // pequeno atraso, então o "há X minutos" já está atualizado.
+        return MouseRegion(
+          onEnter: (_) => setState(() {}),
+          child: Tooltip(
+            message: _message(s),
+            waitDuration: const Duration(milliseconds: 300),
+            child: SizedBox(width: 18, height: 18, child: Center(child: icon)),
           ),
         );
       },

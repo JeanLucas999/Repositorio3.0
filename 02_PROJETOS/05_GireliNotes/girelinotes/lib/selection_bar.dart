@@ -5,9 +5,17 @@ import 'canvas_controller.dart';
 /// Ações da seleção (flutua sobre a página): copiar, duplicar, cor, apagar.
 /// Sem seleção, mostra "Colar" se houver algo copiado.
 class SelectionBar extends StatelessWidget {
-  const SelectionBar({super.key, required this.controller, required this.onEditNote});
+  const SelectionBar({
+    super.key,
+    required this.controller,
+    required this.onEditNote,
+    required this.onRemoveBg,
+    required this.onEditGraph,
+  });
   final CanvasController controller;
   final VoidCallback onEditNote;
+  final VoidCallback onRemoveBg;
+  final VoidCallback onEditGraph;
 
   @override
   Widget build(BuildContext context) {
@@ -22,6 +30,13 @@ class SelectionBar extends StatelessWidget {
           items = [
             if (c.selStrokes.isEmpty && c.selImages.length == 1 && c.selImages.first.isNote)
               _Btn(Icons.edit_outlined, 'Editar post-it', onEditNote),
+            if (c.selStrokes.isEmpty && c.selImages.length == 1 && c.selImages.first.isGraph)
+              _Btn(Icons.edit_outlined, 'Editar gráfico', onEditGraph),
+            if (c.selStrokes.isEmpty &&
+                c.selImages.length == 1 &&
+                !c.selImages.first.isNote &&
+                !c.selImages.first.isGraph)
+              _Btn(Icons.auto_fix_high_outlined, 'Remover fundo', onRemoveBg),
             _Btn(Icons.copy_outlined, 'Copiar (Ctrl+C)', c.copySelection),
             _Btn(Icons.content_cut, 'Recortar (Ctrl+X)', c.cutSelection),
             _Btn(Icons.control_point_duplicate, 'Duplicar (Ctrl+D)', c.duplicateSelection),

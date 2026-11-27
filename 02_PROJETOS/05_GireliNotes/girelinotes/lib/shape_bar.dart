@@ -6,9 +6,12 @@ import 'shapes.dart';
 /// Mini barra flutuante com as formas mais básicas. Aparece enquanto a
 /// ferramenta de formas está ativa; arraste na página para desenhar a forma.
 class ShapeBar extends StatelessWidget {
-  const ShapeBar({super.key, required this.controller});
+  const ShapeBar({super.key, required this.controller, this.onNote});
 
   final CanvasController controller;
+
+  /// Cria um post-it (último botão da barra).
+  final VoidCallback? onNote;
 
   /// Ícone das formas básicas; as demais são desenhadas por [ShapePreview].
   static IconData iconFor(ShapeKind k) => switch (k) {
@@ -135,6 +138,23 @@ class ShapeBar extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (onNote != null)
+                  Tooltip(
+                    message: 'Post-it',
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: onNote,
+                      child: SizedBox(
+                        width: 42,
+                        height: 40,
+                        child: Icon(
+                          Icons.sticky_note_2_outlined,
+                          size: 22,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -146,8 +166,11 @@ class ShapeBar extends StatelessWidget {
 
 /// Biblioteca com todas as formas além das básicas (grade de miniaturas).
 class ShapeLibrary extends StatelessWidget {
-  const ShapeLibrary({super.key, required this.controller});
+  const ShapeLibrary({super.key, required this.controller, this.onGraph});
   final CanvasController controller;
+
+  /// Insere um gráfico de função (último item da biblioteca).
+  final VoidCallback? onGraph;
 
   @override
   Widget build(BuildContext context) {
@@ -188,6 +211,21 @@ class ShapeLibrary extends StatelessWidget {
                                 color: c.shapeKind == k ? scheme.primary : scheme.onSurfaceVariant,
                               ),
                             ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (onGraph != null)
+                    Tooltip(
+                      message: 'Gráfico de função',
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: onGraph,
+                        child: SizedBox(
+                          width: 48,
+                          height: 48,
+                          child: Center(
+                            child: Icon(Icons.show_chart, size: 30, color: scheme.onSurfaceVariant),
                           ),
                         ),
                       ),
